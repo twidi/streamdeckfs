@@ -6,59 +6,69 @@ STREAMDECKIFY
 A software to handle a Stream Deck from Elegato, via directories and files.
 
 The concept is simple: with a basic directories structure, put files (or better, symbolic links) 
-with specific names to 
+with specific names to handle images and programs/actions to run
 
 Features:
 - pages
-- multi-layers key images with configuration in file name (margin, crop, color, opacity)
-- action on press/release
+- multi-layers key images with configuration in file name (margin, crop, rotate, color, opacity)
+- action on start and key press/long-press/release, with delay, repeat...
 - easily update from external script
+- changes on the fly from the directories/files name via inotify
 
-To come:
-- repeatable action (every xxx milliseconds until key released)
+TODO:
+- overlays
+- text handling
 
-Example structure:
 
-/home/twidi/streamdeck-data/CL28J1A04316
-├── PAGE_1;name=main
-│   ├── KEY_ROW_1_COL_1;name=spotify
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/spotify/assets/background.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
-│   │   ├── IMAGE;layer=2;name=pause;colorize=green;margin=20,20,20,20;opacity=40 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
-│   │   ├── IMAGE;layer=3;name=progress;colorize=white;margin=92%,100%,-1,-100%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/spotify/assets/progress-bar.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/spotify/listen-changes.py
-│   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/play-pause.py
-│   ├── KEY_ROW_2_COL_1;name=volume-up
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
-│   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_PRESS;action=brightness;level=+10
-│   ├── KEY_ROW_3_COL_1;name=volume-down
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
-│   ├── KEY_ROW_3_COL_8;name=deck-brightness-down
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_PRESS;action=brightness;level=-10
-│   ├── KEY_ROW_4_COL_1;name=volume-mute
-│   │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-│   │   ├── IMAGE;layer=2;name=volume;colorize=white;margin=92%,75%,-1,-75%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/volume/assets/volume-bar.png
-│   │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
-│   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle_mute.sh
-│   └── KEY_ROW_4_COL_8;name=deck-page-next
-│       ├── IMAGE;colorize=#333333 -> /home/twidi/dev/streamdeck-scripts/deck/assets/right-arrow.png
-│       └── ON_PRESS;action=page;page=__next__
+Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
+
+/home/twidi/streamdeck-data/MYSTREAMDECKSERIAL
+└── PAGE_1;name=main
+    ├── KEY_ROW_1_COL_1;name=spotify
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/spotify/assets/background.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
+    │   ├── IMAGE;layer=2;name=pause;colorize=green;margin=20,20,20,20;opacity=40 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
+    │   ├── IMAGE;layer=3;name=progress;colorize=white;margin=92%,100%,-1,-100%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/spotify/assets/progress-bar.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/spotify/listen-changes.py
+    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/play-pause.py
+    ├── KEY_ROW_2_COL_1;name=volume-up
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
+    ├── KEY_ROW_2_COL_8;name=deck-brightness-up
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   └── ON_PRESS;action=brightness;level=+10
+    ├── KEY_ROW_3_COL_1;name=volume-down
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
+    ├── KEY_ROW_3_COL_8;name=deck-brightness-down
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   └── ON_PRESS;action=brightness;level=-10
+    ├── KEY_ROW_4_COL_1;name=volume-mute
+    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
+    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
+    │   ├── IMAGE;layer=2;name=volume;colorize=white;margin=92%,75%,-1,-75%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/volume/assets/volume-bar.png
+    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
+    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle_mute.sh
+    └── KEY_ROW_4_COL_8;name=deck-page-next
+        ├── IMAGE;colorize=#333333 -> /home/twidi/dev/streamdeck-scripts/deck/assets/right-arrow.png
+        └── ON_PRESS;action=page;page=__next__
+
+Note that nearly every files (`IMAGES*`, `ON_*`) are links to images and scripts hosted in another directory. It's not mandatory but better to keep things organized.
+
+`ON_*` files must be executable (`chmod +x`) and can be in any language (don't forget shebangs!). Except for some actions where the file can be empty, only the name counts:
+- `action=brightness` (see `KEY_ROW_3_COL_8/ON_PRESS*` and `KEY_ROW_4_COL_1/ON_PRESS*`) to change the deck brightness (with absolute or relative values)
+- `action=page` (see `KEY_ROW_4_COL_8/ON_PRESS*`) to change page (a specific number or name, or thefirst, previous (-1), next (+1), or previously displayed (like the "back" action in browsers) page)
+
 
 """
 
@@ -100,6 +110,7 @@ RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 
+LONGPRESS_DURATION_MIN = 300  # in ms
 
 class VersionProxy(ObjectWrapper):
     versions = None
@@ -202,6 +213,8 @@ class Inotifier:
                     if not self.running or self.inotify.closed:
                         break
                     watcher, name, flags = event.wd, event.name, event.mask
+                    if watcher not in self.watchers:
+                        continue
                     directory, owner = self.watchers[watcher]
                     if f.IGNORED & flags:
                         if watcher in self.watchers:
@@ -212,30 +225,6 @@ class Inotifier:
             except ValueError:
                 # happen if read while closed
                 break
-
-def debounce(wait_time):
-    """
-    Decorator that will debounce a function so that it is called after wait_time seconds
-    If it is called multiple times, will wait for the last call to be debounced and run only this one.
-    From: https://github.com/salesforce/decorator-operations
-    """
-
-    def decorator(function):
-        def debounced(*args, **kwargs):
-            def call_function():
-                debounced._timer = None
-                return function(*args, **kwargs)
-
-            if debounced._timer is not None:
-                debounced._timer.cancel()
-
-            debounced._timer = threading.Timer(wait_time, call_function)
-            debounced._timer.start()
-
-        debounced._timer = None
-        return debounced
-
-    return decorator
 
 
 class FILTER_DENY: pass
@@ -248,7 +237,7 @@ class Entity:
     main_path_re = None
     filename_re_parts = [
         re.compile('^(?P<flag>disabled)(?:=(?P<value>false|true))?$'),
-        re.compile('^(?P<arg>name)=(?P<name>[^;]+)$'),
+        re.compile('^(?P<arg>name)=(?P<value>[^;]+)$'),
     ]
     main_filename_part = None
     filename_parts = [
@@ -339,9 +328,13 @@ class Entity:
     def on_create(self):
         return
 
+    def on_delete(self):
+        return
+
     def on_child_entity_change(self, path, flags, expect_dir, entity_class, data_dict, data_identifier, args, modified_at=None):
         if (bool(flags & f.ISDIR) ^ expect_dir) or (flags & f.DELETE) or (flags & f.MOVED_FROM):
-            data_dict[data_identifier].remove_version(path)
+            if entity := data_dict[data_identifier].remove_version(path):
+                entity.on_delete()
             return False
 
         if modified_at is None:
@@ -425,31 +418,113 @@ class KeyFile(Entity):
         return self.page.deck
 
 
+class StopEventThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def is_stopped(self):
+        return self.stop_event.is_set()
+
+
+class Delayer(StopEventThread):
+    def __init__(self, func, delay, end_callback=None):
+        super().__init__()
+        self.func = func
+        self.delay = delay
+        self.run_event = threading.Event()
+        self.end_callback = end_callback
+        self.start_time = None
+        self.duration = None
+
+    def did_run(self):
+        return self.run_event.is_set()
+
+    def run(self):
+        self.start_time = time()
+        if not self.stop_event.wait(self.delay):
+            self.run_event.set()
+            self.func()
+        self.duration = time() - self.start_time
+        if self.end_callback:
+            self.end_callback(thread=self)
+
+
+class Repeater(StopEventThread):
+    def __init__(self, func, every, max_runs=None, end_callback=None):
+        super().__init__()
+        self.func = func
+        self.every = every
+        self.max_runs = max_runs
+        self.end_callback = end_callback
+        self.runs_count = 0
+
+    def run(self):
+        if self.max_runs == 0:
+            return
+        while not self.stop_event.wait(self.every):
+            self.func()
+            self.runs_count +=1 
+            if self.max_runs is not None and self.runs_count >= self.max_runs:
+                break
+        if self.end_callback:
+            self.end_callback(thread=self)
+
+
 @dataclass
 class KeyEvent(KeyFile):
     path_glob = 'ON_*'
-    main_path_re = re.compile('^ON_(?P<kind>PRESS|RELEASE|START)(?:;|$)')
+    main_path_re = re.compile('^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
-        re.compile('^(?P<arg>action)=(?P<type>brightness)$'),
+        # delay before launching action
+        re.compile('^(?P<arg>wait)=(?P<value>\d+)$'),
+        # repeat every, max times (ignored if not press/start)
+        re.compile('^(?P<arg>every)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>max-runs)=(?P<value>\d+)$'),
+        # max duration a key must be pressed to run the action, only for press
+        re.compile('^(?P<arg>duration-max)=(?P<value>\d+)$'),
+        # min duration a key must be pressed to run the action, only for longpress/release
+        re.compile('^(?P<arg>duration-min)=(?P<value>\d+)$'),
+        # action brightness
+        re.compile('^(?P<arg>action)=(?P<value>brightness)$'),
         re.compile(f'^(?P<arg>level)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>{RE_PART_0_100})$'),
-        re.compile('^(?P<arg>action)=(?P<type>page)$'),
-        re.compile(f'^(?P<arg>page)=(?P<page_ref>.+)$'),
+        # action page
+        re.compile('^(?P<arg>action)=(?P<value>page)$'),
+        re.compile(f'^(?P<arg>page)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = KeyFile.filename_parts + [
         lambda args: f'action={action}' if (action := args.get('action')) else None,
         lambda args: f'level={level.get("brightness_operation", "")}{level["brightness_level"]}' if args.get('action') == 'brightness' and (level := args.get('level')) else None,
         lambda args: f'page={args["page_ref"]}' if args.get('action') == 'page' else None,
+        lambda args: f'every=' if args.get('every') else None,
+        lambda args: f'max-runs=' if args.get('max-runs') else None,
+        lambda args: f'wait=' if args.get('wait') else None,
+        lambda args: f'duration-max=' if args.get('duration-max') else None,
+        lambda args: f'duration-min=' if args.get('duration-min') else None,
     ]
 
     identifier_attr = 'kind'
     kind: str
 
     mode : str = None
-    pid: int = None
     to_stop: bool = False
     brightness_level : Tuple[str, int] = ('=', DEFAULT_BRIGHTNESS)
-    activated: bool = False
+    repeat_every: int = None
+    max_runs: int = None
+    wait: int = 0
+    duration_max: int = None
+    duration_min: int = None
+
+    def __post_init__(self):
+        self.pids = []
+        self.activated = False
+        self.repeat_thread = None
+        self.wait_thread = None
+        self.duration_thread = None
 
     @property
     def str(self):
@@ -483,6 +558,17 @@ class KeyEvent(KeyFile):
                     )
             except KeyError:
                 pass
+        if 'every' in args:
+            final_args['repeat-every'] = int(args['every'])
+        if 'max-runs' in args:
+            final_args['max_runs'] = int(args['max-runs'])
+        if 'wait' in args:
+            final_args['wait'] = int(args['wait'])
+        if 'duration-max' in args:
+            final_args['duration-max'] = int(args['duration-max'])
+        if 'duration-min' in args:
+            final_args['duration-min'] = int(args['duration-min'])
+
         return final_args
 
     @classmethod
@@ -495,7 +581,72 @@ class KeyEvent(KeyFile):
             event.page_ref = args['page_ref']
         elif event.mode == 'program':
             event.to_stop = event.kind == 'start'
+        if event.kind in ('press', 'start'):
+            if args.get('repeat-every'):
+                event.repeat_every = args['repeat-every']
+                event.max_runs = args.get('max_runs')
+        if args.get('wait'):
+            event.wait = args['wait']
+        if event.kind == 'press':
+            if args.get('duration-max'):
+                event.duration_max = args['duration-max']
+        if event.kind in ('longpress', 'release'):
+            if args.get('duration-min'):
+                event.duration_min = args['duration-min']
+            elif kind == 'longpress':
+                event.duration_min = LONGPRESS_DURATION_MIN
         return event
+
+    def start_repeater(self):
+        if not self.repeat_every:
+            return
+        if self.repeat_thread:
+            return
+        # use `self.max_runs - 1` because action was already run once
+        max_runs = (self.max_runs - 1) if self.max_runs else None
+        self.repeat_thread = Repeater(self.run, self.repeat_every/1000, max_runs=max_runs, end_callback=self.stop_repeater)
+        self.repeat_thread.start()
+
+    def stop_repeater(self, *args, **kwargs):
+        if not self.repeat_thread:
+            return
+        self.repeat_thread.stop()
+        self.repeat_thread = None
+
+    def start_waiter(self, duration=None):
+        if self.wait_thread:
+            return
+        if duration is None:
+            duration = self.wait / 1000
+        self.wait_thread = Delayer(self.run_and_repeat, duration, end_callback=self.stop_waiter)
+        self.wait_thread.start()
+
+    def stop_waiter(self, *args, **kwargs):
+        if not self.wait_thread:
+            return
+        self.wait_thread.stop()
+        self.wait_thread = None
+
+    def stop_duration_waiter(self, *args, **kwargs):
+        if not self.duration_thread:
+            return
+        self.duration_thread.stop()
+        self.duration_thread = None
+
+    def run_if_less_than_duration_max(self, thread):
+        if thread.did_run():
+            # already aborted
+            self.stop_duration_waiter()
+            logger.info(f'[{self}] ABORTED (pressed more than {self.duration_max}ms)')
+            return
+        self.stop_duration_waiter()
+        # if it was stopped, it's by the release button during the duration_max time, so we know the
+        # button was pressed less time than this duration_max, so we can run the action
+        # but if we have a configured wait time, we must ensure we wait for it
+        if self.wait and (wait_left := self.wait/1000 - thread.duration) > 0:
+            self.start_waiter(wait_left)
+        else:
+            self.run_and_repeat()
 
     def run(self):
         try:
@@ -504,29 +655,56 @@ class KeyEvent(KeyFile):
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref)
             elif self.mode == 'program':
-                self.pid = Manager.start_process(self.path, register_stop=self.to_stop)
+                self.pids.append(Manager.start_process(self.path, register_stop=self.to_stop))
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
+        return True
+
+    def wait_run_and_repeat(self, on_press=False):
+        if self.duration_max:
+            self.duration_thread = Delayer(lambda: None, self.duration_max/1000, end_callback=self.run_if_less_than_duration_max)
+            self.duration_thread.start()
+        elif self.kind == 'longpress' and on_press:
+            # will call this function again, but with on_press False so we'll then go to start_water/run_and_repeat
+            self.duration_thread = Delayer(self.wait_run_and_repeat, self.duration_min/1000, end_callback=self.stop_duration_waiter)
+            self.duration_thread.start()
+        elif self.wait:
+            self.start_waiter()
+        else:
+            self.run_and_repeat()
+
+    def run_and_repeat(self):
+        if not self.run():
+            return
+        self.start_repeater()
 
     def version_activated(self):
         super().version_activated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
         self.activate()
 
     def version_deactivated(self):
         super().version_deactivated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
         self.deactivate()
 
     def stop(self):
-        if not self.pid:
-            return
-        try:
-            Manager.terminate_process(self.pid)
-        except Exception:
-            logger.exception(f'[{self}] Failure while stopping the command')
+        self.stop_waiter()
+        self.stop_repeater()
+        if self.is_stoppable:
+            if not self.pids:
+                return
+            while self.pids and (pid := self.pids.pop(0)):
+                try:
+                    Manager.terminate_process(pid)
+                except Exception:
+                    logger.exception(f'[{self}] Failure while stopping the command (pid {pid})')
 
     @property
     def is_stoppable(self):
-        return self.kind == 'start' and self.mode == 'program' and self.pid and self.to_stop
+        return self.kind == 'start' and self.mode == 'program' and self.pids and self.to_stop
 
     def activate(self):
         if not self.page.is_current:
@@ -535,7 +713,7 @@ class KeyEvent(KeyFile):
             return
         self.activated = True
         if self.kind == 'start' and self.mode == 'program':
-            self.run()
+            self.wait_run_and_repeat()
 
     def deactivate(self):
         if not self.page.is_current:
@@ -543,8 +721,7 @@ class KeyEvent(KeyFile):
         if not self.activated:
             return
         self.activated = False
-        if self.is_stoppable:
-            self.stop()
+        self.stop()
 
 
 @dataclass
@@ -552,11 +729,12 @@ class KeyImageLayer(KeyFile):
     path_glob = 'IMAGE*'
     main_path_re = re.compile('^(?P<kind>IMAGE)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
-        re.compile('^(?P<arg>layer)=(?P<layer>\d+)$'),
-        re.compile(f'^(?P<arg>colorize)=(?P<color>{RE_PART_COLOR})$'),
+        re.compile('^(?P<arg>layer)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>colorize)=(?P<value>{RE_PART_COLOR})$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile(f'^(?P<arg>opacity)=(?P<opacity>{RE_PART_0_100})$'),
+        re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
+        re.compile(f'^(?P<arg>rotate)=(?P<value>\d+)$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = KeyFile.filename_parts + [
@@ -565,6 +743,7 @@ class KeyImageLayer(KeyFile):
         lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
         lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
         lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
+        lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
     ]
 
     no_margins = {'top': ('int', 0), 'right': ('int', 0), 'bottom': ('int', 0), 'left': ('int', 0)}
@@ -576,6 +755,7 @@ class KeyImageLayer(KeyFile):
     margin: dict = None
     crop: dict = None
     opacity: int = None
+    rotate: int = None
 
     compose_cache: Tuple[Image.Image, int, int] = None
 
@@ -605,12 +785,14 @@ class KeyImageLayer(KeyFile):
             final_args['color'] = args['colorize']
         if 'opacity' in args:
             final_args['opacity'] = int(args['opacity'])
+        if 'rotate' in args:
+            final_args['rotate'] = int(args['rotate'])
         return final_args
 
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         layer = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('margin', 'crop', 'color', 'opacity'):
+        for key in ('margin', 'crop', 'color', 'opacity', 'rotate'):
             if key not in args:
                 continue
             setattr(layer, key, args[key])
@@ -618,10 +800,14 @@ class KeyImageLayer(KeyFile):
 
     def version_activated(self):
         super().version_activated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
         self.key.on_image_changed()
 
     def version_deactivated(self):
         super().version_deactivated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
         self.key.on_image_changed()
 
     def compose(self):
@@ -639,6 +825,9 @@ class KeyImageLayer(KeyFile):
                     crops[crop_name] = crop
 
                 layer_image = layer_image.crop((crops['left'], crops['top'], crops['right'], crops['bottom']))
+
+            if self.rotate:
+                layer_image = layer_image.rotate(self.rotate)
 
             margins = {}
             for margin_name, (margin_kind, margin) in (self.margin or self.no_margins).items():
@@ -685,6 +874,7 @@ class Key(Entity):
     layers: Dict = field(default_factory=versions_dict_factory)
 
     compose_image_cache: Tuple[bool, Union[None, memoryview]] = None
+    pressed_at: float = None
 
     @property
     def row(self):
@@ -734,6 +924,10 @@ class Key(Entity):
         super().on_create()
         self.read_directory()
         Manager.add_watch(self.path, self)
+
+    def on_delete(self):
+        super().on_delete()
+        Manager.remove_watch(self.path)
 
     def read_directory(self):
         if self.deck.filters.get('event') != FILTER_DENY:
@@ -825,10 +1019,14 @@ class Key(Entity):
 
     def version_activated(self):
         super().version_activated()
+        if self.disabled or self.page.disabled:
+            return
         self.render()
 
     def version_deactivated(self):
         super().version_deactivated()
+        if self.disabled or self.page.disabled:
+            return
         self.unrender()
 
     def find_layer(self, layer_filter, allow_disabled=False):
@@ -836,6 +1034,43 @@ class Key(Entity):
 
     def find_event(self, event_filter, allow_disabled=False):
         return KeyEvent.find_by_identifier_or_name(self.events, event_filter, str, allow_disabled=allow_disabled)
+
+    @property
+    def press_duration(self):
+        # return value is in milliseconds
+        if not self.pressed_at:
+            return None
+        return (time() - self.pressed_at) * 1000
+
+    def pressed(self):
+        if (longpress_event := self.events['longpress']):
+            logger.debug(f'[{self}] PRESSED. WAITING LONGPRESS.')
+            longpress_event.wait_run_and_repeat(on_press=True)
+        if not (press_event := self.events['press']):
+            logger.debug(f'[{self}] PRESSED. IGNORED (event not configured)')
+            return
+        logger.info(f'[{press_event}] PRESSED.')
+        self.pressed_at = time()
+        press_event.wait_run_and_repeat(on_press=True)
+
+    def released(self):
+        duration = self.press_duration or None
+        for event_name in ('press', 'longpress'):
+            if event := self.events[event_name]:
+                event.stop_repeater()
+                if event.duration_thread:
+                    event.stop_duration_waiter()
+
+        str_delay_part = f' (after {duration}ms)' if duration is not None else ''
+        if not (release_event := self.events['release']):
+            logger.debug(f'[{self}] RELEASED{str_delay_part}. IGNORED (event not configured)')
+            return
+        if release_event.duration_min and (duration is None or duration < release_event.duration_min):
+            logger.info(f'[{release_event}] RELEASED{str_delay_part}. ABORTED (not pressed long enough, less than {release_event.duration_min}ms')
+        else:
+            logger.info(f'[{release_event}] RELEASED{str_delay_part}.')
+            release_event.run()
+        self.pressed_at = None
 
 
 @dataclass
@@ -875,6 +1110,13 @@ class Page(Entity):
         super().on_create()
         self.read_directory()
         Manager.add_watch(self.path, self)
+
+    def on_delete(self):
+        super().on_delete()
+        Manager.remove_watch(self.path)
+        for key_versions in self.keys.values():
+            for key in key_versions.all_versions:
+                key.on_delete()
 
     def read_directory(self):
         if self.deck.filters.get('key') != FILTER_DENY:
@@ -930,10 +1172,14 @@ class Page(Entity):
 
     def version_activated(self):
         super().version_activated()
+        if self.disabled:
+            return
         self.render()
 
     def version_deactivated(self):
         super().version_deactivated()
+        if self.disabled:
+            return
         self.unrender()
         self.deck.go_to_page(Page.BACK)
 
@@ -956,6 +1202,7 @@ class Deck(Entity):
         self.render_images_queue = None
         self.filters = {}
         self.page_number_history = []
+        self.pressed_key = None
 
     @property
     def str(self):
@@ -1053,24 +1300,22 @@ class Deck(Entity):
 
     def on_key_pressed(self, deck, index, pressed):
         row, col = row_col = self.index_to_key(index)
+        released = not pressed
 
-        page = self.current_page
-        if not page:
-            logger.debug(f'[{self}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (no current page)')
-            return
+        if pressed:
+            if not (page := self.current_page):
+                logger.debug(f'[{self}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (no current page)')
+                return
 
-        key = page.keys[row_col]
-        if not key:
-            logger.debug(f'[{page}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (key not configured)')
-            return
+            if not (key := page.keys[row_col]):
+                logger.debug(f'[{page}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (key not configured)')
+                return
 
-        key_event = key.events['press' if pressed else 'release']
-        if not key_event:
-            logger.debug(f'[{key}] {"PRESSED" if pressed else "RELEASED"}. IGNORED (event not configured)')
-            return
+            self.pressed_key = key
+            key.pressed()
 
-        logger.info(f'[{key_event}] {"PRESSED" if pressed else "RELEASED"}.')
-        key_event.run()
+        else:
+            self.pressed_key.released()
 
     def set_brightness(self, operation, level):
         old_brightness = self.brightness
@@ -1233,6 +1478,12 @@ class Manager:
         cls.files_watcher.add_watch(directory, owner)
 
     @classmethod
+    def remove_watch(cls, directory):
+        if not cls.files_watcher:
+            return
+        cls.files_watcher.remove_watch(directory)
+
+    @classmethod
     def init_files_watcher(cls):
         cls.files_watcher = Inotifier()
         cls.files_watcher_thread = threading.Thread(target=cls.files_watcher.run)
@@ -1339,7 +1590,12 @@ class Manager:
             logger.info(f'{base_str} [done]')
 
 
-@click.group()
+class NaturalOrderGroup(click.Group):
+    def list_commands(self, ctx):
+        return self.commands.keys()
+
+
+@click.group(cls=NaturalOrderGroup)
 def cli():
     pass
 
@@ -1370,22 +1626,6 @@ Get information about all connected Stream Decks.
         click.echo(f"\t - Key Images: {info['key_width']}x{info['key_height']} pixels, {info['format']} format")
 
         deck.close()
-
-@cli.command()
-@common_options['optional_deck']
-@click.argument('level', type=int, callback=Manager.validate_brightness_level)
-@common_options['verbosity']
-def brightness(deck, level):
-    """Set the brightness level of a Stream Deck.
-
-    Arguments:
-
-    LEVEL: Brightness level, from 0 (no light) to 100 (brightest)
-    """
-    deck = Manager.get_deck(deck)
-    deck.set_brightness(level)
-
-
 
 @cli.command()
 @common_options['optional_deck']
@@ -1493,7 +1733,7 @@ class FilterCommands:
         'page':  click.option('-p', '--page', 'page_filter', type=str, required=True, help='A page number or a name'),
         'key':  click.option('-k', '--key', 'key_filter', type=str, required=True, help='A key as `(row,col)` or a name'),
         'layer':  click.option('-l', '--layer', 'layer_filter', type=str, required=False, help='A layer number (do not pass it to use the default image)'),  # if not given we'll use ``-1``
-        'event':  click.option('-e', '--event', 'event_filter', type=str, required=True, help='An event name (press/release/start)'),
+        'event':  click.option('-e', '--event', 'event_filter', type=str, required=True, help='An event name (press/longpress/release/start)'),
         'names':  click.option('-c', '--conf', 'names', type=str, multiple=True, required=False, help='Names to get the values from the configuration "---conf name1 --conf name2..."'),
         'names_and_values':  click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=True, help='Pair of names and values to set for the configuration "---conf name1 value1 --conf name2 value2..."'),
         'verbosity':  click_log.simple_verbosity_option(logger, default='WARNING', help='Either CRITICAL, ERROR, WARNING, INFO or DEBUG', show_default=True),
@@ -1610,86 +1850,103 @@ FC.combine_options()
 @cli.command()
 @FC.options['page_filter']
 def get_page_path(directory, page_filter):
-    """Get the path of a page"""
+    """Get the path of a page."""
     page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY,FILTER_DENY), page_filter)
     print(page.path)
 
 @cli.command()
 @FC.options['page_filter_with_names']
 def get_page_conf(directory, page_filter, names):
-    """Get the configuration of a page, as json"""
+    """Get the configuration of a page, in json."""
     page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY,FILTER_DENY), page_filter)
     print(FC.get_args_as_json(page, names or None))
 
 @cli.command()
 @FC.options['page_filter_with_names_and_values']
 def set_page_conf(directory, page_filter, names_and_values):
-    """Set the value of some entries in the configuration of a page"""
+    """Set the value of some entries of a page configuration."""
     page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
     page.rename(FC.get_update_args_filename(page, names_and_values))
 
 @cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
-    """Get the path of a key"""
+    """Get the path of a key."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     print(key.path)
 
 @cli.command()
 @FC.options['key_filter_with_names']
 def get_key_conf(directory, page_filter, key_filter, names):
-    """Get the configuration of a key, as json"""
+    """Get the configuration of a key, in json."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     print(FC.get_args_as_json(key, names or None))
 
 @cli.command()
 @FC.options['key_filter_with_names_and_values']
 def set_key_conf(directory, page_filter, key_filter, names_and_values):
-    """Set the value of some entries in the configuration of a key"""
+    """Set the value of some entries of a key configuration."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     key.rename(FC.get_update_args_filename(key, names_and_values))
 
 @cli.command()
 @FC.options['layer_filter']
 def get_image_path(directory, page_filter, key_filter, layer_filter):
-    """Get the path of an image/layer"""
+    """Get the path of an image/layer."""
     layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
     print(layer.path)
 
 @cli.command()
 @FC.options['layer_filter_with_names']
 def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
-    """Get the configuration of an image/layer, as json"""
+    """Get the configuration of an image/layer, in json."""
     layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
     print(FC.get_args_as_json(layer, names or None))
 
 @cli.command()
 @FC.options['layer_filter_with_names_and_values']
 def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_values):
-    """Set the value of some entries in the configuration of an layer"""
+    """Set the value of some entries of an image configuration."""
     layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
     layer.rename(FC.get_update_args_filename(layer, names_and_values))
 
 @cli.command()
 @FC.options['event_filter']
 def get_event_path(directory, page_filter, key_filter, event_filter):
-    """Get the path of an event"""
+    """Get the path of an event."""
     event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
     print(event.path)
 
 @cli.command()
 @FC.options['event_filter_with_names']
 def get_event_conf(directory, page_filter, key_filter, event_filter, names):
-    """Get the configuration of an event, as json"""
+    """Get the configuration of an event, in json."""
     event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
     print(FC.get_args_as_json(event, names or None))
 
 @cli.command()
 @FC.options['event_filter_with_names_and_values']
 def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_values):
-    """Set the value of some entries in the configuration of an event, as json"""
+    """Set the value of some entries of an event configuration."""
     event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
     event.rename(FC.get_update_args_filename(event, names_and_values))
+
+
+@cli.command()
+@common_options['optional_deck']
+@click.argument('level', type=int, callback=Manager.validate_brightness_level)
+@common_options['verbosity']
+def brightness(deck, level):
+    """Set the brightness level of a Stream Deck.
+
+    Arguments:
+
+    LEVEL: Brightness level, from 0 (no light) to 100 (brightest)
+    """
+    deck = Manager.get_deck(deck)
+    deck.set_brightness(level)
+
+
 
 
 if __name__ == '__main__':
