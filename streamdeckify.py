@@ -1303,6 +1303,10 @@ class Deck(Entity):
         released = not pressed
 
         if pressed:
+            if self.pressed_key:
+                logger.warning('Multiple press is not supported yet. Press ignored.')
+                return
+
             if not (page := self.current_page):
                 logger.debug(f'[{self}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (no current page)')
                 return
@@ -1315,7 +1319,10 @@ class Deck(Entity):
             key.pressed()
 
         else:
-            self.pressed_key.released()
+            if not self.pressed_key or self.pressed_key.key != row_col:
+                return
+            pressed_key, self.pressed_key = self.pressed_key, None
+            pressed_key.released()
 
     def set_brightness(self, operation, level):
         old_brightness = self.brightness
