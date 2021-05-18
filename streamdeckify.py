@@ -3,20 +3,19 @@
 """
 STREAMDECKIFY
 
-A software to handle a Stream Deck from Elegato, via directories and files.
+A software to handle a Stream Deck from Elgato, via directories and files.
 
 The concept is simple: with a basic directories structure, put files (or better, symbolic links) 
 with specific names to handle images and programs/actions to run
 
 Features:
-- pages
+- pages/overlays
 - multi-layers key images with configuration in file name (margin, crop, rotate, color, opacity)
 - action on start and key press/long-press/release, with delay, repeat...
 - easily update from external script
-- changes on the fly from the directories/files name via inotify
+- changes on the fly from the directories/files names via inotify
 
 TODO:
-- overlays
 - text handling
 
 
@@ -299,14 +298,14 @@ class Entity:
         if raw:
             return main, args
 
-        return cls.prepare_filename_main_args(main), cls.prepare_filename_args(args)
+        return cls.convert_main_args(main), cls.convert_args(args)
 
     @classmethod
-    def prepare_filename_main_args(cls, args):
+    def convert_main_args(cls, args):
         return args
 
     @classmethod
-    def prepare_filename_args(cls, args):
+    def convert_args(cls, args):
         final_args = {
             'disabled': args.get('disabled', False),
             'name': args.get('name') or '*unnamed*',
@@ -494,6 +493,7 @@ class KeyEvent(KeyFile):
         # action page
         re.compile('^(?P<arg>action)=(?P<value>page)$'),
         re.compile(f'^(?P<arg>page)=(?P<value>.+)$'),
+        re.compile('^(?P<flag>overlay)(?:=(?P<value>false|true))?$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = KeyFile.filename_parts + [
@@ -505,6 +505,7 @@ class KeyEvent(KeyFile):
         lambda args: f'wait=' if args.get('wait') else None,
         lambda args: f'duration-max=' if args.get('duration-max') else None,
         lambda args: f'duration-min=' if args.get('duration-min') else None,
+        lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
     ]
 
     identifier_attr = 'kind'
@@ -518,6 +519,7 @@ class KeyEvent(KeyFile):
     wait: int = 0
     duration_max: int = None
     duration_min: int = None
+    overlay: bool = False
 
     def __post_init__(self):
         self.pids = []
@@ -534,20 +536,22 @@ class KeyEvent(KeyFile):
         return f'{self.key}, {self.str}'
 
     @classmethod
-    def prepare_filename_main_args(cls, args):
-        args = super().prepare_filename_main_args(args)
+    def convert_main_args(cls, args):
+        args = super().convert_main_args(args)
         args['kind'] = args['kind'].lower()
         return args
 
     @classmethod
-    def prepare_filename_args(cls, args):
-        final_args = super().prepare_filename_args(args)
+    def convert_args(cls, args):
+        final_args = super().convert_args(args)
         final_args['mode'] = None
         if 'action' not in args:
             final_args['mode'] = 'program'
         elif args['action'] == 'page':
             final_args['mode'] = 'page'
             final_args['page_ref'] = args['page']
+            if 'page_ref' != Page.BACK and 'overlay' in args:
+                final_args['overlay'] = args['overlay']
         elif args['action'] == 'brightness':
             try:
                 if 'brightness_level' in args['level']:
@@ -579,6 +583,7 @@ class KeyEvent(KeyFile):
             event.brightness_level = args['brightness_level']
         elif event.mode == 'page':
             event.page_ref = args['page_ref']
+            event.overlay = args.get('overlay', False)
         elif event.mode == 'program':
             event.to_stop = event.kind == 'start'
         if event.kind in ('press', 'start'):
@@ -653,7 +658,7 @@ class KeyEvent(KeyFile):
             if self.mode == 'brightness':
                 self.deck.set_brightness(*self.brightness_level)
             elif self.mode == 'page':
-                self.deck.go_to_page(self.page_ref)
+                self.deck.go_to_page(self.page_ref, self.overlay)
             elif self.mode == 'program':
                 self.pids.append(Manager.start_process(self.path, register_stop=self.to_stop))
         except Exception:
@@ -767,8 +772,8 @@ class KeyImageLayer(KeyFile):
         return f'{self.key}, {self.str}'
 
     @classmethod
-    def prepare_filename_args(cls, args):
-        final_args = super().prepare_filename_args(args)
+    def convert_args(cls, args):
+        final_args = super().convert_args(args)
         final_args['layer'] = int(args['layer']) if 'layer' in args else -1  # -1 for image used if no layers
         for name in ('margin', 'crop'):
             if name not in args:
@@ -873,7 +878,7 @@ class Key(Entity):
     events: Dict = field(default_factory=versions_dict_factory)
     layers: Dict = field(default_factory=versions_dict_factory)
 
-    compose_image_cache: Tuple[bool, Union[None, memoryview]] = None
+    compose_image_cache: Tuple[Union[None, Image.Image], Union[None, memoryview]] = None
     pressed_at: float = None
 
     @property
@@ -904,8 +909,8 @@ class Key(Entity):
         return f'{self.page}, {self.str}'
 
     @classmethod
-    def prepare_filename_main_args(cls, args):
-        args = super().prepare_filename_main_args(args)
+    def convert_main_args(cls, args):
+        args = super().convert_main_args(args)
         args['row'] = int(args['row'])
         args['col'] = int(args['col'])
         return args
@@ -973,18 +978,18 @@ class Key(Entity):
     def sorted_layers(self):
         return {num_layer: layer for num_layer, layer in sorted(self.layers.items()) if layer}
 
-    def compose_image(self):
+    def compose_image(self, overlay_level=0):
         if not self.compose_image_cache:
             try:
                 if not self.layers:
-                    self.compose_image_cache = (False, None)
+                    self.compose_image_cache = (None, None)
                 else:
                     layers = self.sorted_layers
                     if len(layers) > 1:
                         # if more than one layer, we ignore the image used if no specific layers
                         layers.pop(-1, None)
                     if not layers:
-                        self.compose_image_cache = False, None
+                        self.compose_image_cache = None, None
                     else:
                         final_image = Image.new("RGB", self.image_size, 'black')
                         for index, layer in layers.items():
@@ -994,28 +999,42 @@ class Key(Entity):
                                 logger.exception(f'[{layer}] Layer could not be rendered')
                                 continue  # we simply ignore a layer that couldn't be created
                             final_image.paste(thumbnail, (thumbnail_x, thumbnail_y), thumbnail)
-                        self.compose_image_cache = True, PILHelper.to_native_format(self.deck.device, final_image)
+                        self.compose_image_cache = final_image, PILHelper.to_native_format(self.deck.device, final_image)
             except Exception:
                 logger.exception(f'[{self}] Image could not be rendered')
-                self.compose_image_cache = False, None
+                self.compose_image_cache = None, None
 
-        return self.compose_image_cache[1] if self.compose_image_cache[0] else None
+        if overlay_level and (image := self.compose_image_cache[0]):
+            image_data = PILHelper.to_native_format(self.deck.device, Image.eval(image, lambda x: x/(1+3*overlay_level)))
+        else:
+            image_data = self.compose_image_cache[1] if self.compose_image_cache[0] else None
 
-    def render(self):
-        if not self.page.is_current:
-            return
-        self.deck.set_image(self.row, self.col, self.compose_image())
-        for event in self.events.values():
-            if event:
-                event.activate()
+        return image_data
+
+    @property
+    def is_visible(self):
+        return self.deck.is_key_visible(self.page.number, self.key)
+
+    def render(self, overlay_level=None):
+        if overlay_level is None:
+            visible, overlay_level = self.deck.get_key_visibility(self)
+        else:
+            visible = True
+        if visible:
+            self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
+            if self.page.is_current:
+                for event in self.events.values():
+                    if event:
+                        event.activate()
 
     def unrender(self):
-        if not self.page.is_current:
-            return
-        self.deck.remove_image(self.row, self.col)
-        for event in self.events.values():
-            if event:
-                event.deactivate()
+        visible, overlay_level = self.deck.get_key_visibility(self)
+        if visible:
+            self.deck.remove_image(self.row, self.col)
+            if self.page.is_current:
+                for event in self.events.values():
+                    if event:
+                        event.deactivate()
 
     def version_activated(self):
         super().version_activated()
@@ -1101,8 +1120,8 @@ class Page(Entity):
         return f'{self.deck}, {self.str}'
 
     @classmethod
-    def prepare_filename_main_args(cls, args):
-        args = super().prepare_filename_main_args(args)
+    def convert_main_args(cls, args):
+        args = super().convert_main_args(args)
         args['page'] = int(args['page'])
         return args
 
@@ -1148,14 +1167,28 @@ class Page(Entity):
             if key:
                 yield key
 
-    def render(self):
-        if not self.is_current:
+    @property
+    def is_visible(self):
+        return self.deck.is_page_visible(self)
+
+    def render(self, overlay_level=0, pages_below=None, ignore_keys=None):
+        if not self.is_visible:
             return
+        if ignore_keys is None:
+            ignore_keys = set()
         for key in self.iter_keys():
-            key.render()
+            if key.key in ignore_keys:
+                continue
+            key.render(overlay_level)
+            ignore_keys.add(key.key)
+        if pages_below:
+            page_number, pages_below = pages_below[0], pages_below[1:]
+            if (page := self.deck.pages.get(page_number)):
+                page.render(overlay_level+1, pages_below, ignore_keys)
+
 
     def unrender(self):
-        if not self.is_current:
+        if not self.is_visible:
             return
         for key in self.iter_keys():
             key.unrender()
@@ -1181,7 +1214,7 @@ class Page(Entity):
         if self.disabled:
             return
         self.unrender()
-        self.deck.go_to_page(Page.BACK)
+        self.deck.go_to_page(Page.BACK, None)
 
 
 @dataclass
@@ -1189,6 +1222,7 @@ class Deck(Entity):
     device: StreamDeck
     pages: Dict = field(default_factory=versions_dict_factory)
     current_page_number: int = None
+    current_page_is_transparent: int = False
     brightness: int = DEFAULT_BRIGHTNESS
 
     def __post_init__(self):
@@ -1201,7 +1235,8 @@ class Deck(Entity):
         self.render_images_thread = None
         self.render_images_queue = None
         self.filters = {}
-        self.page_number_history = []
+        self.page_history = []
+        self.visible_pages = []
         self.pressed_key = None
 
     @property
@@ -1225,7 +1260,7 @@ class Deck(Entity):
 
     def run(self):
         self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(Page.FIRST)
+        self.go_to_page(Page.FIRST, False)
 
     def read_directory(self):
         if self.filters.get('page') != FILTER_DENY:
@@ -1248,51 +1283,127 @@ class Deck(Entity):
                             return
                     return self.on_child_entity_change(path=path, flags=flags, expect_dir=True, entity_class=Page, data_dict=self.pages, data_identifier=main['page'], args=args, modified_at=modified_at)
 
-    def go_to_page(self, page_ref):
+    def update_visible_pages_stack(self):
+        stack = []
+        for page_number, transparent in reversed(self.page_history):
+            stack.append(page_number)
+            if not transparent:
+                break
+        self.visible_pages = stack
+
+    def append_to_history(self, page, transparent=False):
+        transparent = bool(transparent)
+        page_key = (page.number, transparent)
+        if not self.page_history or self.page_history[-1] != page_key:
+            self.page_history.append(page_key)
+        self.current_page_number = page.number
+        self.current_page_is_transparent = transparent
+        self.update_visible_pages_stack()
+
+    def pop_from_history(self):
+        page = None
+        transparent = None
+        while True:
+            if not self.page_history:
+                break
+            page_num, transparent = self.page_history.pop()
+            if (page_num, transparent) == (self.current_page_number, self.current_page_is_transparent):
+                continue
+            if (page := self.pages.get(page_num)):
+                break
+        return page, transparent
+
+    def go_to_page(self, page_ref, transparent):
+        transparent = bool(transparent)
+
+        logger.debug(f'[{self}] Asking to go to page {page_ref} (current={self.current_page_number})')
+
         if page_ref is None:
             return
+
+        current = (self.current_page_number, self.current_page_is_transparent)
+
         if isinstance(page_ref, int):
-            if page_ref == self.current_page_number:
+            if (page_ref, transparent) == current:
                 return
             if not (page := self.pages.get(page_ref)):
                 return
+
         elif page_ref == Page.FIRST:
             if not (possible_pages := sorted([(number, page) for number, page in self.pages.items() if page])):
                 return
             page = possible_pages[0][1]
+
         elif page_ref == Page.BACK:
-            while True:
-                if not self.page_number_history:
-                    return
-                if (page_num := self.page_number_history.pop()) == self.current_page_number:
-                    continue
-                if (page := self.pages.get(page_num)):
-                    break
-            else:
+            page, transparent = self.pop_from_history()
+            if not page:
+                self.update_visible_pages_stack()  # because we may have updated the history
                 return
+
         elif page_ref == Page.PREVIOUS:
                 if not self.current_page_number:
                     return
                 if not (page := self.pages.get(self.current_page_number - 1)):
                     return
+
         elif page_ref == Page.NEXT:
                 if not self.current_page_number:
                     return
                 if not (page := self.pages.get(self.current_page_number + 1)):
                     return
+
         elif not (page := self.find_page(page_ref, allow_disabled=False)):
             return
-        if page.number == self.current_page_number:
+
+        if (page.number, transparent) == current:
             return
-        if self.current_page_number and (current_page := self.current_page):
-            logger.info(f'[{self}] Changing current page from [{current_page}] to [{page}] (Asked: {page_ref})')
-            self.current_page.unrender()
+
+        if (current_page := self.current_page):
+            if page_ref == Page.BACK:
+                if current[1]:
+                    logger.info(f'[{self}] Closing overlay for page [{page.str}], going back to {"overlay " if transparent else ""}[{current_page.str}]')
+                else:
+                    logger.info(f'[{self}] Going back to [{page.str}] from [{current_page.str}]')
+            elif transparent:
+                logger.info(f'[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]')
+            else:
+                logger.info(f'[{self}] Changing current page from [{current_page.str}] to [{page.str}]')
+            if not transparent or page_ref == Page.BACK:
+                current_page.unrender()
         else:
-            logger.info(f'[{self}] Setting current page to [{page}] (Asked: {page_ref})')
-        self.current_page_number = page.number
-        if not self.page_number_history or self.page_number_history[-1] != page.number:
-            self.page_number_history.append(page.number)
-        page.render()
+            logger.info(f'[{self}] Setting current page to [{page.str}]')
+
+        self.append_to_history(page, transparent)
+        page.render(0, self.visible_pages[1:])
+
+    def is_page_visible(self, page):
+        number = page.number
+        return self.current_page_number == number or number in self.visible_pages
+
+    def get_key_visibility(self, key):
+        if not key.page.is_visible:
+            return False, None
+
+        visible = False
+        key_level = None
+
+        key_page_number = key.page.number
+        key_row_col = key.key
+
+        for level, page_number in enumerate(self.visible_pages):
+            if page_number == key_page_number:
+                visible = True
+                key_level = level
+                break
+            if not (page := self.pages.get(page_number)):
+                continue
+            if not (page_key := page.keys.get(key_row_col)):
+                continue
+            if page_key.compose_image() is not None:
+                break
+
+        return visible, key_level
+
 
     @property
     def current_page(self):
