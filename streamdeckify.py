@@ -11,12 +11,15 @@ with specific names to handle images and programs/actions to run
 Features:
 - pages/overlays
 - multi-layers key images with configuration in file name (margin, crop, rotate, color, opacity)
+- multi-layers key texts (also with configuration in file name: size, format, alignment, color, opacity, margin, wrapping, scrolling)
 - action on start and key press/long-press/release, with delay, repeat...
 - easily update from external script
 - changes on the fly from the directories/files names via inotify
 
 TODO:
-- text handling
+- simple geometric forms for kay images layers
+- page on_open/open_close events
+- area rendering (images/texts displayed over many keys)
 
 
 Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
@@ -94,7 +97,7 @@ import click_log
 import psutil
 from inotify_simple import INotify, flags as f
 from peak.util.proxies import ObjectWrapper  # pip install ProxyTypes
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageFont, ImageDraw
 from StreamDeck.Devices.StreamDeck import StreamDeck
 from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.ImageHelpers import PILHelper
@@ -109,6 +112,7 @@ RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 
+ASSETS_PATH = Path.resolve(Path(__file__)).parent / 'assets'
 LONGPRESS_DURATION_MIN = 300  # in ms
 
 class VersionProxy(ObjectWrapper):
@@ -453,20 +457,23 @@ class Delayer(StopEventThread):
 
 
 class Repeater(StopEventThread):
-    def __init__(self, func, every, max_runs=None, end_callback=None):
+    def __init__(self, func, every, max_runs=None, end_callback=None, wait_first=0):
         super().__init__()
         self.func = func
         self.every = every
         self.max_runs = max_runs
         self.end_callback = end_callback
         self.runs_count = 0
+        self.wait_first = wait_first
 
     def run(self):
         if self.max_runs == 0:
             return
-        while not self.stop_event.wait(self.every):
+        additional_time = self.wait_first
+        while not self.stop_event.wait(self.every + additional_time):
             self.func()
             self.runs_count +=1 
+            additional_time = 0
             if self.max_runs is not None and self.runs_count >= self.max_runs:
                 break
         if self.end_callback:
@@ -511,17 +518,16 @@ class KeyEvent(KeyFile):
     identifier_attr = 'kind'
     kind: str
 
-    mode : str = None
-    to_stop: bool = False
-    brightness_level : Tuple[str, int] = ('=', DEFAULT_BRIGHTNESS)
-    repeat_every: int = None
-    max_runs: int = None
-    wait: int = 0
-    duration_max: int = None
-    duration_min: int = None
-    overlay: bool = False
-
     def __post_init__(self):
+        self.mode = None
+        self.to_stop = False
+        self.brightness_level = ('=', DEFAULT_BRIGHTNESS)
+        self.repeat_every = None
+        self.max_runs = None
+        self.wait = 0
+        self.duration_max = None
+        self.duration_min = None
+        self.overlay = False
         self.pids = []
         self.activated = False
         self.repeat_thread = None
@@ -730,7 +736,54 @@ class KeyEvent(KeyFile):
 
 
 @dataclass
-class KeyImageLayer(KeyFile):
+class keyImagePart(KeyFile):
+
+    no_margins = {'top': ('int', 0), 'right': ('int', 0), 'bottom': ('int', 0), 'left': ('int', 0)}
+
+    def __str__(self):
+        return f'{self.key}, {self.str}'
+
+    def __post_init__(self):
+        self.compose_cache = None
+
+    def version_activated(self):
+        super().version_activated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
+        self.key.on_image_changed()
+
+    def version_deactivated(self):
+        super().version_deactivated()
+        if self.disabled or self.key.disabled or self.page.disabled:
+            return
+        self.key.on_image_changed()
+
+    def _compose(self):
+        raise NotImplementedError
+
+    def compose(self):
+        if not self.compose_cache:
+            self.compose_cache = self._compose()
+        return self.compose_cache
+
+    def convert_margins(self):
+        margins = {}
+        image_size = self.key.image_size
+        for margin_name, (margin_kind, margin) in (self.margin or self.no_margins).items():
+            if margin_kind == '%':
+                size = image_size[0 if margin_name in ('left', 'right') else 1]
+                margin = int(margin * size / 100)
+            margins[margin_name] = margin
+        return margins
+
+    def apply_opacity(self, image):
+        if self.opacity is None:
+            return
+        image.putalpha(ImageEnhance.Brightness(image.getchannel('A')).enhance(self.opacity/100))
+
+
+@dataclass
+class KeyImageLayer(keyImagePart):
     path_glob = 'IMAGE*'
     main_path_re = re.compile('^(?P<kind>IMAGE)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
@@ -751,25 +804,20 @@ class KeyImageLayer(KeyFile):
         lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
     ]
 
-    no_margins = {'top': ('int', 0), 'right': ('int', 0), 'bottom': ('int', 0), 'left': ('int', 0)}
-
     identifier_attr = 'layer'
     layer: int
 
-    color: str = None
-    margin: dict = None
-    crop: dict = None
-    opacity: int = None
-    rotate: int = None
-
-    compose_cache: Tuple[Image.Image, int, int] = None
+    def __post_init__(self):
+        super().__post_init__()
+        self.color = None
+        self.margin = None
+        self.crop = None
+        self.opacity = None
+        self.rotate = None
 
     @property
     def str(self):
-        return f'LAYER {self.layer} ({self.name}{", disabled" if self.disabled else ""})'
-
-    def __str__(self):
-        return f'{self.key}, {self.str}'
+        return f'LAYER{(" %s" % self.layer) if self.layer != -1 else ""} ({self.name}{", disabled" if self.disabled else ""})'
 
     @classmethod
     def convert_args(cls, args):
@@ -785,7 +833,6 @@ class KeyImageLayer(KeyFile):
                     kind = '%'
                     val = val[:-1]
                 final_args[name][part] = (kind, int(val))
-            continue
         if 'colorize' in args:
             final_args['color'] = args['colorize']
         if 'opacity' in args:
@@ -803,63 +850,414 @@ class KeyImageLayer(KeyFile):
             setattr(layer, key, args[key])
         return layer
 
-    def version_activated(self):
-        super().version_activated()
-        if self.disabled or self.key.disabled or self.page.disabled:
+    def _compose(self):
+
+        image_size = self.key.image_size
+        layer_image = Image.open(self.path)
+
+        if self.crop:
+            crops = {}
+            for crop_name, (crop_kind, crop) in self.crop.items():
+                if crop_kind == '%':
+                    size = layer_image.width if crop_name in ('left', 'right') else layer_image.height
+                    crop = int(crop * size / 100)
+                crops[crop_name] = crop
+
+            layer_image = layer_image.crop((crops['left'], crops['top'], crops['right'], crops['bottom']))
+
+        if self.rotate:
+            layer_image = layer_image.rotate(self.rotate)
+
+        margins = self.convert_margins()
+        thumbnail_max_width = image_size[0] - (margins['right'] + margins['left'])
+        thumbnail_max_height = image_size[1] - (margins['top'] + margins['bottom'])
+        thumbnail = layer_image.convert("RGBA")
+        thumbnail.thumbnail((thumbnail_max_width, thumbnail_max_height), Image.LANCZOS)
+        thumbnail_x = (margins['left'] + round((thumbnail_max_width - thumbnail.width) / 2))
+        thumbnail_y = (margins['top'] + round((thumbnail_max_height - thumbnail.height) / 2))
+
+        if self.color:
+            alpha = thumbnail.getchannel('A')
+            thumbnail = Image.new('RGBA', thumbnail.size, color=self.color)
+            thumbnail.putalpha(alpha)
+
+        self.apply_opacity(thumbnail)
+
+        return thumbnail, thumbnail_x, thumbnail_y, thumbnail
+
+
+@dataclass
+class KeyTextLine(keyImagePart):
+    path_glob = 'TEXT*'
+    main_path_re = re.compile('^(?P<kind>TEXT)(?:;|$)')
+    filename_re_parts = Entity.filename_re_parts + [
+        re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>text)=(?P<value>.+)$'),
+        re.compile(f'^(?P<arg>size)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
+        re.compile('^(?P<flag>italic)(?:=(?P<value>false|true))?$'),
+        re.compile('^(?P<arg>align)(?:=(?P<value>left|center|right))?$'),
+        re.compile('^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$'),
+        re.compile(f'^(?P<arg>color)=(?P<value>{RE_PART_COLOR})$'),
+        re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
+        re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
+        re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>scroll)=(?P<value>\d+)$'),
+    ]
+    main_filename_part = lambda args: 'TEXT'
+    filename_parts = KeyFile.filename_parts + [
+        lambda args: f'line={line}' if (line := args.get('line')) else None,
+        lambda args: f'text={text}' if (text := args.get('text')) else None,
+        lambda args: f'size={size}' if (size := args.get('size')) else None,
+        lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
+        lambda args: 'italic' if args.get('italic', False) in (True, 'true', None) else None,
+        lambda args: f'align={align}' if (align := args.get('align')) else None,
+        lambda args: f'valign={valign}' if (valign := args.get('valign')) else None,
+        lambda args: f'color={color}' if (color := args.get('color')) else None,
+        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
+        lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
+        lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
+        lambda args: f'scroll={scroll}' if (scroll := args.get('scroll')) else None,
+    ]
+
+    fonts_path = ASSETS_PATH / 'fonts'
+    font_cache = {}
+    text_size_cache = {}
+
+    identifier_attr = 'line'
+    line: int
+
+    text_size_drawer = None
+    SCROLL_WAIT = 1
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.text = None
+        self.size = None
+        self.weight = None
+        self.italic = False
+        self.align = None
+        self.valign = None
+        self.color = None
+        self.opacity = None
+        self.wrap = False
+        self.margin = None
+        self.scroll = None
+        self._complete_image = None
+        self.scrollable = False
+        self.scrolled = 0
+        self.scrolled_at = None
+        self.scroll_thread = None
+
+    @property
+    def str(self):
+        return f'TEXT LINE{(" %s" % self.line) if self.line != -1 else ""} ({self.name}{", disabled" if self.disabled else ""})'
+
+    @classmethod
+    def convert_args(cls, args):
+        final_args = super().convert_args(args)
+        final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
+        final_args['text'] = args.get('text') or ''
+        final_args['size'] = int(args.get('size') or 20)
+        final_args['weight'] = args.get('weight') or 'medium'
+        if 'italic' in args:
+            final_args['italic'] = args['italic']
+        final_args['align'] = args.get('align') or 'left'
+        final_args['valign'] = args.get('valign') or 'top'
+        final_args['color'] = args.get('color') or 'white'
+        if 'opacity' in args:
+            final_args['opacity'] = int(args['opacity'])
+        if 'wrap' in args:
+            final_args['wrap'] = args['wrap']
+        if 'margin' in args:
+            final_args['margin'] = {}
+            for part, val in list(args['margin'].items()):
+                kind = 'int'
+                if val.endswith('%'):
+                    kind = '%'
+                    val = val[:-1]
+                final_args['margin'][part] = (kind, int(val))
+        if 'scroll' in args:
+            final_args['scroll'] = int(args['scroll'])
+
+        return final_args
+
+    @classmethod
+    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
+        line = super().create_from_args(path, parent, identifier, args, path_modified_at)
+        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
+            if key not in args:
+                continue
+            setattr(line, key, args[key])
+        return line
+
+    @classmethod
+    def  get_text_size_drawer(cls):
+        if cls.text_size_drawer is None:
+            cls.text_size_drawer = ImageDraw.Draw(Image.new("RGB", (100,100)))
+        return cls.text_size_drawer
+
+    def get_font_path(self):
+        weight = self.weight.capitalize()
+        if weight == 'regular' and self.italic:
+            weight = ''
+        italic = 'Italic' if self.italic else ''
+        return self.fonts_path / 'roboto' / f'Roboto-{weight}{italic}.ttf'
+
+    @classmethod
+    def get_font(cls, font_path, size):
+        if (font_path, size) not in cls.font_cache:
+            cls.font_cache[(font_path, size)] = ImageFont.truetype(str(font_path), size)
+        return cls.font_cache[(font_path, size)]
+
+    @classmethod
+    def get_text_size(cls, text, font):
+        if text not in cls.text_size_cache.setdefault(font, {}):
+            cls.text_size_cache[font][text] = cls.get_text_size_drawer().textsize(text, font=font)
+        return cls.text_size_cache[font][text]
+
+    @classmethod
+    def split_text_in_lines(cls, text, max_width, font):
+        '''Split the given `text`  using the minimum length word-wrapping 
+        algorithm to restrict the text to a pixel width of `width`.
+        Based on:
+        https://web.archive.org/web/20110818230121/http://jesselegg.com/archives/2009/09/5/simple-word-wrap-algorithm-pythons-pil/
+        But with split word in parts if it os too long to fit on a line (always start on its own line, but the last of its lines 
+        can be followed by another word)
+        '''
+        line_width, line_height = cls.get_text_size(text, font)
+        if line_width <= max_width:
+            return [text]
+        remaining = max_width
+        space_width = cls.get_text_size(' ', font)[0]
+        lines = []
+        for word in text.split(None):
+            if (word_width := cls.get_text_size(word, font)[0]) + space_width > remaining:
+                if word_width > max_width:
+                    word, left = word[:-1], word[-1]
+                    while True:
+                        word_width = cls.get_text_size(word, font)[0]
+                        if len(word) == 1 and word_width >= max_width:  # big letters!
+                            lines.append(word)
+                            word, left = left, ''
+                            remaining = 0
+                            if not word:
+                                break
+                        elif word_width  <= remaining:
+                            lines.append(word)
+                            word, left = left, ''
+                            if word:
+                                remaining = max_width
+                            else:
+                                remaining = remaining - word_width
+                                break
+                        else:
+                            word, left = word[:-1], word[-1] + left
+                else:
+                    lines.append(word)
+                    remaining = max_width - word_width
+            else:
+                if not lines:
+                    lines.append(word)
+                else:
+                    lines[-1] += ' %s' % word
+                remaining = remaining - (word_width + space_width)
+        return lines
+
+    def compose(self):
+        if not self.scrollable:
+            # will always be run the first time, because we'll only know
+            # if it's scrollable after the first rendering
+            return super().compose()
+        return self._compose()
+
+    def _compose(self):
+        if not self._complete_image and not self._compose_base():
             return
+        self.compose_cache = self._compose_final()
+        self.start_scroller()
+        return self.compose_cache
+
+    def _compose_base(self):
+        if not self.text:
+            return None
+
+        image_size = self.key.image_size
+        margins = self.convert_margins()
+        max_width = image_size[0] - (margins['right'] + margins['left'])
+        max_height = image_size[1] - (margins['top'] + margins['bottom'])
+
+        font = self.get_font(self.get_font_path(), self.size)
+        text = self.text.replace('\n', ' ')
+        if self.wrap:
+            lines = self.split_text_in_lines(self.text, max_width, font)
+        else:
+            lines = [self.text]
+
+        # compute all sizes
+        lines_with_dim = [(line, ) + self.get_text_size(line, font) for line  in lines]
+        if self.wrap:
+            total_width = max(line_width for line, line_width, line_height in lines_with_dim)
+            total_height = sum(line_height for line, line_width, line_height in lines_with_dim)
+        else:
+            total_width, total_height = lines_with_dim[0][1:]
+
+        image = Image.new("RGBA", (total_width, total_height), '#00000000')
+        drawer = ImageDraw.Draw(image)
+
+        pos_x, pos_y = 0, 0
+
+        for line, line_width, line_height in lines_with_dim:
+            if self.align == 'right':
+                pos_x = total_width - line_width
+            elif self.align == 'center':
+                pos_x = round((total_width - line_width) / 2)
+            drawer.text((pos_x, pos_y), line, font=font, fill=self.color)
+            pos_y += line_height
+
+        self.apply_opacity(image)
+
+        self._complete_image = {
+            'image': image,
+            'max_width': max_width,
+            'max_height': max_height,
+            'total_width': total_width,
+            'total_height': total_height,
+            'margins': margins,
+            'default_crop': None,
+            'visible_width': total_width,
+            'visible_height': total_height,
+            'fixed_position_top': None,
+            'fixed_position_left': None,
+        }
+
+        align = self.align
+        valign = self.valign
+        if total_width > max_width or total_height > max_height:
+            crop = {}
+            if total_width <= max_width:
+                crop['left'] = 0
+                crop['right'] = total_width 
+            else:
+                if self.scroll and not self.wrap:
+                    align = 'left'
+                    self.scrollable = 'left'
+                self._complete_image['fixed_position_left'] = margins['left']
+                if align == 'left':
+                    crop['left'] = 0
+                    crop['right'] = max_width
+                elif align == 'right':
+                    crop['left'] = total_width - max_width
+                    crop['right'] = total_width
+                else:  # center
+                    crop['left'] = round((total_width - max_width) / 2)
+                    crop['right'] = round((total_width + max_width) / 2)
+                self._complete_image['visible_width'] = max_width
+
+            if total_height <= max_height:
+                crop['top'] = 0
+                crop['bottom'] = total_height
+            else:
+                if self.scroll and self.wrap:
+                    valign = 'top'
+                    self.scrollable = 'top'
+                self._complete_image['fixed_position_top'] = margins['top']
+                if valign == 'top':
+                    crop['top'] = 0
+                    crop['bottom'] = max_height
+                elif valign == 'bottom':
+                    crop['top'] = total_height - max_height
+                    crop['bottom'] = total_height
+                else:  # middle
+                    crop['top'] = round((total_height - max_height) / 2)
+                    crop['bottom'] = round((total_height + max_height) / 2)
+                self._complete_image['visible_height'] = max_height
+
+            self._complete_image['default_crop'] = crop
+
+        self._complete_image['align'] = align
+        self._complete_image['valign'] = valign
+
+        return self._complete_image
+
+    def _compose_final(self):
+        if not (ci := self._complete_image):
+            return None
+
+        if not (crop := ci['default_crop']):
+            final_image = ci['image']
+        else:
+            if self.scrollable:
+                if self.scrolled is None:
+                    self.scrolled = 0
+                else:
+                    crop = crop.copy()
+                    if self.scrollable == 'left':
+                        if self.scrolled >= ci['total_width']:
+                            self.scrolled = -ci['max_width']
+                        crop['left'] += self.scrolled
+                        crop['right'] = max(crop['right'] + self.scrolled, ci['total_width'])
+                    else:  #  top
+                        if self.scrolled >= ci['total_height']:
+                            self.scrolled = -ci['max_height']
+                        crop['top'] += self.scrolled
+                        crop['bottom'] = max(crop['bottom'] + self.scrolled, ci['total_height'])
+
+            final_image = ci['image'].crop((crop['left'], crop['top'], crop['right'], crop['bottom']))
+
+        if (left := ci['fixed_position_left']) is None:
+            if (align := ci['align']) == 'left':
+                left = ci['margins']['left']
+            elif align == 'right':
+                left = self.key.width - ci['margins']['right'] - ci['visible_width']
+            else:  # center
+                left = ci['margins']['left'] + round((ci['max_width'] - ci['visible_width']) / 2)
+
+        if (top := ci['fixed_position_top']) is None:
+            if (valign := ci['valign']) == 'top':
+                top = ci['margins']['top']
+            elif valign == 'bottom':
+                top = self.key.height - ci['margins']['bottom'] - ci['visible_height']
+            else:  # middle
+                top = ci['margins']['top'] + round((ci['max_height'] - ci['visible_height']) / 2)
+
+        return final_image, left, top, final_image
+
+    def start_scroller(self):
+        if self.scroll_thread or not self.scrollable:
+            return
+        self.scrolled = 0
+        self.scrolled_at = time() + self.SCROLL_WAIT
+        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1/self.scroll), wait_first=self.SCROLL_WAIT)
+        self.scroll_thread.start()
+
+    def stop_scroller(self, *args, **kwargs):
+        if not self.scroll_thread:
+            return
+        self.scroll_thread.stop()
+        self.scroll_thread = None
+
+    def do_scroll(self):
+        # we scroll `self.scroll` pixels each second, so we compute the nb of pixels to move since the last move
+        time_passed = (now := time()) - self.scrolled_at
+        nb_pixels = round(time_passed * self.scroll)
+        if not nb_pixels:
+            return
+        self.scrolled += nb_pixels
+        self.scrolled_at = now
         self.key.on_image_changed()
+
+    # def version_activated(self):
+    #     if self.scroll:
+    #         if self.wrap and self.valign != 'top':
+    #             logger.warning(f'[{self}] With scrolling and wrapping activated, if text needs to scroll, the "valign" will be forced to "top" instead of the configured "{self.valign}"')
+    #         elif not self.wrap and self.align != 'left':
+    #             logger.warning(f'[{self}] With scrolling activated but not wrapping, if text needs to scroll, the "align" will be forced to "left" instead of the configured "{self.align}"')
+    #     super().version_activated()
 
     def version_deactivated(self):
         super().version_deactivated()
-        if self.disabled or self.key.disabled or self.page.disabled:
-            return
-        self.key.on_image_changed()
-
-    def compose(self):
-        if not self.compose_cache:
-
-            image_size = self.key.image_size
-            layer_image = Image.open(self.path)
-
-            if self.crop:
-                crops = {}
-                for crop_name, (crop_kind, crop) in self.crop.items():
-                    if crop_kind == '%':
-                        size = layer_image.width if crop_name in ('left', 'right') else layer_image.height
-                        crop = int(crop * size / 100)
-                    crops[crop_name] = crop
-
-                layer_image = layer_image.crop((crops['left'], crops['top'], crops['right'], crops['bottom']))
-
-            if self.rotate:
-                layer_image = layer_image.rotate(self.rotate)
-
-            margins = {}
-            for margin_name, (margin_kind, margin) in (self.margin or self.no_margins).items():
-                if margin_kind == '%':
-                    size = image_size[0 if margin_name in ('left', 'right') else 1]
-                    margin = int(margin * size / 100)
-                margins[margin_name] = margin
-
-            thumbnail_max_width = image_size[0] - (margins['right'] + margins['left'])
-            thumbnail_max_height = image_size[1] - (margins['top'] + margins['bottom'])
-            thumbnail = layer_image.convert("RGBA")
-            thumbnail.thumbnail((thumbnail_max_width, thumbnail_max_height), Image.LANCZOS)
-            thumbnail_x = (margins['left'] + (thumbnail_max_width - thumbnail.width) // 2)
-            thumbnail_y = (margins['top'] + (thumbnail_max_height - thumbnail.height) // 2)
-
-            if self.color:
-                alpha = thumbnail.getchannel('A')
-                thumbnail = Image.new('RGBA', thumbnail.size, color=self.color)
-                thumbnail.putalpha(alpha)
-
-            if self.opacity:
-                thumbnail.putalpha(ImageEnhance.Brightness(thumbnail.getchannel('A')).enhance(self.opacity/100))
-
-            self.compose_cache = (thumbnail, thumbnail_x, thumbnail_y)
-
-        return self.compose_cache
-
+        self.stop_scroller()
 
 @dataclass
 class Key(Entity):
@@ -875,11 +1273,12 @@ class Key(Entity):
     page: 'Page'
     key: Tuple[int, int]
 
-    events: Dict = field(default_factory=versions_dict_factory)
-    layers: Dict = field(default_factory=versions_dict_factory)
-
-    compose_image_cache: Tuple[Union[None, Image.Image], Union[None, memoryview]] = None
-    pressed_at: float = None
+    def __post_init__(self):
+        self.compose_image_cache = None
+        self.pressed_at = None
+        self.events = versions_dict_factory()
+        self.layers = versions_dict_factory()
+        self.text_lines = versions_dict_factory()
 
     @property
     def row(self):
@@ -941,6 +1340,9 @@ class Key(Entity):
         if self.deck.filters.get('layer') != FILTER_DENY:
             for image_file in sorted(self.path.glob(KeyImageLayer.path_glob)):
                 self.on_file_change(image_file.name, f.CREATE | (f.ISDIR if image_file.is_dir() else 0), entity_class=KeyImageLayer)
+        if self.deck.filters.get('text_line') != FILTER_DENY:
+            for text_file in sorted(self.path.glob(KeyTextLine.path_glob)):
+                self.on_file_change(text_file.name, f.CREATE | (f.ISDIR if text_file.is_dir() else 0), entity_class=KeyTextLine)
 
     def on_file_change(self, name, flags, modified_at=None, entity_class=None):
         path = self.path / name
@@ -965,6 +1367,19 @@ class Key(Entity):
                         if not is_matching:
                             return
                     return self.on_child_entity_change(path=path, flags=flags, expect_dir=False, entity_class=KeyImageLayer, data_dict=self.layers, data_identifier=args['layer'], args=args, modified_at=modified_at)
+        if (text_line_filter := self.deck.filters.get('text_line')) != FILTER_DENY:
+            if not entity_class or entity_class is KeyTextLine:
+                main, args = KeyTextLine.parse_filename(name, self)
+                if main:
+                    if text_line_filter is not None:
+                        try:
+                            is_matching = args['line'] == int(text_line_filter)
+                        except ValueError:
+                            is_matching = False
+                        is_matching = is_matching or args.get('name') == text_line_filter
+                        if not is_matching:
+                            return
+                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=False, entity_class=KeyTextLine, data_dict=self.text_lines, data_identifier=args['line'], args=args, modified_at=modified_at)
 
     def on_image_changed(self):
         self.compose_image_cache = None
@@ -978,27 +1393,38 @@ class Key(Entity):
     def sorted_layers(self):
         return {num_layer: layer for num_layer, layer in sorted(self.layers.items()) if layer}
 
+    @property
+    def sorted_text_lines(self):
+        return {line: text_line for line, text_line in sorted(self.text_lines.items()) if text_line}
+
     def compose_image(self, overlay_level=0):
         if not self.compose_image_cache:
             try:
-                if not self.layers:
+                if not self.layers and not self.text_lines:
                     self.compose_image_cache = (None, None)
                 else:
-                    layers = self.sorted_layers
-                    if len(layers) > 1:
-                        # if more than one layer, we ignore the image used if no specific layers
-                        layers.pop(-1, None)
-                    if not layers:
+                    layers = self.sorted_layers if self.layers else {}
+                    if layers:
+                        if len(layers) > 1:
+                            # if more than one layer, we ignore the image used if no specific layers
+                            layers.pop(-1, None)
+                    text_lines = self.sorted_text_lines if self.text_lines else {}
+                    if text_lines:
+                        if len(text_lines) > 1:
+                            # if more than one text line, we ignore the one used if no specific lines
+                            text_lines.pop(-1, None)
+                    if not layers and not text_lines:
                         self.compose_image_cache = None, None
                     else:
+                        all_layers = list(layers.values()) + list(text_lines.values())
                         final_image = Image.new("RGB", self.image_size, 'black')
-                        for index, layer in layers.items():
+                        for layer in all_layers:
                             try:
-                                thumbnail, thumbnail_x, thumbnail_y = layer.compose()
+                                thumbnail, thumbnail_x, thumbnail_y, mask = layer.compose()
                             except Exception:
                                 logger.exception(f'[{layer}] Layer could not be rendered')
                                 continue  # we simply ignore a layer that couldn't be created
-                            final_image.paste(thumbnail, (thumbnail_x, thumbnail_y), thumbnail)
+                            final_image.paste(thumbnail, (thumbnail_x, thumbnail_y), mask)
                         self.compose_image_cache = final_image, PILHelper.to_native_format(self.deck.device, final_image)
             except Exception:
                 logger.exception(f'[{self}] Image could not be rendered')
@@ -1022,6 +1448,9 @@ class Key(Entity):
             visible = True
         if visible:
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
+            for text_line in self.text_lines.values():
+                if text_line:
+                    text_line.start_scroller()
             if self.page.is_current:
                 for event in self.events.values():
                     if event:
@@ -1030,6 +1459,9 @@ class Key(Entity):
     def unrender(self):
         visible, overlay_level = self.deck.get_key_visibility(self)
         if visible:
+            for text_line in self.text_lines.values():
+                if text_line:
+                    text_line.stop_scroller()
             self.deck.remove_image(self.row, self.col)
             if self.page.is_current:
                 for event in self.events.values():
@@ -1050,6 +1482,9 @@ class Key(Entity):
 
     def find_layer(self, layer_filter, allow_disabled=False):
         return KeyImageLayer.find_by_identifier_or_name(self.layers, layer_filter, int, allow_disabled=allow_disabled)
+
+    def find_text_line(self, text_line_filter, allow_disabled=False):
+        return KeyTextLine.find_by_identifier_or_name(self.text_lines, text_line_filter, int, allow_disabled=allow_disabled)
 
     def find_event(self, event_filter, allow_disabled=False):
         return KeyEvent.find_by_identifier_or_name(self.events, event_filter, str, allow_disabled=allow_disabled)
@@ -1110,7 +1545,9 @@ class Page(Entity):
 
     deck: 'Deck'
     number: int
-    keys: Dict = field(default_factory=versions_dict_factory)
+
+    def __post_init__(self):
+        self.keys = versions_dict_factory()
 
     @property
     def str(self):
@@ -1220,10 +1657,6 @@ class Page(Entity):
 @dataclass
 class Deck(Entity):
     device: StreamDeck
-    pages: Dict = field(default_factory=versions_dict_factory)
-    current_page_number: int = None
-    current_page_is_transparent: int = False
-    brightness: int = DEFAULT_BRIGHTNESS
 
     def __post_init__(self):
         self.serial = self.device.info['serial'] if self.device else None
@@ -1231,6 +1664,10 @@ class Deck(Entity):
         self.nb_rows = self.device.info['rows'] if self.device else None
         self.key_width = self.device.info['key_width'] if self.device else None
         self.key_height = self.device.info['key_height'] if self.device else None
+        self.brightness = DEFAULT_BRIGHTNESS
+        self.pages = versions_dict_factory()
+        self.current_page_number = None
+        self.current_page_is_transparent = False
         self.waiting_images = {}
         self.render_images_thread = None
         self.render_images_queue = None
@@ -1361,7 +1798,7 @@ class Deck(Entity):
         if (current_page := self.current_page):
             if page_ref == Page.BACK:
                 if current[1]:
-                    logger.info(f'[{self}] Closing overlay for page [{page.str}], going back to {"overlay " if transparent else ""}[{current_page.str}]')
+                    logger.info(f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]')
                 else:
                     logger.info(f'[{self}] Going back to [{page.str}] from [{current_page.str}]')
             elif transparent:
@@ -1476,9 +1913,10 @@ class Deck(Entity):
         return Page.find_by_identifier_or_name(self.pages, page_filter, int, allow_disabled=allow_disabled)
 
 
+RENDER_IMAGE_DELAY = 0.02
 def render_deck_images(deck, queue):
-    delay = 0.02
-    future_margin = 0.002
+    delay = RENDER_IMAGE_DELAY
+    future_margin = RENDER_IMAGE_DELAY / 10
     timeout = None
     images = {}
 
@@ -1851,6 +2289,7 @@ class FilterCommands:
         'page':  click.option('-p', '--page', 'page_filter', type=str, required=True, help='A page number or a name'),
         'key':  click.option('-k', '--key', 'key_filter', type=str, required=True, help='A key as `(row,col)` or a name'),
         'layer':  click.option('-l', '--layer', 'layer_filter', type=str, required=False, help='A layer number (do not pass it to use the default image)'),  # if not given we'll use ``-1``
+        'text_line':  click.option('-l', '--line', 'text_line_filter', type=str, required=False, help='A text line (do not pass it to use the default text)'),  # if not given we'll use ``-1``
         'event':  click.option('-e', '--event', 'event_filter', type=str, required=True, help='An event name (press/longpress/release/start)'),
         'names':  click.option('-c', '--conf', 'names', type=str, multiple=True, required=False, help='Names to get the values from the configuration "---conf name1 --conf name2..."'),
         'names_and_values':  click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=True, help='Pair of names and values to set for the configuration "---conf name1 value1 --conf name2 value2..."'),
@@ -1863,6 +2302,7 @@ class FilterCommands:
         options['page_filter'] = lambda func: cls.options['directory'](cls.options['page'](func))
         options['key_filter'] = lambda func: options['page_filter'](cls.options['key'](func))
         options['layer_filter'] = lambda func: options['key_filter'](cls.options['layer'](func))
+        options['text_line_filter'] = lambda func: options['key_filter'](cls.options['text_line'](func))
         options['event_filter'] = lambda func: options['key_filter'](cls.options['event'](func))
 
         def add_verbosity(option):
@@ -1886,7 +2326,7 @@ class FilterCommands:
             set_command(name, option)
 
     @staticmethod
-    def get_deck(directory, page_filter=None, key_filter=None, event_filter=None, layer_filter=None):
+    def get_deck(directory, page_filter=None, key_filter=None, event_filter=None, layer_filter=None, text_line_filter=None):
         directory = Manager.normalize_deck_directory(directory, None)
         deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=directory.name, disabled=False, device=None)
         if page_filter is not None:
@@ -1897,6 +2337,8 @@ class FilterCommands:
             deck.filters['event'] = event_filter
         if layer_filter is not None:
             deck.filters['layer'] = layer_filter
+        if text_line_filter is not None:
+            deck.filters['text_line'] = text_line_filter
         deck.on_create()
         return deck
 
@@ -1916,6 +2358,11 @@ class FilterCommands:
         if not (layer := key.find_layer(layer_filter or -1, allow_disabled=True)):
             Manager.exit(1, f'[{key}] Layer `{layer_filter}` not found')
         return layer
+
+    def find_text_line(key, text_line_filter):
+        if not (text_line := key.find_text_line(text_line_filter or -1, allow_disabled=True)):
+            Manager.exit(1, f'[{key}] Text line `{text_line_filter}` not found')
+        return text_line
 
     @staticmethod
     def find_event(key, event_filter):
@@ -1969,84 +2416,105 @@ FC.combine_options()
 @FC.options['page_filter']
 def get_page_path(directory, page_filter):
     """Get the path of a page."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY,FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
     print(page.path)
 
 @cli.command()
 @FC.options['page_filter_with_names']
 def get_page_conf(directory, page_filter, names):
     """Get the configuration of a page, in json."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY,FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
     print(FC.get_args_as_json(page, names or None))
 
 @cli.command()
 @FC.options['page_filter_with_names_and_values']
 def set_page_conf(directory, page_filter, names_and_values):
     """Set the value of some entries of a page configuration."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
     page.rename(FC.get_update_args_filename(page, names_and_values))
 
 @cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     print(key.path)
 
 @cli.command()
 @FC.options['key_filter_with_names']
 def get_key_conf(directory, page_filter, key_filter, names):
     """Get the configuration of a key, in json."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     print(FC.get_args_as_json(key, names or None))
 
 @cli.command()
 @FC.options['key_filter_with_names_and_values']
 def set_key_conf(directory, page_filter, key_filter, names_and_values):
     """Set the value of some entries of a key configuration."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
     key.rename(FC.get_update_args_filename(key, names_and_values))
 
 @cli.command()
 @FC.options['layer_filter']
 def get_image_path(directory, page_filter, key_filter, layer_filter):
     """Get the path of an image/layer."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(layer.path)
 
 @cli.command()
 @FC.options['layer_filter_with_names']
 def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
     """Get the configuration of an image/layer, in json."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(FC.get_args_as_json(layer, names or None))
 
 @cli.command()
 @FC.options['layer_filter_with_names_and_values']
 def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_values):
     """Set the value of some entries of an image configuration."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     layer.rename(FC.get_update_args_filename(layer, names_and_values))
+
+@cli.command()
+@FC.options['text_line_filter']
+def get_text_path(directory, page_filter, key_filter, text_line_filter):
+    """Get the path of an image/layer."""
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    print(text_line.path)
+
+@cli.command()
+@FC.options['text_line_filter_with_names']
+def get_text_conf(directory, page_filter, key_filter, text_line_filter, names):
+    """Get the configuration of an image/layer, in json."""
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    print(FC.get_args_as_json(text_line, names or None))
+
+@cli.command()
+@FC.options['text_line_filter_with_names_and_values']
+def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_and_values):
+    """Set the value of some entries of an image configuration."""
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    text_line.rename(FC.get_update_args_filename(text_line, names_and_values))
 
 @cli.command()
 @FC.options['event_filter']
 def get_event_path(directory, page_filter, key_filter, event_filter):
     """Get the path of an event."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     print(event.path)
 
 @cli.command()
 @FC.options['event_filter_with_names']
 def get_event_conf(directory, page_filter, key_filter, event_filter, names):
     """Get the configuration of an event, in json."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     print(FC.get_args_as_json(event, names or None))
 
 @cli.command()
 @FC.options['event_filter_with_names_and_values']
 def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_values):
     """Set the value of some entries of an event configuration."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     event.rename(FC.get_update_args_filename(event, names_and_values))
 
 
