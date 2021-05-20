@@ -11,13 +11,14 @@ with specific names to handle images and programs/actions to run
 Features:
 - pages/overlays
 - multi-layers key images with configuration in file name (margin, crop, rotate, color, opacity)
+- image layers can be simple drawings (dot, rectangle, ellipses...)
 - multi-layers key texts (also with configuration in file name: size, format, alignment, color, opacity, margin, wrapping, scrolling)
 - action on start and key press/long-press/release, with delay, repeat...
 - easily update from external script
 - changes on the fly from the directories/files names via inotify
 
 TODO:
-- simple geometric forms for kay images layers
+- when ending while an overlay is open, ensure all pages below have their 'ON_START' event terminated (and other threads)
 - page on_open/open_close events
 - area rendering (images/texts displayed over many keys)
 
@@ -108,6 +109,7 @@ RE_PART_0_100 = '0*(?:\d{1,2}?|100)'
 RE_PART_PERCENT = f'{RE_PART_0_100}%'
 RE_PART_PERCENT_OR_NUMBER = f'(?:\d+|{RE_PART_PERCENT})'
 RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
+RE_PART_COLOR_WITH_POSSIBLE_ALPHA = '\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)'
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -766,15 +768,26 @@ class keyImagePart(KeyFile):
             self.compose_cache = self._compose()
         return self.compose_cache
 
+    @staticmethod
+    def parse_value_or_percent(value):
+        kind = 'int'
+        if value.endswith('%'):
+            kind = '%'
+            value = value[:-1]
+        return kind, int(value)
+
+    def convert_coordinate(self, value, dimension): 
+        kind, value = value
+        if kind == 'int':
+            return value
+        if kind == '%':
+            return int(value * (getattr(self.key, dimension) - 1) / 100)
+
     def convert_margins(self):
-        margins = {}
-        image_size = self.key.image_size
-        for margin_name, (margin_kind, margin) in (self.margin or self.no_margins).items():
-            if margin_kind == '%':
-                size = image_size[0 if margin_name in ('left', 'right') else 1]
-                margin = int(margin * size / 100)
-            margins[margin_name] = margin
-        return margins
+        return {
+            margin_name: self.convert_coordinate(margin, 'width' if margin_name in ('left', 'right')  else 'height')
+            for margin_name, margin in (self.margin or self.no_margins).items()
+        }
 
     def apply_opacity(self, image):
         if self.opacity is None:
@@ -793,6 +806,13 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile(f'^(?P<arg>rotate)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>draw)=(?P<value>line|rectangle|points|polygon|ellipse|arc|chord|pieslice)$'),
+        re.compile(f'^(?P<arg>coords)=(?P<value>{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER}(?:,{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER})*)$'),
+        re.compile(f'^(?P<arg>outline)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
+        re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
+        re.compile(f'^(?P<arg>width)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>radius)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>angles)=(?P<value>\d+,\d+)$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = KeyFile.filename_parts + [
@@ -802,6 +822,13 @@ class KeyImageLayer(keyImagePart):
         lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
         lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
         lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
+        lambda args: f'draw={draw}' if (draw := args.get('draw')) else None,
+        lambda args: f'coords={coords}' if (coords := args.get('coords')) else None,
+        lambda args: f'outline={color}' if (color := args.get('outline')) else None,
+        lambda args: f'fill={color}' if (color := args.get('fill')) else None,
+        lambda args: f'width={width}' if (width := args.get('width')) else None,
+        lambda args: f'radius={radius}' if (radius := args.get('radius')) else None,
+        lambda args: f'angles={angles}' if (angle := args.get('angles')) else None,
     ]
 
     identifier_attr = 'layer'
@@ -814,6 +841,13 @@ class KeyImageLayer(keyImagePart):
         self.crop = None
         self.opacity = None
         self.rotate = None
+        self.draw = None
+        self.draw_coords = None
+        self.draw_outline_color = None
+        self.draw_fill_color = None
+        self.draw_outline_width = None
+        self.draw_radius = None
+        self.draw_angles = None
 
     @property
     def str(self):
@@ -828,23 +862,31 @@ class KeyImageLayer(keyImagePart):
                 continue
             final_args[name] = {}
             for part, val in list(args[name].items()):
-                kind = 'int'
-                if val.endswith('%'):
-                    kind = '%'
-                    val = val[:-1]
-                final_args[name][part] = (kind, int(val))
+                final_args[name][part] = cls.parse_value_or_percent(val)
         if 'colorize' in args:
             final_args['color'] = args['colorize']
         if 'opacity' in args:
             final_args['opacity'] = int(args['opacity'])
         if 'rotate' in args:
             final_args['rotate'] = int(args['rotate'])
+        if 'draw' in args:
+            final_args['draw'] = args['draw']
+            if 'coords' in args:
+                final_args['draw_coords'] = tuple(cls.parse_value_or_percent(val) for val in args['coords'].split(','))
+            final_args['draw_outline_color'] = args.get('outline') or 'white'
+            if 'fill' in args:
+                final_args['draw_fill_color'] = args['fill']
+            final_args['draw_outline_width'] = int(args.get('width') or 1)
+            if 'radius' in args:
+                final_args['draw_radius'] = int(args['radius'])
+            if 'angles' in args:
+                final_args['draw_angles'] = tuple(int(v) for v in args['angles'].split(','))
         return final_args
 
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         layer = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('margin', 'crop', 'color', 'opacity', 'rotate'):
+        for key in ('margin', 'crop', 'color', 'opacity', 'rotate', 'draw', 'draw_coords', 'draw_outline_color', 'draw_fill_color', 'draw_outline_width', 'draw_radius', 'draw_angles'):
             if key not in args:
                 continue
             setattr(layer, key, args[key])
@@ -853,16 +895,41 @@ class KeyImageLayer(keyImagePart):
     def _compose(self):
 
         image_size = self.key.image_size
-        layer_image = Image.open(self.path)
+        if self.draw:
+            layer_image = Image.new("RGBA", image_size)
+            drawer = ImageDraw.Draw(layer_image)
+            coords = [
+                self.convert_coordinate(coord, 'height' if index % 2 else 'width')
+                for index, coord in enumerate(self.draw_coords)
+            ]
+            if self.draw == 'line':
+                drawer.line(coords, fill=self.draw_outline_color, width=self.draw_outline_width)
+            elif self.draw == 'rectangle':
+                if self.draw_radius:
+                    drawer.rounded_rectangle(coords, outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width, radius=self.draw_radius)
+                else:
+                    drawer.rectangle(coords, outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
+            elif self.draw == 'points':
+                drawer.point(coords, fill=self.draw_outline_color)
+            elif self.draw == 'polygon':
+                drawer.polygon(coords, outline=self.draw_outline_color, fill=self.draw_fill_color)
+            elif self.draw == 'ellipse':
+                drawer.ellipse(coords, outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
+            elif self.draw == 'arc':
+                drawer.arc(coords, start=self.draw_angles[0], end=self.draw_angles[1], fill=self.draw_outline_color, width=self.draw_outline_width)
+            elif self.draw == 'chord':
+                drawer.chord(coords, start=self.draw_angles[0], end=self.draw_angles[1], outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
+            elif self.draw == 'pieslice':
+                drawer.pieslice(coords, start=self.draw_angles[0], end=self.draw_angles[1], outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
+
+        else:
+            layer_image = Image.open(self.path)
 
         if self.crop:
-            crops = {}
-            for crop_name, (crop_kind, crop) in self.crop.items():
-                if crop_kind == '%':
-                    size = layer_image.width if crop_name in ('left', 'right') else layer_image.height
-                    crop = int(crop * size / 100)
-                crops[crop_name] = crop
-
+            crops = {
+                crop_name: self.convert_coordinate(crop, 'width' if crop_name in ('left', 'right')  else 'height')
+                for crop_name, crop in self.crop.items()
+            }
             layer_image = layer_image.crop((crops['left'], crops['top'], crops['right'], crops['bottom']))
 
         if self.rotate:
