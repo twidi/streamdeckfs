@@ -20,6 +20,7 @@ Features:
 TODO:
 - when ending while an overlay is open, ensure all pages below have their 'ON_START' event terminated (and other threads)
 - page on_open/open_close events
+- references: a page/key/event/image/text can be a link/copy of another one, with overridable configuration
 - area rendering (images/texts displayed over many keys)
 
 
@@ -102,6 +103,11 @@ from PIL import Image, ImageEnhance, ImageFont, ImageDraw
 from StreamDeck.Devices.StreamDeck import StreamDeck
 from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.ImageHelpers import PILHelper
+
+try:
+    from prctl import set_name as set_thread_name
+except ImportError:
+    set_thread_name = lambda name: None
 
 
 DEFAULT_BRIGHTNESS = 30
@@ -209,6 +215,7 @@ class Inotifier:
         self.watchers.pop(watcher)
 
     def run(self):
+        set_thread_name('FilesWatcher')
         self.running = True
         while True:
             if not self.running or self.inotify.closed:
@@ -423,9 +430,18 @@ class KeyFile(Entity):
         return self.page.deck
 
 
-class StopEventThread(threading.Thread):
-    def __init__(self):
-        super().__init__()
+class NamedThread(threading.Thread):
+    def __init__(self, name=None):
+        self.prctl_name = name[:15] if name else None
+        super().__init__(name=name)
+
+    def run(self):
+        set_thread_name(self.prctl_name)
+
+
+class StopEventThread(NamedThread):
+    def __init__(self, name=None):
+        super().__init__(name=name)
         self.stop_event = threading.Event()
 
     def stop(self):
@@ -436,8 +452,8 @@ class StopEventThread(threading.Thread):
 
 
 class Delayer(StopEventThread):
-    def __init__(self, func, delay, end_callback=None):
-        super().__init__()
+    def __init__(self, func, delay, end_callback=None, name=None):
+        super().__init__(name=name)
         self.func = func
         self.delay = delay
         self.run_event = threading.Event()
@@ -449,6 +465,7 @@ class Delayer(StopEventThread):
         return self.run_event.is_set()
 
     def run(self):
+        super().run()
         self.start_time = time()
         if not self.stop_event.wait(self.delay):
             self.run_event.set()
@@ -459,8 +476,8 @@ class Delayer(StopEventThread):
 
 
 class Repeater(StopEventThread):
-    def __init__(self, func, every, max_runs=None, end_callback=None, wait_first=0):
-        super().__init__()
+    def __init__(self, func, every, max_runs=None, end_callback=None, wait_first=0, name=None):
+        super().__init__(name=name)
         self.func = func
         self.every = every
         self.max_runs = max_runs
@@ -469,6 +486,7 @@ class Repeater(StopEventThread):
         self.wait_first = wait_first
 
     def run(self):
+        super().run()
         if self.max_runs == 0:
             return
         additional_time = self.wait_first
@@ -617,7 +635,7 @@ class KeyEvent(KeyFile):
             return
         # use `self.max_runs - 1` because action was already run once
         max_runs = (self.max_runs - 1) if self.max_runs else None
-        self.repeat_thread = Repeater(self.run, self.repeat_every/1000, max_runs=max_runs, end_callback=self.stop_repeater)
+        self.repeat_thread = Repeater(self.run, self.repeat_every/1000, max_runs=max_runs, end_callback=self.stop_repeater, name=f'{self.kind.capitalize()[:4]}Rep{self.page.number}.{self.key.row}{self.key.col}')
         self.repeat_thread.start()
 
     def stop_repeater(self, *args, **kwargs):
@@ -631,7 +649,7 @@ class KeyEvent(KeyFile):
             return
         if duration is None:
             duration = self.wait / 1000
-        self.wait_thread = Delayer(self.run_and_repeat, duration, end_callback=self.stop_waiter)
+        self.wait_thread = Delayer(self.run_and_repeat, duration, end_callback=self.stop_waiter, name=f'{self.kind.capitalize()[:4]}Wait{self.page.number}.{self.key.row}{self.key.col}')
         self.wait_thread.start()
 
     def stop_waiter(self, *args, **kwargs):
@@ -675,11 +693,11 @@ class KeyEvent(KeyFile):
 
     def wait_run_and_repeat(self, on_press=False):
         if self.duration_max:
-            self.duration_thread = Delayer(lambda: None, self.duration_max/1000, end_callback=self.run_if_less_than_duration_max)
+            self.duration_thread = Delayer(lambda: None, self.duration_max/1000, end_callback=self.run_if_less_than_duration_max, name=f'{self.kind.capitalize()[:4]}Max{self.page.number}.{self.key.row}{self.key.col}')
             self.duration_thread.start()
         elif self.kind == 'longpress' and on_press:
             # will call this function again, but with on_press False so we'll then go to start_water/run_and_repeat
-            self.duration_thread = Delayer(self.wait_run_and_repeat, self.duration_min/1000, end_callback=self.stop_duration_waiter)
+            self.duration_thread = Delayer(self.wait_run_and_repeat, self.duration_min/1000, end_callback=self.stop_duration_waiter, name=f'{self.kind.capitalize()[:4]}Min{self.page.number}.{self.key.row}{self.key.col}')
             self.duration_thread.start()
         elif self.wait:
             self.start_waiter()
@@ -1295,7 +1313,7 @@ class KeyTextLine(keyImagePart):
             return
         self.scrolled = 0
         self.scrolled_at = time() + self.SCROLL_WAIT
-        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1/self.scroll), wait_first=self.SCROLL_WAIT)
+        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1/self.scroll), wait_first=self.SCROLL_WAIT, name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line else ""}')
         self.scroll_thread.start()
 
     def stop_scroller(self, *args, **kwargs):
@@ -1982,6 +2000,7 @@ class Deck(Entity):
 
 RENDER_IMAGE_DELAY = 0.02
 def render_deck_images(deck, queue):
+    set_thread_name('ImgRenderer')
     delay = RENDER_IMAGE_DELAY
     future_margin = RENDER_IMAGE_DELAY / 10
     timeout = None
