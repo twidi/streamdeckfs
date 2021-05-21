@@ -504,6 +504,8 @@ class KeyEvent(KeyFile):
     path_glob = 'ON_*'
     main_path_re = re.compile('^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
+        # if the process must be detached from ours (ie launch and forget)
+        re.compile('^(?P<flag>detach)(?:=(?P<value>false|true))?$'),
         # delay before launching action
         re.compile('^(?P<arg>wait)=(?P<value>\d+)$'),
         # repeat every, max times (ignored if not press/start)
@@ -532,6 +534,7 @@ class KeyEvent(KeyFile):
         lambda args: f'duration-max=' if args.get('duration-max') else None,
         lambda args: f'duration-min=' if args.get('duration-min') else None,
         lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
+        lambda args: 'detach' if args.get('detach', False) in (True, 'true', None) else None,
     ]
 
     identifier_attr = 'kind'
@@ -547,6 +550,7 @@ class KeyEvent(KeyFile):
         self.duration_max = None
         self.duration_min = None
         self.overlay = False
+        self.detach = False
         self.pids = []
         self.activated = False
         self.repeat_thread = None
@@ -572,6 +576,7 @@ class KeyEvent(KeyFile):
         final_args['mode'] = None
         if 'action' not in args:
             final_args['mode'] = 'program'
+            final_args['detach'] = args.get('detach', False)
         elif args['action'] == 'page':
             final_args['mode'] = 'page'
             final_args['page_ref'] = args['page']
@@ -611,6 +616,7 @@ class KeyEvent(KeyFile):
             event.overlay = args.get('overlay', False)
         elif event.mode == 'program':
             event.to_stop = event.kind == 'start'
+            event.detach = args['detach']
         if event.kind in ('press', 'start'):
             if args.get('repeat-every'):
                 event.repeat_every = args['repeat-every']
@@ -685,7 +691,8 @@ class KeyEvent(KeyFile):
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref, self.overlay)
             elif self.mode == 'program':
-                self.pids.append(Manager.start_process(self.path, register_stop=self.to_stop))
+                if (pid := Manager.start_process(self.path, register_stop=self.to_stop, detach=self.detach)):
+                    self.pids.append(pid)
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
         return True
@@ -2172,11 +2179,11 @@ class Manager:
         return directory
 
     @classmethod
-    def start_process(cls, path, register_stop=False):
-        base_str = f'[PROCESS] Launching `{path}`'
+    def start_process(cls, path, register_stop=False, detach=False):
+        base_str = f'[PROCESS] Launching `{path}`{" (in detached mode)" if detach else ""}'
         logger.info(f'{base_str}...')
         try:
-            process = psutil.Popen(path)
+            process = psutil.Popen(path, start_new_session=bool(detach))
             cls.processes[process.pid] = {
                 'pid': process.pid,
                 'path': path,
@@ -2184,7 +2191,7 @@ class Manager:
                 'to_stop': bool(register_stop),
             }
             logger.info(f'{base_str} [ok PID={process.pid}]')
-            return process.pid
+            return None if detach else process.pid 
         except Exception:
             logger.exception(f'{base_str} [failed]')
             return None
