@@ -18,7 +18,6 @@ Features:
 - changes on the fly from the directories/files names via inotify
 
 TODO:
-- when ending while an overlay is open, ensure all pages below have their 'ON_START' event terminated (and other threads)
 - page on_open/open_close events
 - references: a page/key/event/image/text can be a link/copy of another one, with overridable configuration
 - area rendering (images/texts displayed over many keys)
@@ -747,8 +746,6 @@ class KeyEvent(KeyFile):
             self.wait_run_and_repeat()
 
     def deactivate(self):
-        if not self.page.is_current:
-            return
         if not self.activated:
             return
         self.activated = False
@@ -1548,10 +1545,9 @@ class Key(Entity):
                 if text_line:
                     text_line.stop_scroller()
             self.deck.remove_image(self.row, self.col)
-            if self.page.is_current:
-                for event in self.events.values():
-                    if event:
-                        event.deactivate()
+            for event in self.events.values():
+                if event:
+                    event.deactivate()
 
     def version_activated(self):
         super().version_activated()
@@ -1806,6 +1802,9 @@ class Deck(Entity):
                     return self.on_child_entity_change(path=path, flags=flags, expect_dir=True, entity_class=Page, data_dict=self.pages, data_identifier=main['page'], args=args, modified_at=modified_at)
 
     def update_visible_pages_stack(self):
+        # first page in `visible_pages` is the current one, then the one below, etc... 
+        # (the last one is the first one not being an overlay, so if the first one is not an overlay, it's the only 
+        # one in the stack)
         stack = []
         for page_number, transparent in reversed(self.page_history):
             stack.append(page_number)
@@ -1976,8 +1975,9 @@ class Deck(Entity):
         page.render()
 
     def unrender(self):
-        if (page := self.current_page):
-            page.unrender()
+        for page_number in self.visible_pages:
+            if (page := self.pages.get(page_number)):
+                page.unrender()
         if self.render_images_thread is not None:
             self.render_images_queue.put(None)
             self.render_images_thread.join()
@@ -2138,9 +2138,9 @@ class Manager:
                 msg_level = 'info' if status == 0 else 'critical'
             getattr(logger, msg_level)(msg, exc_info=log_exception)
 
+        if cls.files_watcher:
+            cls.files_watcher.terminate()
         for serial, deck in list(cls.decks.items()):
-            if cls.files_watcher:
-                cls.files_watcher.terminate()
             try:
                 deck.reset()
                 deck.close()
