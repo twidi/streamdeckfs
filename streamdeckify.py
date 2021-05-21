@@ -241,6 +241,10 @@ class Inotifier:
 class FILTER_DENY: pass
 
 
+class InvalidArg(Exception):
+    pass
+
+
 @dataclass
 class Entity:
 
@@ -299,6 +303,8 @@ class Entity:
                 if match := regex.match(part):
                     values = match.groupdict()
                     is_flag = 'flag' in values and 'arg' not in values and len(values) == 2
+                    if not is_flag:
+                        values = {key: value for key, value in values.items() if value}
                     if not (arg_name := values.pop('flag' if is_flag else 'arg', None)):
                         continue
                     if len(values) == 1:
@@ -310,7 +316,15 @@ class Entity:
         if raw:
             return main, args
 
-        return cls.convert_main_args(main), cls.convert_args(args)
+        try:
+            main = cls.convert_main_args(main)
+            if main is not None:
+                if (args := cls.convert_args(args)) is not None:
+                    return main, args
+        except InvalidArg as exc:
+            logger.error(f'[{parent}] [{name}] {exc}')
+
+        return None, None
 
     @classmethod
     def convert_main_args(cls, args):
@@ -522,19 +536,25 @@ class KeyEvent(KeyFile):
         re.compile('^(?P<arg>action)=(?P<value>page)$'),
         re.compile(f'^(?P<arg>page)=(?P<value>.+)$'),
         re.compile('^(?P<flag>overlay)(?:=(?P<value>false|true))?$'),
+        # action run
+        re.compile('^(?P<arg>action)=(?P<value>run)$'),
+        re.compile(f'^(?P<arg>program)=(?P<value>.+)$'),
+        re.compile(f'^(?P<arg>slash)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = KeyFile.filename_parts + [
         lambda args: f'action={action}' if (action := args.get('action')) else None,
         lambda args: f'level={level.get("brightness_operation", "")}{level["brightness_level"]}' if args.get('action') == 'brightness' and (level := args.get('level')) else None,
         lambda args: f'page={args["page_ref"]}' if args.get('action') == 'page' else None,
-        lambda args: f'every=' if args.get('every') else None,
-        lambda args: f'max-runs=' if args.get('max-runs') else None,
-        lambda args: f'wait=' if args.get('wait') else None,
-        lambda args: f'duration-max=' if args.get('duration-max') else None,
-        lambda args: f'duration-min=' if args.get('duration-min') else None,
+        lambda args: f'every={every}' if (every := args.get('every')) else None,
+        lambda args: f'max-runs={max_runs}' if (max_runs := args.get('max-runs')) else None,
+        lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
+        lambda args: f'duration-max={duration_max}' if (duration_max := args.get('duration-max')) else None,
+        lambda args: f'duration-min={duration_min}' if (duration_min := args.get('duration-min')) else None,
         lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
         lambda args: 'detach' if args.get('detach', False) in (True, 'true', None) else None,
+        lambda args: f'program={args["program"]}' if args.get('action') == 'run' else None,
+        lambda args: f'slash={args["slash"]}' if args.get('action') == 'run' else None,
     ]
 
     identifier_attr = 'kind'
@@ -551,6 +571,7 @@ class KeyEvent(KeyFile):
         self.duration_min = None
         self.overlay = False
         self.detach = False
+        self.program = None
         self.pids = []
         self.activated = False
         self.repeat_thread = None
@@ -566,7 +587,8 @@ class KeyEvent(KeyFile):
 
     @classmethod
     def convert_main_args(cls, args):
-        args = super().convert_main_args(args)
+        if (args := super().convert_main_args(args)) is None:
+            return None
         args['kind'] = args['kind'].lower()
         return args
 
@@ -574,24 +596,30 @@ class KeyEvent(KeyFile):
     def convert_args(cls, args):
         final_args = super().convert_args(args)
         final_args['mode'] = None
-        if 'action' not in args:
-            final_args['mode'] = 'program'
+        if not (action := args.get('action')) or action == 'run':
+            if action == 'run':
+                if 'program' not in args:
+                    raise InvalidArg(f'Argument "program" is expected when "action=run"')
+                final_args['mode'] = 'program'
+                final_args['program'] = args['program'].replace(args.get('slash', '\\\\'), '/')# double \ by default
+            else:
+                final_args['mode'] = 'path'
             final_args['detach'] = args.get('detach', False)
-        elif args['action'] == 'page':
+        elif action == 'page':
             final_args['mode'] = 'page'
+            if 'page' not in args:
+                raise InvalidArg(f'Argument "page" is expected when "action=page"')
             final_args['page_ref'] = args['page']
             if 'page_ref' != Page.BACK and 'overlay' in args:
                 final_args['overlay'] = args['overlay']
-        elif args['action'] == 'brightness':
-            try:
-                if 'brightness_level' in args['level']:
-                    final_args['mode'] = 'brightness'
-                    final_args['brightness_level'] = (
-                        args['level'].get('brightness_operation') or '=',
-                        int(args['level']['brightness_level'])
-                    )
-            except KeyError:
-                pass
+        elif action == 'brightness':
+            if 'level' not in args:
+                raise InvalidArg(f'Argument "level" is expected when "action=brightness"')
+            final_args['mode'] = 'brightness'
+            final_args['brightness_level'] = (
+                args['level'].get('brightness_operation') or '=',
+                int(args['level']['brightness_level'])
+            )
         if 'every' in args:
             final_args['repeat-every'] = int(args['every'])
         if 'max-runs' in args:
@@ -614,9 +642,11 @@ class KeyEvent(KeyFile):
         elif event.mode == 'page':
             event.page_ref = args['page_ref']
             event.overlay = args.get('overlay', False)
-        elif event.mode == 'program':
-            event.to_stop = event.kind == 'start'
+        elif event.mode in ('path', 'program'):
             event.detach = args['detach']
+            event.to_stop = event.kind == 'start' and not event.detach
+            if event.mode == 'program':
+                event.program = args['program']
         if event.kind in ('press', 'start'):
             if args.get('repeat-every'):
                 event.repeat_every = args['repeat-every']
@@ -690,8 +720,14 @@ class KeyEvent(KeyFile):
                 self.deck.set_brightness(*self.brightness_level)
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref, self.overlay)
-            elif self.mode == 'program':
-                if (pid := Manager.start_process(self.path, register_stop=self.to_stop, detach=self.detach)):
+            elif self.mode in ('path', 'program'):
+                if self.mode == 'path':
+                    program = self.path
+                    shell = False
+                else:
+                    program = self.program
+                    shell = True
+                if (pid := Manager.start_process(program, register_stop=self.to_stop, detach=self.detach, shell=shell)):
                     self.pids.append(pid)
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
@@ -741,7 +777,7 @@ class KeyEvent(KeyFile):
 
     @property
     def is_stoppable(self):
-        return self.kind == 'start' and self.mode == 'program' and self.pids and self.to_stop
+        return self.kind == 'start' and self.to_stop and self.mode in ('path', 'program') and self.pids
 
     def activate(self):
         if not self.page.is_current:
@@ -749,7 +785,7 @@ class KeyEvent(KeyFile):
         if self.activated:
             return
         self.activated = True
-        if self.kind == 'start' and self.mode == 'program':
+        if self.kind == 'start' and self.mode in ('path', 'program'):
             self.wait_run_and_repeat()
 
     def deactivate(self):
@@ -1398,7 +1434,8 @@ class Key(Entity):
 
     @classmethod
     def convert_main_args(cls, args):
-        args = super().convert_main_args(args)
+        if (args := super().convert_main_args(args)) is None:
+            return None
         args['row'] = int(args['row'])
         args['col'] = int(args['col'])
         return args
@@ -2179,14 +2216,14 @@ class Manager:
         return directory
 
     @classmethod
-    def start_process(cls, path, register_stop=False, detach=False):
-        base_str = f'[PROCESS] Launching `{path}`{" (in detached mode)" if detach else ""}'
+    def start_process(cls, program, register_stop=False, detach=False, shell=False):
+        base_str = f'[PROCESS] Launching `{program}`{" (in detached mode)" if detach else ""}'
         logger.info(f'{base_str}...')
         try:
-            process = psutil.Popen(path, start_new_session=bool(detach))
+            process = psutil.Popen(program, start_new_session=bool(detach), shell=bool(shell))
             cls.processes[process.pid] = {
                 'pid': process.pid,
-                'path': path,
+                'program': program,
                 'process' : process,
                 'to_stop': bool(register_stop),
             }
@@ -2229,7 +2266,7 @@ class Manager:
         if not psutil.pid_exists(pid):
             return
         process = process_info['process']
-        base_str = f"[PROCESS {pid}] Terminating `{process_info['path']}`"
+        base_str = f"[PROCESS {pid}] Terminating `{process_info['program']}`"
         logger.info(f'{base_str}...')
         gone, alive = cls.kill_proc_tree(pid, timeout=5)
         if alive:
