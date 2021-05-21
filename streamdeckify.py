@@ -83,15 +83,12 @@ import signal
 import threading
 from collections import defaultdict
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
-from glob import glob
-from math import inf
-from operator import itemgetter
 from pathlib import Path
 from queue import SimpleQueue, Empty
 from time import time, sleep
-from typing import List, Dict, Tuple, Union
+from typing import Tuple
 
 import click
 import click_log
@@ -416,7 +413,6 @@ class Entity:
                     if entry.is_empty:
                         continue
                     for version in entry.iter_versions(reverse=True):
-                        result = None
                         if version.name == filter:
                             return version
 
@@ -533,12 +529,12 @@ class KeyEvent(KeyFile):
         re.compile(f'^(?P<arg>level)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>{RE_PART_0_100})$'),
         # action page
         re.compile('^(?P<arg>action)=(?P<value>page)$'),
-        re.compile(f'^(?P<arg>page)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>page)=(?P<value>.+)$'),
         re.compile('^(?P<flag>overlay)(?:=(?P<value>false|true))?$'),
         # action run
         re.compile('^(?P<arg>action)=(?P<value>run)$'),
-        re.compile(f'^(?P<arg>program)=(?P<value>.+)$'),
-        re.compile(f'^(?P<arg>slash)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>program)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = [
@@ -600,7 +596,7 @@ class KeyEvent(KeyFile):
         if not (action := args.get('action')) or action == 'run':
             if action == 'run':
                 if 'program' not in args:
-                    raise InvalidArg(f'Argument "program" is expected when "action=run"')
+                    raise InvalidArg('Argument "program" is expected when "action=run"')
                 final_args['mode'] = 'program'
                 final_args['program'] = args['program'].replace(args.get('slash', '\\\\'), '/')# double \ by default
             else:
@@ -609,13 +605,13 @@ class KeyEvent(KeyFile):
         elif action == 'page':
             final_args['mode'] = 'page'
             if 'page' not in args:
-                raise InvalidArg(f'Argument "page" is expected when "action=page"')
+                raise InvalidArg('Argument "page" is expected when "action=page"')
             final_args['page_ref'] = args['page']
             if 'page_ref' != Page.BACK and 'overlay' in args:
                 final_args['overlay'] = args['overlay']
         elif action == 'brightness':
             if 'level' not in args:
-                raise InvalidArg(f'Argument "level" is expected when "action=brightness"')
+                raise InvalidArg('Argument "level" is expected when "action=brightness"')
             final_args['mode'] = 'brightness'
             final_args['brightness_level'] = (
                 args['level'].get('brightness_operation') or '=',
@@ -660,7 +656,7 @@ class KeyEvent(KeyFile):
         if event.kind in ('longpress', 'release'):
             if args.get('duration-min'):
                 event.duration_min = args['duration-min']
-            elif kind == 'longpress':
+            elif event.kind == 'longpress':
                 event.duration_min = LONGPRESS_DURATION_MIN
         return event
 
@@ -864,14 +860,14 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
-        re.compile(f'^(?P<arg>rotate)=(?P<value>\d+)$'),
-        re.compile(f'^(?P<arg>draw)=(?P<value>line|rectangle|points|polygon|ellipse|arc|chord|pieslice)$'),
+        re.compile('^(?P<arg>rotate)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>draw)=(?P<value>line|rectangle|points|polygon|ellipse|arc|chord|pieslice)$'),
         re.compile(f'^(?P<arg>coords)=(?P<value>{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER}(?:,{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER})*)$'),
         re.compile(f'^(?P<arg>outline)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
-        re.compile(f'^(?P<arg>width)=(?P<value>\d+)$'),
-        re.compile(f'^(?P<arg>radius)=(?P<value>\d+)$'),
-        re.compile(f'^(?P<arg>angles)=(?P<value>\d+,\d+)$'),
+        re.compile('^(?P<arg>width)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>radius)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>angles)=(?P<value>\d+,\d+)$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = [
@@ -883,7 +879,7 @@ class KeyImageLayer(keyImagePart):
         lambda args: f'fill={color}' if (color := args.get('fill')) else None,
         lambda args: f'width={width}' if (width := args.get('width')) else None,
         lambda args: f'radius={radius}' if (radius := args.get('radius')) else None,
-        lambda args: f'angles={angles}' if (angle := args.get('angles')) else None,
+        lambda args: f'angles={angles}' if (angles := args.get('angles')) else None,
         lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
         lambda args: f'colorize={color}' if (color := args.get('colorize')) else None,
         lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
@@ -1020,8 +1016,8 @@ class KeyTextLine(keyImagePart):
     main_path_re = re.compile('^(?P<kind>TEXT)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
-        re.compile(f'^(?P<arg>text)=(?P<value>.+)$'),
-        re.compile(f'^(?P<arg>size)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>text)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>size)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
         re.compile('^(?P<flag>italic)(?:=(?P<value>false|true))?$'),
         re.compile('^(?P<arg>align)(?:=(?P<value>left|center|right))?$'),
@@ -1030,7 +1026,7 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile(f'^(?P<arg>scroll)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>scroll)=(?P<value>\d+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
     filename_parts = [
@@ -1220,9 +1216,9 @@ class KeyTextLine(keyImagePart):
         font = self.get_font(self.get_font_path(), self.size)
         text = self.text.replace('\n', ' ')
         if self.wrap:
-            lines = self.split_text_in_lines(self.text, max_width, font)
+            lines = self.split_text_in_lines(text, max_width, font)
         else:
-            lines = [self.text]
+            lines = [text]
 
         # compute all sizes
         lines_with_dim = [(line, ) + self.get_text_size(line, font) for line  in lines]
@@ -1981,7 +1977,6 @@ class Deck(Entity):
 
     def on_key_pressed(self, deck, index, pressed):
         row, col = row_col = self.index_to_key(index)
-        released = not pressed
 
         if pressed:
             if self.pressed_key:
@@ -1989,11 +1984,11 @@ class Deck(Entity):
                 return
 
             if not (page := self.current_page):
-                logger.debug(f'[{self}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (no current page)')
+                logger.debug(f'[{self}, KEY ({row}, {col})] PRESSED. IGNORED (no current page)')
                 return
 
             if not (key := page.keys[row_col]):
-                logger.debug(f'[{page}, KEY ({row}, {col})] {"PRESSED" if pressed else "RELEASED"}. IGNORED (key not configured)')
+                logger.debug(f'[{page}, KEY ({row}, {col})] PRESSED. IGNORED (key not configured)')
                 return
 
             self.pressed_key = key
@@ -2145,7 +2140,7 @@ class Manager:
                 }
                 deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
         if not len(cls.decks):
-            Manager.exit(1, f'No Stream Deck detected. Aborting.')
+            Manager.exit(1, 'No Stream Deck detected. Aborting.')
         return cls.decks
 
     @classmethod
@@ -2270,7 +2265,6 @@ class Manager:
             return
         if not psutil.pid_exists(pid):
             return
-        process = process_info['process']
         base_str = f"[PROCESS {pid}] Terminating `{process_info['program']}`"
         logger.info(f'{base_str}...')
         gone, alive = cls.kill_proc_tree(pid, timeout=5)
