@@ -255,10 +255,9 @@ class Entity:
         re.compile('^(?P<arg>name)=(?P<value>[^;]+)$'),
     ]
     main_filename_part = None
-    filename_parts = [
-        lambda args: f'name={args["name"]}' if args.get('name') else None,
-        lambda args: 'disabled' if args.get('disabled', False) in (True, 'true', None) else None,
-    ]
+    name_filename_part = lambda args: f'name={args["name"]}' if args.get('name') else None
+    disabled_filename_part = lambda args: 'disabled' if args.get('disabled', False) in (True, 'true', None) else None
+    filename_parts = [main_filename_part, disabled_filename_part]
 
     parent_attr = None
     identifier_attr = None
@@ -542,19 +541,21 @@ class KeyEvent(KeyFile):
         re.compile(f'^(?P<arg>slash)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
-    filename_parts = KeyFile.filename_parts + [
+    filename_parts = [
+        Entity.name_filename_part,
         lambda args: f'action={action}' if (action := args.get('action')) else None,
         lambda args: f'level={level.get("brightness_operation", "")}{level["brightness_level"]}' if args.get('action') == 'brightness' and (level := args.get('level')) else None,
-        lambda args: f'page={args["page_ref"]}' if args.get('action') == 'page' else None,
-        lambda args: f'every={every}' if (every := args.get('every')) else None,
-        lambda args: f'max-runs={max_runs}' if (max_runs := args.get('max-runs')) else None,
-        lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
-        lambda args: f'duration-max={duration_max}' if (duration_max := args.get('duration-max')) else None,
-        lambda args: f'duration-min={duration_min}' if (duration_min := args.get('duration-min')) else None,
-        lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
-        lambda args: 'detach' if args.get('detach', False) in (True, 'true', None) else None,
+        lambda args: f'page={args["page"]}' if args.get('action') == 'page' else None,
         lambda args: f'program={args["program"]}' if args.get('action') == 'run' else None,
         lambda args: f'slash={args["slash"]}' if args.get('action') == 'run' else None,
+        lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
+        lambda args: f'every={every}' if (every := args.get('every')) else None,
+        lambda args: f'max-runs={max_runs}' if (max_runs := args.get('max-runs')) else None,
+        lambda args: f'duration-min={duration_min}' if (duration_min := args.get('duration-min')) else None,
+        lambda args: f'duration-max={duration_max}' if (duration_max := args.get('duration-max')) else None,
+        lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
+        lambda args: 'detach' if args.get('detach', False) in (True, 'true', None) else None,
+        Entity.disabled_filename_part,
     ]
 
     identifier_attr = 'kind'
@@ -873,13 +874,9 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>angles)=(?P<value>\d+,\d+)$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
-    filename_parts = KeyFile.filename_parts + [
+    filename_parts = [
         lambda args: f'layer={layer}' if (layer := args.get('layer')) else None,
-        lambda args: f'colorize={color}' if (color := args.get('colorize')) else None,
-        lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
-        lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
-        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
-        lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
+        Entity.name_filename_part,
         lambda args: f'draw={draw}' if (draw := args.get('draw')) else None,
         lambda args: f'coords={coords}' if (coords := args.get('coords')) else None,
         lambda args: f'outline={color}' if (color := args.get('outline')) else None,
@@ -887,6 +884,12 @@ class KeyImageLayer(keyImagePart):
         lambda args: f'width={width}' if (width := args.get('width')) else None,
         lambda args: f'radius={radius}' if (radius := args.get('radius')) else None,
         lambda args: f'angles={angles}' if (angle := args.get('angles')) else None,
+        lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
+        lambda args: f'colorize={color}' if (color := args.get('colorize')) else None,
+        lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
+        lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
+        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
+        Entity.disabled_filename_part,
     ]
 
     identifier_attr = 'layer'
@@ -1030,19 +1033,21 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>scroll)=(?P<value>\d+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
-    filename_parts = KeyFile.filename_parts + [
+    filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
+        Entity.name_filename_part,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
         lambda args: 'italic' if args.get('italic', False) in (True, 'true', None) else None,
+        lambda args: f'color={color}' if (color := args.get('color')) else None,
         lambda args: f'align={align}' if (align := args.get('align')) else None,
         lambda args: f'valign={valign}' if (valign := args.get('valign')) else None,
-        lambda args: f'color={color}' if (color := args.get('color')) else None,
-        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
-        lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
         lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
+        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
         lambda args: f'scroll={scroll}' if (scroll := args.get('scroll')) else None,
+        lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
+        Entity.disabled_filename_part,
     ]
 
     fonts_path = ASSETS_PATH / 'fonts'
