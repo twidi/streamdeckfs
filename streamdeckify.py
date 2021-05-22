@@ -420,7 +420,8 @@ class Entity:
         return None
 
     def rename(self, new_filename):
-        self.path = self.path.replace(self.path.parent / new_filename)
+        if (new_path := self.path.parent / new_filename) != self.path:
+            self.path = self.path.replace(new_path)
 
 
 @dataclass
