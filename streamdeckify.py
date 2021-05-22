@@ -422,6 +422,8 @@ class Entity:
     def rename(self, new_filename):
         if (new_path := self.path.parent / new_filename) != self.path:
             self.path = self.path.replace(new_path)
+            return True
+        return False
 
 
 @dataclass
@@ -2185,15 +2187,18 @@ class Manager:
 
         if cls.files_watcher:
             cls.files_watcher.terminate()
-        for serial, deck in list(cls.decks.items()):
-            try:
-                deck.reset()
-                deck.close()
-            except Exception:
-                pass
-            cls.decks.pop(serial)
 
-        sleep(0.01) # needed to avoid error!!
+        if cls.decks:
+            for serial, deck in list(cls.decks.items()):
+                try:
+                    deck.reset()
+                    deck.close()
+                except Exception:
+                    pass
+                cls.decks.pop(serial)
+
+            sleep(0.01) # needed to avoid error!!
+
         exit(status)
 
     @staticmethod
@@ -2663,12 +2668,11 @@ def brightness(deck, level):
     deck.set_brightness(level)
 
 
-
-
 if __name__ == '__main__':
     try:
+        start = time()
         cli()
-    except Exception:
-        Manager.exit(1, 'Oops...', log_exception=True)
+    except (Exception, SystemExit) as exc:
+        Manager.exit(exc.code if isinstance(exc, SystemExit) else 1, 'Oops...', log_exception=True)
     else:
         Manager.exit(0, 'Bye.')
