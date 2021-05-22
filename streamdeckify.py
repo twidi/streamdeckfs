@@ -108,7 +108,7 @@ except ImportError:
 
 DEFAULT_BRIGHTNESS = 30
 RE_PART_0_100 = '0*(?:\d{1,2}?|100)'
-RE_PART_PERCENT = f'{RE_PART_0_100}%'
+RE_PART_PERCENT = '(?:0*(?:\d{1,2}?)(?:.\d+)?|(?:100(?:.0+)?))%'
 RE_PART_PERCENT_OR_NUMBER = f'(?:\d+|{RE_PART_PERCENT})'
 RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
 RE_PART_COLOR_WITH_POSSIBLE_ALPHA = '\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)'
@@ -831,15 +831,17 @@ class keyImagePart(KeyFile):
         kind = 'int'
         if value.endswith('%'):
             kind = '%'
-            value = value[:-1]
-        return kind, int(value)
+            value = float(value[:-1])
+        else:
+            value = int(value)
+        return kind, value
 
-    def convert_coordinate(self, value, dimension): 
+    def convert_coordinate(self, value, dimension, source=None):
         kind, value = value
         if kind == 'int':
             return value
         if kind == '%':
-            return int(value * (getattr(self.key, dimension) - 1) / 100)
+            return int(value * (getattr(self.key if source is None else source, dimension) - 1) / 100)
 
     def convert_margins(self):
         return {
@@ -987,7 +989,7 @@ class KeyImageLayer(keyImagePart):
 
         if self.crop:
             crops = {
-                crop_name: self.convert_coordinate(crop, 'width' if crop_name in ('left', 'right')  else 'height')
+                crop_name: self.convert_coordinate(crop, 'width' if crop_name in ('left', 'right')  else 'height', source=layer_image)
                 for crop_name, crop in self.crop.items()
             }
             layer_image = layer_image.crop((crops['left'], crops['top'], crops['right'], crops['bottom']))
@@ -1101,11 +1103,7 @@ class KeyTextLine(keyImagePart):
         if 'margin' in args:
             final_args['margin'] = {}
             for part, val in list(args['margin'].items()):
-                kind = 'int'
-                if val.endswith('%'):
-                    kind = '%'
-                    val = val[:-1]
-                final_args['margin'][part] = (kind, int(val))
+                final_args['margin'][part] = cls.parse_value_or_percent(val)
         if 'scroll' in args:
             final_args['scroll'] = int(args['scroll'])
 
