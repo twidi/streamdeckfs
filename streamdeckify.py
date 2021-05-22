@@ -2673,6 +2673,9 @@ if __name__ == '__main__':
         start = time()
         cli()
     except (Exception, SystemExit) as exc:
-        Manager.exit(exc.code if isinstance(exc, SystemExit) else 1, 'Oops...', log_exception=True)
+        if isinstance(exc, SystemExit) and exc.code == 0:
+            Manager.exit(0, 'Bye.')
+        else:
+            Manager.exit(exc.code if isinstance(exc, SystemExit) else 1, 'Oops...', log_exception=True)
     else:
         Manager.exit(0, 'Bye.')
