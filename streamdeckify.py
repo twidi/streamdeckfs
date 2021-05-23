@@ -19,9 +19,9 @@ Features:
 - references for key/images/texts/events (allow to reuse things and override only what is needed)
 
 TODO:
+- remove the `action=` argument in events. page/brightness_level/program is enough to know what to do
 - page on_open/open_close events
 - conf to "animate" layer properties ?
-- make events wait for same previous event to finish (usefull for multiple press, repeat option...)
 - key dir with no enabled images/events on overlays should let the keys below appear
 - allow passing "part" of config via set-*-conf (like "-c coords.3 100%" to change the 3 value of the current "coords" settings; maybe it could also be used when overriding references?)
 
@@ -37,7 +37,7 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
 │   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;every=250;max-runs=34 -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
 │   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
@@ -47,7 +47,7 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:volume-up:background
-│   │   └── ON_PRESS;every=250;max-runs=34 -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
 │   ├── KEY_ROW_3_COL_2;name=webcam;disabled
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=18,18,18,18 -> /home/twidi/dev/streamdeck-scripts/webcam/assets/icon.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2;colorize=red
@@ -60,7 +60,7 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 │   │   └── ON_PRESS;ref=:deck-brightness-up:;level=-10
 │   └── KEY_ROW_4_COL_1;name=volume-mute
 │       ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-│       ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,29%,92
+│       ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,26%,92
 │       ├── IMAGE;ref=ref:img:overlay
 │       ├── IMAGE;ref=:volume-up:background
 │       ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
@@ -697,6 +697,8 @@ class KeyEvent(KeyFile):
         re.compile('^(?P<arg>action)=(?P<value>run)$'),
         re.compile('^(?P<arg>program)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
+        # do not run many times the same program at the same time
+        re.compile('^(?P<flag>unique)(?:=(?P<value>false|true))?$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = [
@@ -714,6 +716,7 @@ class KeyEvent(KeyFile):
         lambda args: f'duration-max={duration_max}' if (duration_max := args.get('duration-max')) else None,
         lambda args: 'overlay' if args.get('overlay', False) in (True, 'true', None) else None,
         lambda args: 'detach' if args.get('detach', False) in (True, 'true', None) else None,
+        lambda args: 'unique' if args.get('unique', False) in (True, 'true', None) else None,
         Entity.disabled_filename_part,
     ]
 
@@ -735,11 +738,13 @@ class KeyEvent(KeyFile):
         self.overlay = False
         self.detach = False
         self.program = None
+        self.unique = False
         self.pids = []
         self.activated = False
         self.repeat_thread = None
         self.wait_thread = None
         self.duration_thread = None
+        self.ended_running = threading.Event()
 
     @property
     def str(self):
@@ -768,6 +773,7 @@ class KeyEvent(KeyFile):
             else:
                 final_args['mode'] = 'path'
             final_args['detach'] = args.get('detach', False)
+            final_args['unique'] = args.get('unique', False)
         elif action == 'page':
             final_args['mode'] = 'page'
             if 'page' not in args:
@@ -807,6 +813,7 @@ class KeyEvent(KeyFile):
             event.overlay = args.get('overlay', False)
         elif event.mode in ('path', 'program'):
             event.detach = args['detach']
+            event.unique = args['unique']
             event.to_stop = event.kind == 'start' and not event.detach
             if event.mode == 'program':
                 event.program = args['program']
@@ -910,13 +917,16 @@ class KeyEvent(KeyFile):
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref, self.overlay)
             elif self.mode in ('path', 'program'):
+                if self.unique and not self.ended_running.is_set():
+                    logger.warning(f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]')
+                    return True
                 if self.mode == 'path':
                     program = self.resolved_path
                     shell = False
                 else:
                     program = self.program
                     shell = True
-                if (pid := Manager.start_process(program, register_stop=self.to_stop, detach=self.detach, shell=shell)):
+                if (pid := Manager.start_process(program, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running)):
                     self.pids.append(pid)
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
@@ -976,6 +986,7 @@ class KeyEvent(KeyFile):
         if self.activated:
             return
         self.activated = True
+        self.ended_running.set()
         if self.kind == 'start' and self.mode in ('path', 'program'):
             self.wait_run_and_repeat()
 
@@ -2607,12 +2618,14 @@ class Manager:
             if (return_code := process_info['process'].poll()) is not None:
                 logger.info(f'[PROCESS] `{process_info["program"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]')
                 cls.processes.pop(pid, None)
+                if (event := process_info.get('done_event')):
+                    event.set()
 
     @classmethod
     def start_processes_checker(cls):
         if  cls.processes_checker_thread:
             return
-        cls.processes_checker_thread = Repeater(cls.check_running_processes, 1, name='ProcessChecker')
+        cls.processes_checker_thread = Repeater(cls.check_running_processes, 0.1, name='ProcessChecker')
         cls.processes_checker_thread.start()
 
     @classmethod
@@ -2624,7 +2637,9 @@ class Manager:
         cls.processes_checker_thread = None
 
     @classmethod
-    def start_process(cls, program, register_stop=False, detach=False, shell=False):
+    def start_process(cls, program, register_stop=False, detach=False, shell=False, done_event=None):
+        if done_event is not None:
+            done_event.clear()
         if not cls.processes_checker_thread:
             cls.start_processes_checker()
 
@@ -2638,6 +2653,7 @@ class Manager:
                 'process' : process,
                 'to_stop': bool(register_stop),
                 'detached': detach,
+                'done_event': done_event,
             }
             logger.info(f'{base_str} [ok PID={process.pid}]')
             return None if detach else process.pid 
