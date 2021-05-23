@@ -188,7 +188,7 @@ class Inotifier:
         self.watchers = {}
         self.watched = {}
 
-    def terminate(self):
+    def stop(self):
         self.running = False
         if self.inotify:
             self.inotify.close()
@@ -2380,6 +2380,7 @@ class Manager:
     files_watcher = None
     files_watcher_thread = None
     processes = {}
+    processes_checker_thread = None
 
     @classmethod
     def get_manager(cls):
@@ -2443,10 +2444,20 @@ class Manager:
         cls.files_watcher.remove_watch(directory)
 
     @classmethod
-    def init_files_watcher(cls):
+    def start_files_watcher(cls):
+        if cls.files_watcher:
+            return
         cls.files_watcher = Inotifier()
         cls.files_watcher_thread = threading.Thread(target=cls.files_watcher.run)
         cls.files_watcher_thread.start()
+
+    @classmethod
+    def end_files_watcher(cls):
+        if not cls.files_watcher:
+            return
+        cls.files_watcher.stop()
+        cls.files_watcher_thread.join()
+        cls.files_watcher = cls.files_watcher_thread = None
 
     @classmethod
     def exit(cls, status=0, msg=None, msg_level=None, log_exception=False):
@@ -2455,8 +2466,8 @@ class Manager:
                 msg_level = 'info' if status == 0 else 'critical'
             getattr(logger, msg_level)(msg, exc_info=log_exception)
 
-        if cls.files_watcher:
-            cls.files_watcher.terminate()
+        cls.end_files_watcher()
+        cls.end_processes_checker()
 
         if cls.decks:
             for serial, deck in list(cls.decks.items()):
@@ -2492,7 +2503,32 @@ class Manager:
         return directory
 
     @classmethod
+    def check_running_processes(cls):
+        for pid, process_info in list(cls.processes.items()):
+            if (return_code := process_info['process'].poll()) is not None:
+                logger.info(f'[PROCESS] `{process_info["program"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]')
+                cls.processes.pop(pid, None)
+
+    @classmethod
+    def start_processes_checker(cls):
+        if  cls.processes_checker_thread:
+            return
+        cls.processes_checker_thread = Repeater(cls.check_running_processes, 1, name='ProcessChecker')
+        cls.processes_checker_thread.start()
+
+    @classmethod
+    def end_processes_checker(cls):
+        if not cls.processes_checker_thread:
+            return
+        cls.processes_checker_thread.stop()
+        cls.processes_checker_thread.join()
+        cls.processes_checker_thread = None
+
+    @classmethod
     def start_process(cls, program, register_stop=False, detach=False, shell=False):
+        if not cls.processes_checker_thread:
+            cls.start_processes_checker()
+
         base_str = f'[PROCESS] Launching `{program}`{" (in detached mode)" if detach else ""}'
         logger.info(f'{base_str}...')
         try:
@@ -2502,6 +2538,7 @@ class Manager:
                 'program': program,
                 'process' : process,
                 'to_stop': bool(register_stop),
+                'detached': detach,
             }
             logger.info(f'{base_str} [ok PID={process.pid}]')
             return None if detach else process.pid 
@@ -2653,7 +2690,7 @@ def run(deck, directory):
         return Manager.exit(1, f"{directory} does not exist or is not a directory")
     logger.info(f'[DECK {serial}] Running in directory "{directory}"')
 
-    Manager.init_files_watcher()
+    Manager.start_files_watcher()
 
     deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=serial, disabled=False, device=device)
     deck.on_create()
@@ -2675,8 +2712,8 @@ def run(deck, directory):
     while not ended:
         sleep(1)
 
-    if Manager.files_watcher:
-        Manager.files_watcher.terminate()
+    Manager.end_files_watcher()
+    Manager.end_processes_checker()
 
     deck.unrender()
 
