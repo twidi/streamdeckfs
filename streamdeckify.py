@@ -370,7 +370,7 @@ class Entity:
         if (ref_conf := cls.parse_cache[name][1].get('ref')):
             if 'key_same_page' in ref_conf:
                 ref_conf['key'] = ref_conf.pop('key_same_page')
-            ref_conf, ref = cls.find_reference(parent, ref_conf)
+            ref_conf, ref = cls.find_reference(parent, ref_conf, main, args)
             if not ref:
                 return ref_conf, None, None, None
             ref_main, ref_args = ref.get_resovled_raw_args()
@@ -426,7 +426,7 @@ class Entity:
         return getattr(self.parent, self.parent_container_attr)
 
     @classmethod
-    def find_reference(cls, parent, ref_conf):
+    def find_reference(cls, parent, ref_conf, main, args):
         return ref_conf, None
 
     @property
@@ -571,6 +571,22 @@ class KeyFile(Entity):
         return self.page.deck
 
     @classmethod
+    def find_reference_key(cls, parent, ref_conf):
+        final_ref_conf = ref_conf.copy()
+        if ref_page := ref_conf.get('page'):
+            if not (page := parent.deck.find_page(ref_page)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['page'] = page = parent.page
+        if ref_key := ref_conf.get('key'):
+            if not (key := page.find_key(ref_key)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['key'] = key = parent
+
+        return final_ref_conf, key
+
+    @classmethod
     def iter_waiting_references_for_key(cls, check_key):
         for path, (parent, ref_conf) in check_key.waiting_child_references.get(cls, {}).items():
             yield check_key, path, parent, ref_conf
@@ -658,7 +674,7 @@ class KeyEvent(KeyFile):
     main_path_re = re.compile('^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         # reference
-        # re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>.+)$'),
+        re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>(?:(?:on_)?(?:press|longpress|release|start))|(?:(?:ON_)?(?:PRESS|LONGPRESS|RELEASE|START)))?$'),  # we'll use current kind if no event given
         # if the process must be detached from ours (ie launch and forget)
         re.compile('^(?P<flag>detach)(?:=(?P<value>false|true))?$'),
         # delay before launching action
@@ -810,6 +826,26 @@ class KeyEvent(KeyFile):
                 event.duration_min = LONGPRESS_DURATION_MIN
         return event
 
+    @classmethod
+    def find_reference(cls, parent, ref_conf, main, args):
+        final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
+        if not final_ref_conf.get('event'):
+            final_ref_conf['event'] = main['kind']
+        final_ref_conf['event'] = final_ref_conf['event'].lower()
+        if final_ref_conf['event'].startswith('on_'):
+            final_ref_conf['event'] = final_ref_conf['event'][3:]
+        if not key:
+            return final_ref_conf, None
+        return final_ref_conf, key.find_event(final_ref_conf['event'])
+
+    def get_waiting_references(self):
+        return [
+            (path, parent, ref_conf)
+            for key, path, parent, ref_conf
+            in self.iter_waiting_references_for_key(self.key)
+            if (event := key.find_layer(ref_conf['event'])) and event.kind == self.kind
+        ]
+
     @staticmethod
     def args_matching_filter(main, args, filter):
         if filter is None:
@@ -875,7 +911,7 @@ class KeyEvent(KeyFile):
                 self.deck.go_to_page(self.page_ref, self.overlay)
             elif self.mode in ('path', 'program'):
                 if self.mode == 'path':
-                    program = self.path
+                    program = self.resolved_path
                     shell = False
                 else:
                     program = self.program
@@ -1113,20 +1149,12 @@ class KeyImageLayer(keyImagePart):
         return layer
 
     @classmethod
-    def find_reference(cls, parent, ref_conf):
-        final_ref_conf = ref_conf.copy()
+    def find_reference(cls, parent, ref_conf, main, args):
+        final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
         if not final_ref_conf.get('layer'):
             final_ref_conf['layer'] = -1
-        if ref_page := ref_conf.get('page'):
-            if not (page := parent.deck.find_page(ref_page)):
-                return final_ref_conf, None
-        else:
-            final_ref_conf['page'] = page = parent.page
-        if ref_key := ref_conf.get('key'):
-            if not (key := page.find_key(ref_key)):
-                return final_ref_conf, None
-        else:
-            final_ref_conf['key'] = key = parent
+        if not key:
+            return final_ref_conf, None
         return final_ref_conf, key.find_layer(final_ref_conf['layer'])
 
     def get_waiting_references(self):
@@ -1317,20 +1345,12 @@ class KeyTextLine(keyImagePart):
         return line
 
     @classmethod
-    def find_reference(cls, parent, ref_conf):
-        final_ref_conf = ref_conf.copy()
+    def find_reference(cls, parent, ref_conf, main, args):
+        final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
         if not final_ref_conf.get('text_line'):
             final_ref_conf['text_line'] = -1
-        if ref_page := ref_conf.get('page'):
-            if not (page := parent.deck.find_page(ref_page)):
-                return final_ref_conf, None
-        else:
-            final_ref_conf['page'] = page = parent.page
-        if ref_key := ref_conf.get('key'):
-            if not (key := page.find_key(ref_key)):
-                return final_ref_conf, None
-        else:
-            final_ref_conf['key'] = key = parent
+        if not key:
+            return final_ref_conf, None
         return final_ref_conf, key.find_text_line(final_ref_conf['text_line'])
 
     def get_waiting_references(self):
@@ -1733,6 +1753,8 @@ class Key(Entity):
                     if event_filter is not None and not KeyEvent.args_matching_filter(main, args, event_filter):
                         return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyEvent, data_identifier=main['kind'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                elif ref_conf:
+                    KeyEvent.add_waiting_reference(self, path, ref_conf)
         if (layer_filter := self.deck.filters.get('layer')) != FILTER_DENY:
             if not entity_class or entity_class is KeyImageLayer:
                 ref_conf, ref, main, args = KeyImageLayer.parse_filename(name, self)
