@@ -456,6 +456,9 @@ class Entity:
             if parent.on_file_change(path.name, f.CREATE | (f.ISDIR if self.is_dir else 0), entity_class=self.__class__):
                 self.remove_waiting_reference(self.deck, path, ref_conf)
 
+    def on_changed(self):
+        pass
+
     def on_delete(self):
         for ref in list(self.referenced_by):
             ref.on_reference_deleted()
@@ -487,6 +490,7 @@ class Entity:
 
         if entity := data_dict[data_identifier].get_version(path):
             entity.path_modified_at = modified_at
+            entity.on_changed()
             return False
 
         entity = entity_class.create_from_args(
@@ -1174,6 +1178,9 @@ class KeyImageLayer(keyImagePart):
         except ValueError:
             pass
         return args.get('name') == filter
+
+    def on_changed(self):
+        self.key.on_image_changed()
 
     def _compose(self):
 
