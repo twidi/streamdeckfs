@@ -16,62 +16,59 @@ Features:
 - action on start and key press/long-press/release, with delay, repeat...
 - easily update from external script
 - changes on the fly from the directories/files names via inotify
+- references for key/images/texts/events (allow to reuse things and override only what is needed)
 
 TODO:
 - page on_open/open_close events
-- references: a page/key/event/image/text can be a link/copy of another one, with overridable configuration
-- area rendering (images/texts displayed over many keys)
 - conf to "animate" layer properties ?
 - argument "no animation" (to disable scrolling)
 - make events wait for same previous event to finish (usefull for multiple press, repeat option...)
 - key dir with no enabled images/events on overlays should let the keys below appear
+- allow passing "part" of config via set-*-conf (like "-c coords.3 100%" to change the 3 value of the current "coords" settings; maybe it could also be used when overriding references?)
 
 
 
 Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 
 /home/twidi/streamdeck-data/MYSTREAMDECKSERIAL
-└── PAGE_1;name=main
-    ├── KEY_ROW_1_COL_1;name=spotify
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/spotify/assets/background.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
-    │   ├── IMAGE;layer=2;name=pause;colorize=green;margin=20,20,20,20;opacity=40 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
-    │   ├── IMAGE;layer=3;name=progress;colorize=white;margin=92%,100%,-1,-100%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/spotify/assets/progress-bar.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/spotify/listen-changes.py
-    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/play-pause.py
-    ├── KEY_ROW_2_COL_1;name=volume-up
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
-    ├── KEY_ROW_2_COL_8;name=deck-brightness-up
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   └── ON_PRESS;action=brightness;level=+10
-    ├── KEY_ROW_3_COL_1;name=volume-down
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
-    ├── KEY_ROW_3_COL_8;name=deck-brightness-down
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/deck/assets/background-brightness.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   └── ON_PRESS;action=brightness;level=-10
-    ├── KEY_ROW_4_COL_1;name=volume-mute
-    │   ├── IMAGE;layer=0;name=background -> /home/twidi/dev/streamdeck-scripts/volume/assets/background.png
-    │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-    │   ├── IMAGE;layer=2;name=volume;colorize=white;margin=92%,75%,-1,-75%;crop=0,43%,100%,50% -> /home/twidi/dev/streamdeck-scripts/volume/assets/volume-bar.png
-    │   ├── IMAGE;layer=9;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
-    │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle_mute.sh
-    └── KEY_ROW_4_COL_8;name=deck-page-next
-        ├── IMAGE;colorize=#333333 -> /home/twidi/dev/streamdeck-scripts/deck/assets/right-arrow.png
-        └── ON_PRESS;action=page;page=__next__
+├── PAGE_1;name=main
+│   ├── KEY_ROW_1_COL_1;ref=spotify:toggle
+│   │   └── ON_LONGPRESS;name=spotify-page;action=page;page=spotify;duration-min=300
+│   ├── KEY_ROW_2_COL_1;name=volume-up
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;every=250;max-runs=34 -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
+│   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;action=brightness;level=+10;every=250;max-runs=10
+│   ├── KEY_ROW_3_COL_1;name=volume-down
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:volume-up:background
+│   │   └── ON_PRESS;every=250;max-runs=34 -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
+│   ├── KEY_ROW_3_COL_2;name=webcam;disabled
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=18,18,18,18 -> /home/twidi/dev/streamdeck-scripts/webcam/assets/icon.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2;colorize=red
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_START;disabled -> /home/twidi/dev/streamdeck-scripts/webcam/listen-changes.py
+│   ├── KEY_ROW_3_COL_8;name=deck-brightness-down
+│   │   ├── IMAGE;layer=1;name=icon;colorize=#ffffff;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
+│   │   ├── IMAGE;ref=:deck-brightness-up:background
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;ref=:deck-brightness-up:;level=-10
+│   └── KEY_ROW_4_COL_1;name=volume-mute
+│       ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
+│       ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,29%,92
+│       ├── IMAGE;ref=ref:img:overlay
+│       ├── IMAGE;ref=:volume-up:background
+│       ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
+│       └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
 
 Note that nearly every files (`IMAGES*`, `ON_*`) are links to images and scripts hosted in another directory. It's not mandatory but better to keep things organized.
+Or they can reference other images (like `IMAGE;ref=:volume-up:background`).
 
 `ON_*` files must be executable (`chmod +x`) and can be in any language (don't forget shebangs!). Except for some actions where the file can be empty, only the name counts:
 - `action=brightness` (see `KEY_ROW_3_COL_8/ON_PRESS*` and `KEY_ROW_4_COL_1/ON_PRESS*`) to change the deck brightness (with absolute or relative values)
@@ -968,8 +965,10 @@ class KeyEvent(KeyFile):
     def is_stoppable(self):
         return self.kind == 'start' and self.to_stop and self.mode in ('path', 'program') and self.pids
 
-    def activate(self):
-        if not self.page.is_current:
+    def activate(self, page=None):
+        if page is None:
+            page = self.page
+        if not page.is_current:
             return
         if self.activated:
             return
@@ -1628,14 +1627,6 @@ class KeyTextLine(keyImagePart):
         self.scrolled_at = now
         self.key.on_image_changed()
 
-    # def version_activated(self):
-    #     if self.scroll:
-    #         if self.wrap and self.valign != 'top':
-    #             logger.warning(f'[{self}] With scrolling and wrapping activated, if text needs to scroll, the "valign" will be forced to "top" instead of the configured "{self.valign}"')
-    #         elif not self.wrap and self.align != 'left':
-    #             logger.warning(f'[{self}] With scrolling activated but not wrapping, if text needs to scroll, the "align" will be forced to "left" instead of the configured "{self.align}"')
-    #     super().version_activated()
-
     def version_deactivated(self):
         super().version_deactivated()
         self.stop_scroller()
@@ -1648,7 +1639,7 @@ class Key(Entity):
     dir_template = 'KEY_ROW_{row}_COL_{col}'
     main_path_re = re.compile('^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
-        # re.compile('^(?P<arg>ref)=(?P<page>.*):(?P<key>.+)$'),
+        re.compile('^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$'),  # we'll use current row,col if no key given
     ]
     main_filename_part = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
     filename_parts = [
@@ -1720,6 +1711,45 @@ class Key(Entity):
         self.read_directory()
         Manager.add_watch(self.path, self)
 
+    @property
+    def resolved_events(self):
+        if not self.reference:
+            return self.events
+        events = {}
+        for kind, event in self.events.items():
+            if event:
+                events[kind] = event
+        for kind, event in self.reference.resolved_events.items():
+            if kind not in events and event:
+                events[kind] = event
+        return events
+
+    @property
+    def resolved_layers(self):
+        if not self.reference:
+            return self.layers
+        layers = {}
+        for num_layer, layer in self.layers.items():
+            if layer:
+                layers[num_layer] = layer
+        for num_layer, layer in self.reference.resolved_layers.items():
+            if num_layer not in layers and layer:
+                layers[num_layer] = layer
+        return layers
+
+    @property
+    def resolved_text_lines(self):
+        if not self.reference:
+            return self.text_lines
+        text_lines = {}
+        for line, text_line in self.text_lines.items():
+            if text_line:
+                text_lines[line] = text_line
+        for line, text_line in self.reference.resolved_text_lines.items():
+            if line not in text_lines and text_line:
+                text_lines[line] = text_line
+        return text_lines
+
     def on_delete(self):
         Manager.remove_watch(self.path)
         for layer_versions in self.layers.values():
@@ -1732,6 +1762,41 @@ class Key(Entity):
             for event in event_versions.all_versions:
                 event.on_delete()
         super().on_delete()
+
+    @classmethod
+    def find_reference_page(cls, parent, ref_conf):
+        final_ref_conf = ref_conf.copy()
+        if ref_page := ref_conf.get('page'):
+            if not (page := parent.deck.find_page(ref_page)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['page'] = page = parent
+        return final_ref_conf, page
+
+    @classmethod
+    def find_reference(cls, parent, ref_conf, main, args):
+        final_ref_conf, page = cls.find_reference_page(parent, ref_conf)
+        if not final_ref_conf.get('key'):
+            final_ref_conf['key'] = str(f"{main['row']},{main['col']}")
+        if not page:
+            return final_ref_conf, None
+        return final_ref_conf, page.find_key(final_ref_conf['key'])
+
+    @classmethod
+    def iter_waiting_references_for_page(cls, check_page):
+        for path, (parent, ref_conf) in check_page.waiting_child_references.get(cls, {}).items():
+            yield check_page, path, parent, ref_conf
+        for path, (parent, ref_conf) in check_page.deck.waiting_child_references.get(cls, {}).items():
+            if (page := check_page.deck.find_page(ref_conf['page'])) and page.number == check_page.number:
+                yield page, path, parent, ref_conf
+
+    def get_waiting_references(self):
+        return [
+            (path, parent, ref_conf)
+            for page, path, parent, ref_conf
+            in self.iter_waiting_references_for_page(self.page)
+            if (key := page.find_key(ref_conf['key'])) and key.key == self.key
+        ]
 
     def read_directory(self):
         if self.deck.filters.get('event') != FILTER_DENY:
@@ -1787,33 +1852,35 @@ class Key(Entity):
     def on_image_changed(self):
         self.compose_image_cache = None
         self.render()
-        # for reference in self.referenced_by:
-        #     reference.on_image_changed()
+        for reference in self.referenced_by:
+            reference.on_image_changed()
 
     @property
     def image_size(self):
         return self.width, self.height
 
-    @property
-    def sorted_layers(self):
-        return {num_layer: layer for num_layer, layer in sorted(self.layers.items()) if layer}
+    @staticmethod
+    def sort_layers(layers):
+        return {num_layer: layer for num_layer, layer in sorted(layers.items()) if layer}
 
-    @property
-    def sorted_text_lines(self):
-        return {line: text_line for line, text_line in sorted(self.text_lines.items()) if text_line}
+    @staticmethod
+    def sort_text_lines(text_lines):
+        return {line: text_line for line, text_line in sorted(text_lines.items()) if text_line}
 
     def compose_image(self, overlay_level=0):
         if not self.compose_image_cache:
+            layers = self.resolved_layers
+            text_lines = self.resolved_text_lines
             try:
-                if not self.layers and not self.text_lines:
+                if not layers and not text_lines:
                     self.compose_image_cache = (None, None)
                 else:
-                    layers = self.sorted_layers if self.layers else {}
+                    layers = self.sort_layers(layers) if layers else {}
                     if layers:
                         if len(layers) > 1:
                             # if more than one layer, we ignore the image used if no specific layers
                             layers.pop(-1, None)
-                    text_lines = self.sorted_text_lines if self.text_lines else {}
+                    text_lines = self.sort_text_lines(text_lines) if text_lines else {}
                     if text_lines:
                         if len(text_lines) > 1:
                             # if more than one text line, we ignore the one used if no specific lines
@@ -1853,22 +1920,22 @@ class Key(Entity):
             visible = True
         if visible:
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
-            for text_line in self.text_lines.values():
+            for text_line in self.resolved_text_lines.values():
                 if text_line:
                     text_line.start_scroller()
             if self.page.is_current:
-                for event in self.events.values():
+                for event in self.resolved_events.values():
                     if event:
-                        event.activate()
+                        event.activate(self.page)
 
     def unrender(self):
         visible, overlay_level = self.deck.get_key_visibility(self)
         if visible:
-            for text_line in self.text_lines.values():
+            for text_line in self.resolved_text_lines.values():
                 if text_line:
                     text_line.stop_scroller()
             self.deck.remove_image(self.row, self.col)
-            for event in self.events.values():
+            for event in self.resolved_events.values():
                 if event:
                     event.deactivate()
 
@@ -1885,13 +1952,13 @@ class Key(Entity):
         self.unrender()
 
     def find_layer(self, layer_filter, allow_disabled=False):
-        return KeyImageLayer.find_by_identifier_or_name(self.layers, layer_filter, int, allow_disabled=allow_disabled)
+        return KeyImageLayer.find_by_identifier_or_name(self.resolved_layers, layer_filter, int, allow_disabled=allow_disabled)
 
     def find_text_line(self, text_line_filter, allow_disabled=False):
-        return KeyTextLine.find_by_identifier_or_name(self.text_lines, text_line_filter, int, allow_disabled=allow_disabled)
+        return KeyTextLine.find_by_identifier_or_name(self.resolved_text_lines, text_line_filter, int, allow_disabled=allow_disabled)
 
     def find_event(self, event_filter, allow_disabled=False):
-        return KeyEvent.find_by_identifier_or_name(self.events, event_filter, str, allow_disabled=allow_disabled)
+        return KeyEvent.find_by_identifier_or_name(self.resolved_events, event_filter, str, allow_disabled=allow_disabled)
 
     @property
     def press_duration(self):
@@ -1901,10 +1968,11 @@ class Key(Entity):
         return (time() - self.pressed_at) * 1000
 
     def pressed(self):
-        if (longpress_event := self.events['longpress']):
+        events = self.resolved_events
+        if longpress_event := events.get('longpress'):
             logger.debug(f'[{self}] PRESSED. WAITING LONGPRESS.')
             longpress_event.wait_run_and_repeat(on_press=True)
-        if not (press_event := self.events['press']):
+        if not (press_event := events.get('press')):
             logger.debug(f'[{self}] PRESSED. IGNORED (event not configured)')
             return
         logger.info(f'[{press_event}] PRESSED.')
@@ -1912,15 +1980,16 @@ class Key(Entity):
         press_event.wait_run_and_repeat(on_press=True)
 
     def released(self):
+        events = self.resolved_events
         duration = self.press_duration or None
         for event_name in ('press', 'longpress'):
-            if event := self.events[event_name]:
+            if event := events.get(event_name):
                 event.stop_repeater()
                 if event.duration_thread:
                     event.stop_duration_waiter()
 
         str_delay_part = f' (after {duration}ms)' if duration is not None else ''
-        if not (release_event := self.events['release']):
+        if not (release_event := events.get('release')):
             logger.debug(f'[{self}] RELEASED{str_delay_part}. IGNORED (event not configured)')
             return
         if release_event.duration_min and (duration is None or duration < release_event.duration_min):
@@ -1938,15 +2007,7 @@ class Page(Entity):
     path_glob = 'PAGE_*'
     dir_template = 'PAGE_{page}'
     main_path_re = re.compile('^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)')
-    filename_re_parts = Entity.filename_re_parts + [
-        # re.compile('^(?P<arg>ref)=(?P<page>.+)$'),
-    ]
     main_filename_part = lambda args: f'PAGE_{args["page"]}'
-    filename_parts = [
-        Entity.name_filename_part,
-        lambda args: f'ref={ref["page"]}' if (ref := args.get('ref')) else None,
-        Entity.disabled_filename_part,
-    ]
 
     FIRST = '__first__'
     BACK = '__back__'
@@ -2003,6 +2064,8 @@ class Page(Entity):
                     if key_filter is not None and not Key.args_matching_filter(main, args, key_filter):
                         return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Key, data_identifier=(main['row'], main['col']), args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                elif ref_conf:
+                    Key.add_waiting_reference(self, path, ref_conf)
 
     @staticmethod
     def args_matching_filter(main, args, filter):
@@ -2098,6 +2161,7 @@ class Deck(Entity):
         self.page_history = []
         self.visible_pages = []
         self.pressed_key = None
+        self.is_running = False
 
     @property
     def str(self):
@@ -2123,6 +2187,7 @@ class Deck(Entity):
         Manager.add_watch(self.path, self)
 
     def run(self):
+        self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
         self.go_to_page(Page.FIRST, False)
 
