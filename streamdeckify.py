@@ -31,7 +31,7 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 /home/twidi/streamdeck-data/MYSTREAMDECKSERIAL
 ├── PAGE_1;name=main
 │   ├── KEY_ROW_1_COL_1;ref=spotify:toggle
-│   │   └── ON_LONGPRESS;name=spotify-page;action=page;page=spotify;duration-min=300
+│   │   └── ON_LONGPRESS;page=spotify;duration-min=300
 │   ├── KEY_ROW_2_COL_1;name=volume-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
@@ -41,7 +41,7 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
 │   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;action=brightness;level=+10;every=250;max-runs=10
+│   │   └── ON_PRESS;brightness=+10;every=250;max-runs=10
 │   ├── KEY_ROW_3_COL_1;name=volume-down
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
 │   │   ├── IMAGE;ref=ref:img:overlay
@@ -56,14 +56,16 @@ Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
 │   │   ├── IMAGE;layer=1;name=icon;colorize=#ffffff;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
 │   │   ├── IMAGE;ref=:deck-brightness-up:background
 │   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;ref=:deck-brightness-up:;level=-10
-│   └── KEY_ROW_4_COL_1;name=volume-mute
-│       ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-│       ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,26%,92
-│       ├── IMAGE;ref=ref:img:overlay
-│       ├── IMAGE;ref=:volume-up:background
-│       ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
-│       └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
+│   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
+│   ├── KEY_ROW_4_COL_1;name=volume-mute
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
+│   │   ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,26%,92
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:volume-up:background
+│   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
+│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
+│   └── KEY_ROW_4_COL_2;ref=microphone:microphone
+│       └── ON_LONGPRESS;page=microphone;duration-min=300;overlay
 
 Note that nearly every files (`IMAGES*`, `ON_*`) are links to images and scripts hosted in another directory. It's not mandatory but better to keep things organized.
 Or they can reference other images (like `IMAGE;ref=:volume-up:background`).
@@ -673,7 +675,7 @@ class KeyEvent(KeyFile):
     main_path_re = re.compile('^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         # reference
-        re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>(?:(?:on_)?(?:press|longpress|release|start))|(?:(?:ON_)?(?:PRESS|LONGPRESS|RELEASE|START)))?$'),  # we'll use current kind if no event given
+        re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>.*)$'),  # we'll use current kind if no event given
         # if the process must be detached from ours (ie launch and forget)
         re.compile('^(?P<flag>detach)(?:=(?P<value>false|true))?$'),
         # delay before launching action
@@ -833,10 +835,7 @@ class KeyEvent(KeyFile):
     def find_reference(cls, parent, ref_conf, main, args):
         final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
         if not final_ref_conf.get('event'):
-            final_ref_conf['event'] = main['kind']
-        final_ref_conf['event'] = final_ref_conf['event'].lower()
-        if final_ref_conf['event'].startswith('on_'):
-            final_ref_conf['event'] = final_ref_conf['event'][3:]
+            final_ref_conf['event'] = main['kind'].lower()
         if not key:
             return final_ref_conf, None
         return final_ref_conf, key.find_event(final_ref_conf['event'])
@@ -846,7 +845,7 @@ class KeyEvent(KeyFile):
             (path, parent, ref_conf)
             for key, path, parent, ref_conf
             in self.iter_waiting_references_for_key(self.key)
-            if (event := key.find_layer(ref_conf['event'])) and event.kind == self.kind
+            if (event := key.find_event(ref_conf['event'])) and event.kind == self.kind
         ]
 
     @staticmethod
