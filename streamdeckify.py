@@ -23,6 +23,8 @@ TODO:
 - area rendering (images/texts displayed over many keys)
 - conf to "animate" layer properties ?
 - argument "no animation" (to disable scrolling)
+- make events wait for same previous event to finish (usefull for multiple press, repeat option...)
+- key dir with no enabled images/events on overlays should let the keys below appear
 
 
 
@@ -1193,7 +1195,7 @@ class KeyTextLine(keyImagePart):
     main_path_re = re.compile('^(?P<kind>TEXT)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
-        # re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<line>.*)$'),  # we'll use -1 if no line given
+        re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$'),  # we'll use -1 if no line given
         re.compile('^(?P<arg>text)=(?P<value>.+)$'),
         re.compile('^(?P<arg>size)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
@@ -1210,7 +1212,7 @@ class KeyTextLine(keyImagePart):
     filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
         Entity.name_filename_part,
-        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("line") or ""}' if (ref := args.get('ref')) else None,
+        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1293,6 +1295,31 @@ class KeyTextLine(keyImagePart):
                 continue
             setattr(line, key, args[key])
         return line
+
+    @classmethod
+    def find_reference(cls, parent, ref_conf):
+        final_ref_conf = ref_conf.copy()
+        if not final_ref_conf.get('text_line'):
+            final_ref_conf['text_line'] = -1
+        if ref_page := ref_conf.get('page'):
+            if not (page := parent.deck.find_page(ref_page)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['page'] = page = parent.page
+        if ref_key := ref_conf.get('key'):
+            if not (key := page.find_key(ref_key)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['key'] = key = parent
+        return final_ref_conf, key.find_text_line(final_ref_conf['text_line'])
+
+    def get_waiting_references(self):
+        return [
+            (path, parent, ref_conf)
+            for key, path, parent, ref_conf
+            in self.iter_waiting_references_for_key(self.key)
+            if (text_line := key.find_text_line(ref_conf['text_line'])) and text_line.line == self.line
+        ]
 
     @classmethod
     def  get_text_size_drawer(cls):
