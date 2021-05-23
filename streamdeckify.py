@@ -1179,7 +1179,10 @@ class KeyImageLayer(keyImagePart):
         return args.get('name') == filter
 
     def on_changed(self):
+        self.compose_cache = None
         self.key.on_image_changed()
+        for reference in self.referenced_by:
+            reference.on_changed()
 
     def _compose(self):
 
