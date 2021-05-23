@@ -21,7 +21,6 @@ Features:
 TODO:
 - page on_open/open_close events
 - conf to "animate" layer properties ?
-- argument "no animation" (to disable scrolling)
 - make events wait for same previous event to finish (usefull for multiple press, repeat option...)
 - key dir with no enabled images/events on overlays should let the keys below appear
 - allow passing "part" of config via set-*-conf (like "-c coords.3 100%" to change the 3 value of the current "coords" settings; maybe it could also be used when overriding references?)
@@ -1348,6 +1347,8 @@ class KeyTextLine(keyImagePart):
             if key not in args:
                 continue
             setattr(line, key, args[key])
+        if not line.deck.scroll_activated:
+            line.scroll = None
         return line
 
     @classmethod
@@ -2149,6 +2150,7 @@ class Deck(Entity):
     is_dir = True
 
     device: StreamDeck
+    scroll_activated : bool
 
     def __post_init__(self):
         super().__post_init__()
@@ -2773,8 +2775,9 @@ def make_dirs(deck, directory, pages, yes):
 @cli.command()
 @common_options['optional_deck']
 @click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True, exists=True))
+@click.option('--scroll/--no-scroll', default=True, help='If scroll in keys is activated. Default to true.')
 @common_options['verbosity']
-def run(deck, directory):
+def run(deck, directory, scroll):
     """Run, Forrest, Run!"""
 
     device = Manager.get_deck(deck)
@@ -2786,7 +2789,7 @@ def run(deck, directory):
 
     Manager.start_files_watcher()
 
-    deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=serial, disabled=False, device=device)
+    deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=serial, disabled=False, device=device, scroll_activated=scroll)
     deck.on_create()
     deck.run()
 
@@ -2864,7 +2867,7 @@ class FilterCommands:
     @staticmethod
     def get_deck(directory, page_filter=None, key_filter=None, event_filter=None, layer_filter=None, text_line_filter=None):
         directory = Manager.normalize_deck_directory(directory, None)
-        deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=directory.name, disabled=False, device=None)
+        deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=directory.name, disabled=False, device=None, scroll_activated=False)
         if page_filter is not None:
             deck.filters['page'] = page_filter
         if key_filter is not None:
