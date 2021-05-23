@@ -350,8 +350,11 @@ class Entity:
 
         return cls.parse_cache[name]
 
+    def get_raw_args(self):
+        return self.raw_parse_filename(self.path.name, self.path.parent)
+
     def get_resovled_raw_args(self):
-        main, args = self.raw_parse_filename(self.path.name, self.path.parent)
+        main, args = self.get_raw_args()
         if self.reference:
             ref_main, ref_args = self.reference.get_resovled_raw_args()
             return ref_main | main, ref_args | args
@@ -807,6 +810,12 @@ class KeyEvent(KeyFile):
                 event.duration_min = LONGPRESS_DURATION_MIN
         return event
 
+    @staticmethod
+    def args_matching_filter(main, args, filter):
+        if filter is None:
+            return True
+        return main.get('find') == filter
+
     def start_repeater(self):
         if not self.repeat_every:
             return
@@ -1128,6 +1137,17 @@ class KeyImageLayer(keyImagePart):
             if (layer := key.find_layer(ref_conf['layer'])) and layer.layer == self.layer
         ]
 
+    @staticmethod
+    def args_matching_filter(main, args, filter):
+        if filter is None:
+            return True
+        try:
+            if args['layer'] == int(filter):
+                return True
+        except ValueError:
+            pass
+        return args.get('name') == filter
+
     def _compose(self):
 
         image_size = self.key.image_size
@@ -1320,6 +1340,17 @@ class KeyTextLine(keyImagePart):
             in self.iter_waiting_references_for_key(self.key)
             if (text_line := key.find_text_line(ref_conf['text_line'])) and text_line.line == self.line
         ]
+
+    @staticmethod
+    def args_matching_filter(main, args, filter):
+        if filter is None:
+            return True
+        try:
+            if args['line'] == int(filter):
+                return True
+        except ValueError:
+            pass
+        return args.get('name') == filter
 
     @classmethod
     def  get_text_size_drawer(cls):
@@ -1699,22 +1730,15 @@ class Key(Entity):
             if not entity_class or entity_class is KeyEvent:
                 ref_conf, ref, main, args = KeyEvent.parse_filename(name, self)
                 if main:
-                    if event_filter is not None:
-                        if main.get('kind') != event_filter:
-                            return
+                    if event_filter is not None and not KeyEvent.args_matching_filter(main, args, event_filter):
+                        return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyEvent, data_identifier=main['kind'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
         if (layer_filter := self.deck.filters.get('layer')) != FILTER_DENY:
             if not entity_class or entity_class is KeyImageLayer:
                 ref_conf, ref, main, args = KeyImageLayer.parse_filename(name, self)
                 if main:
-                    if layer_filter is not None:
-                        try:
-                            is_matching = args['layer'] == int(layer_filter)
-                        except ValueError:
-                            is_matching = False
-                        is_matching = is_matching or args.get('name') == layer_filter
-                        if not is_matching:
-                            return
+                    if layer_filter is not None and not KeyImageLayer.args_matching_filter(main, args, layer_filter):
+                        return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyImageLayer, data_identifier=args['layer'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
                 elif ref_conf:
                     KeyImageLayer.add_waiting_reference(self, path, ref_conf)
@@ -1722,15 +1746,21 @@ class Key(Entity):
             if not entity_class or entity_class is KeyTextLine:
                 ref_conf, ref, main, args = KeyTextLine.parse_filename(name, self)
                 if main:
-                    if text_line_filter is not None:
-                        try:
-                            is_matching = args['line'] == int(text_line_filter)
-                        except ValueError:
-                            is_matching = False
-                        is_matching = is_matching or args.get('name') == text_line_filter
-                        if not is_matching:
-                            return
+                    if text_line_filter is not None and not KeyTextLine.args_matching_filter(main, args, text_line_filter):
+                        return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyTextLine, data_identifier=args['line'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                elif ref_conf:
+                    KeyTextLine.add_waiting_reference(self, path, ref_conf)
+    @staticmethod
+    def args_matching_filter(main, args, filter):
+        if filter is None:
+            return True
+        try:
+            if (main['row'], main['col']) == tuple(int(val) for val in filter.split(',')):
+                return True
+        except ValueError:
+            pass
+        return args.get('name') == filter
 
     def on_image_changed(self):
         self.compose_image_cache = None
@@ -1948,15 +1978,20 @@ class Page(Entity):
             if not entity_class or entity_class is Key:
                 ref_conf, ref, main, args = Key.parse_filename(name, self)
                 if main:
-                    if key_filter is not None:
-                        try:
-                            is_matching = (main['row'], main['col']) == tuple(int(val) for val in key_filter.split(','))
-                        except ValueError:
-                            is_matching = False
-                        is_matching = is_matching or args.get('name') == key_filter
-                        if not is_matching:
-                            return
+                    if key_filter is not None and not Key.args_matching_filter(main, args, key_filter):
+                        return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Key, data_identifier=(main['row'], main['col']), args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+
+    @staticmethod
+    def args_matching_filter(main, args, filter):
+        if filter is None:
+            return True
+        try:
+            if main['page'] == int(filter):
+                return True
+        except ValueError:
+            pass
+        return args.get('name') == filter
 
     @property
     def is_current(self):
@@ -2080,14 +2115,8 @@ class Deck(Entity):
             if not entity_class or entity_class is Page:
                 ref_conf, ref, main, args = Page.parse_filename(name, self)
                 if main:
-                    if page_filter is not None:
-                        try:
-                            is_matching = main['page'] == int(page_filter)
-                        except ValueError:
-                            is_matching = False
-                        is_matching = is_matching or args.get('name') == page_filter
-                        if not is_matching:
-                            return
+                    if page_filter is not None and not Page.args_matching_filter(main, args, page_filter):
+                        return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     def update_visible_pages_stack(self):
@@ -2747,8 +2776,8 @@ class FilterCommands:
         return event
 
     @classmethod
-    def get_args(cls, obj):
-        return obj.get_resovled_raw_args()
+    def get_args(cls, obj, resolve=True):
+        return obj.get_resovled_raw_args() if resolve else obj.get_raw_args()
 
     @classmethod
     def get_args_as_json(cls, obj, only_names=None):
@@ -2764,7 +2793,7 @@ class FilterCommands:
 
     @classmethod
     def get_update_args_filename(cls, obj, names_and_values):
-        main, args = cls.get_args(obj)
+        main, args = cls.get_args(obj, resolve=False)
         final_args = deepcopy(args)
         for (name, value) in names_and_values:
             if ';' in name:
@@ -2792,105 +2821,105 @@ FC.combine_options()
 @FC.options['page_filter']
 def get_page_path(directory, page_filter):
     """Get the path of a page."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
     print(page.path)
 
 @cli.command()
 @FC.options['page_filter_with_names']
 def get_page_conf(directory, page_filter, names):
     """Get the configuration of a page, in json."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
     print(FC.get_args_as_json(page, names or None))
 
 @cli.command()
 @FC.options['page_filter_with_names_and_values']
 def set_page_conf(directory, page_filter, names_and_values):
     """Set the value of some entries of a page configuration."""
-    page = FC.find_page(FC.get_deck(directory, page_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter)
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
     page.rename(FC.get_update_args_filename(page, names_and_values))
 
 @cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     print(key.path)
 
 @cli.command()
 @FC.options['key_filter_with_names']
 def get_key_conf(directory, page_filter, key_filter, names):
     """Get the configuration of a key, in json."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     print(FC.get_args_as_json(key, names or None))
 
 @cli.command()
 @FC.options['key_filter_with_names_and_values']
 def set_key_conf(directory, page_filter, key_filter, names_and_values):
     """Set the value of some entries of a key configuration."""
-    key = FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, FILTER_DENY, FILTER_DENY, FILTER_DENY), page_filter), key_filter)
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     key.rename(FC.get_update_args_filename(key, names_and_values))
 
 @cli.command()
 @FC.options['layer_filter']
 def get_image_path(directory, page_filter, key_filter, layer_filter):
     """Get the path of an image/layer."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(layer.path)
 
 @cli.command()
 @FC.options['layer_filter_with_names']
 def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
     """Get the configuration of an image/layer, in json."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(FC.get_args_as_json(layer, names or None))
 
 @cli.command()
 @FC.options['layer_filter_with_names_and_values']
 def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_values):
     """Set the value of some entries of an image configuration."""
-    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=layer_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     layer.rename(FC.get_update_args_filename(layer, names_and_values))
 
 @cli.command()
 @FC.options['text_line_filter']
 def get_text_path(directory, page_filter, key_filter, text_line_filter):
     """Get the path of an image/layer."""
-    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     print(text_line.path)
 
 @cli.command()
 @FC.options['text_line_filter_with_names']
 def get_text_conf(directory, page_filter, key_filter, text_line_filter, names):
     """Get the configuration of an image/layer, in json."""
-    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     print(FC.get_args_as_json(text_line, names or None))
 
 @cli.command()
 @FC.options['text_line_filter_with_names_and_values']
 def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_and_values):
     """Set the value of some entries of an image configuration."""
-    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=text_line_filter), page_filter), key_filter), text_line_filter)
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     text_line.rename(FC.get_update_args_filename(text_line, names_and_values))
 
 @cli.command()
 @FC.options['event_filter']
 def get_event_path(directory, page_filter, key_filter, event_filter):
     """Get the path of an event."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     print(event.path)
 
 @cli.command()
 @FC.options['event_filter_with_names']
 def get_event_conf(directory, page_filter, key_filter, event_filter, names):
     """Get the configuration of an event, in json."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     print(FC.get_args_as_json(event, names or None))
 
 @cli.command()
 @FC.options['event_filter_with_names_and_values']
 def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_values):
     """Set the value of some entries of an event configuration."""
-    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, page_filter, key_filter, layer_filter=FILTER_DENY, event_filter=event_filter, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     event.rename(FC.get_update_args_filename(event, names_and_values))
 
 
