@@ -19,7 +19,6 @@ Features:
 - references for key/images/texts/events (allow to reuse things and override only what is needed)
 
 TODO:
-- remove the `action=` argument in events. page/brightness_level/program is enough to know what to do
 - page on_open/open_close events
 - conf to "animate" layer properties ?
 - key dir with no enabled images/events on overlays should let the keys below appear
@@ -687,14 +686,11 @@ class KeyEvent(KeyFile):
         # min duration a key must be pressed to run the action, only for longpress/release
         re.compile('^(?P<arg>duration-min)=(?P<value>\d+)$'),
         # action brightness
-        re.compile('^(?P<arg>action)=(?P<value>brightness)$'),
-        re.compile(f'^(?P<arg>level)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>{RE_PART_0_100})$'),
+        re.compile(f'^(?P<arg>brightness)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>{RE_PART_0_100})$'),
         # action page
-        re.compile('^(?P<arg>action)=(?P<value>page)$'),
         re.compile('^(?P<arg>page)=(?P<value>.+)$'),
         re.compile('^(?P<flag>overlay)(?:=(?P<value>false|true))?$'),
         # action run
-        re.compile('^(?P<arg>action)=(?P<value>run)$'),
         re.compile('^(?P<arg>program)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
         # do not run many times the same program at the same time
@@ -704,11 +700,10 @@ class KeyEvent(KeyFile):
     filename_parts = [
         Entity.name_filename_part,
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref["event"]}' if (ref := args.get('ref')) else None,
-        lambda args: f'action={action}' if (action := args.get('action')) else None,
-        lambda args: f'level={level.get("brightness_operation", "")}{level["brightness_level"]}' if args.get('action') == 'brightness' and (level := args.get('level')) else None,
-        lambda args: f'page={args["page"]}' if args.get('action') == 'page' else None,
-        lambda args: f'program={args["program"]}' if args.get('action') == 'run' else None,
-        lambda args: f'slash={args["slash"]}' if args.get('action') == 'run' else None,
+        lambda args: f'brightness={brightness.get("brightness_operation", "")}{brightness["brightness_level"]}' if (brightness := args.get('brightness')) else None,
+        lambda args: f'page={page}' if (page := args.get('page')) else None,
+        lambda args: f'program={program}' if (program := args.get('program')) else None,
+        lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
         lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
         lambda args: f'every={every}' if (every := args.get('every')) else None,
         lambda args: f'max-runs={max_runs}' if (max_runs := args.get('max-runs')) else None,
@@ -763,31 +758,32 @@ class KeyEvent(KeyFile):
     @classmethod
     def convert_args(cls, args):
         final_args = super().convert_args(args)
-        final_args['mode'] = None
-        if not (action := args.get('action')) or action == 'run':
-            if action == 'run':
-                if 'program' not in args:
-                    raise InvalidArg('Argument "program" is expected when "action=run"')
-                final_args['mode'] = 'program'
+
+        if len([1 for key in ('page', 'brightness', 'program') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "page", "brightness", "program')
+
+        if args.get('page'):
+            final_args['mode'] = 'page'
+        elif args.get('brightness'):
+            final_args['mode'] = 'brightness'
+        elif args.get('program'):
+            final_args['mode'] = 'program'
+        else:
+            final_args['mode'] = 'path'
+
+        if final_args['mode'] in ('path', 'program'):
+            if final_args['mode'] == 'program':
                 final_args['program'] = args['program'].replace(args.get('slash', '\\\\'), '/')# double \ by default
-            else:
-                final_args['mode'] = 'path'
             final_args['detach'] = args.get('detach', False)
             final_args['unique'] = args.get('unique', False)
-        elif action == 'page':
-            final_args['mode'] = 'page'
-            if 'page' not in args:
-                raise InvalidArg('Argument "page" is expected when "action=page"')
+        elif final_args['mode'] == 'page':
             final_args['page_ref'] = args['page']
             if 'page_ref' != Page.BACK and 'overlay' in args:
                 final_args['overlay'] = args['overlay']
-        elif action == 'brightness':
-            if 'level' not in args:
-                raise InvalidArg('Argument "level" is expected when "action=brightness"')
-            final_args['mode'] = 'brightness'
+        elif final_args['mode'] == 'brightness':
             final_args['brightness_level'] = (
-                args['level'].get('brightness_operation') or '=',
-                int(args['level']['brightness_level'])
+                args['brightness'].get('brightness_operation') or '=',
+                int(args['brightness']['brightness_level'])
             )
         if 'every' in args:
             final_args['repeat-every'] = int(args['every'])
