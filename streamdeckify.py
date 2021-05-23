@@ -21,6 +21,9 @@ TODO:
 - page on_open/open_close events
 - references: a page/key/event/image/text can be a link/copy of another one, with overridable configuration
 - area rendering (images/texts displayed over many keys)
+- conf to "animate" layer properties ?
+- argument "no animation" (to disable scrolling)
+
 
 
 Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
@@ -141,7 +144,7 @@ class VersionProxy(ObjectWrapper):
         return not self.versions
 
     def get_version(self, key):
-        return self.versions[key]
+        return self.versions.get(key)
 
     @property
     def all_versions(self):
@@ -242,9 +245,10 @@ class InvalidArg(Exception):
     pass
 
 
-@dataclass
+@dataclass(eq=False)
 class Entity:
 
+    is_dir = False
     path_glob = None
     main_path_re = None
     filename_re_parts = [
@@ -258,11 +262,38 @@ class Entity:
 
     parent_attr = None
     identifier_attr = None
+    parent_container_attr = None
 
     path: Path
     path_modified_at: float
     name: str
     disabled: bool
+
+    parse_cache = None
+
+    def __post_init__(self):
+        self.ref_conf = None
+        self._reference = None
+        self.referenced_by = set()
+        self.waiting_child_references = {}
+
+    def __eq__(self, other):
+        return id(self) == id(other)
+
+    def __hash__(self):
+        return id(self)
+
+    @property
+    def reference(self):
+        return self._reference
+
+    @reference.setter
+    def reference(self, ref):
+        self._reference = ref
+        if ref:
+            ref.referenced_by.add(self)
+        else:
+            ref.referenced_by.discard(self)
 
     @classmethod
     def compose_filename_part(cls, part, args):
@@ -285,42 +316,73 @@ class Entity:
         main_part, args_parts = cls.compose_filename_parts(main, args)
         return ';'.join([main_part] + args_parts)
 
+    @classmethod
+    def raw_parse_filename(cls, name, parent):
+        if cls.parse_cache is None:
+            cls.parse_cache = {}
+
+        if name not in cls.parse_cache:
+
+            main_part, *parts = name.split(';')
+            if not (match := cls.main_path_re.match(main_part)):
+                main, args = None, None
+            else:
+                main = match.groupdict()
+                args = {}
+                for part in parts:
+                    for regex in cls.filename_re_parts:
+                        if match := regex.match(part):
+                            values = match.groupdict()
+                            is_flag = 'flag' in values and 'arg' not in values and len(values) == 2
+                            if not is_flag:
+                                values = {key: value for key, value in values.items() if value}
+                            if not (arg_name := values.pop('flag' if is_flag else 'arg', None)):
+                                continue
+                            if list(values.keys()) == ['value']:
+                                values = values['value']
+                                if is_flag:
+                                    values = values in (None, 'true')
+                            args[arg_name] = values
+
+            cls.parse_cache[name] = (main, args)
+
+        return cls.parse_cache[name]
+
+    def get_resovled_raw_args(self):
+        main, args = self.raw_parse_filename(self.path.name, self.path.parent)
+        if self.reference:
+            ref_main, ref_args = self.reference.get_resovled_raw_args()
+            return ref_main | main, ref_args | args
+        return main, args
 
     @classmethod
-    def parse_filename(cls, name, parent, raw=False):
-        main_part, *parts = name.split(';')
-        if not (match := cls.main_path_re.match(main_part)):
-            return None, None
+    def parse_filename(cls, name, parent):
+        main, args = cls.raw_parse_filename(name, parent)
+        if main is None or args is None:
+            return None, None, None, None
 
-        main = match.groupdict()
-        args = {}
-        for part in parts:
-            for regex in cls.filename_re_parts:
-                if match := regex.match(part):
-                    values = match.groupdict()
-                    is_flag = 'flag' in values and 'arg' not in values and len(values) == 2
-                    if not is_flag:
-                        values = {key: value for key, value in values.items() if value}
-                    if not (arg_name := values.pop('flag' if is_flag else 'arg', None)):
-                        continue
-                    if len(values) == 1:
-                        values = list(values.values())[0]
-                        if is_flag:
-                            values = values in (None, 'true')
-                    args[arg_name] = values
-
-        if raw:
-            return main, args
+        ref_conf = ref = None
+        if (ref_conf := cls.parse_cache[name][1].get('ref')):
+            if 'key_same_page' in ref_conf:
+                ref_conf['key'] = ref_conf.pop('key_same_page')
+            ref_conf, ref = cls.find_reference(parent, ref_conf)
+            if not ref:
+                return ref_conf, None, None, None
+            ref_main, ref_args = ref.get_resovled_raw_args()
+            if ref_main is None or ref_args is None:
+                return ref_conf, None, None, None
+            main = ref_main | main
+            args = ref_args | args
 
         try:
             main = cls.convert_main_args(main)
             if main is not None:
                 if (args := cls.convert_args(args)) is not None:
-                    return main, args
+                    return ref_conf, ref, main, args
         except InvalidArg as exc:
             logger.error(f'[{parent}] [{name}] {exc}')
 
-        return None, None
+        return ref_conf, None, None, None
 
     @classmethod
     def convert_main_args(cls, args):
@@ -346,16 +408,73 @@ class Entity:
         attrs[cls.identifier_attr] = identifier
         return cls(**attrs)
 
+    @property
+    def identifier(self):
+        return getattr(self, self.identifier_attr)
+
+    @property
+    def parent(self):
+        return getattr(self, self.parent_attr)
+
+    @property
+    def parent_container(self):
+        return getattr(self.parent, self.parent_container_attr)
+
+    @classmethod
+    def find_reference(cls, parent, ref_conf):
+        return ref_conf, None
+
+    @property
+    def resolved_path(self):
+        if self.reference:
+            return self.reference.resolved_path
+        return self.path
+
+    @staticmethod
+    def get_waiting_reference_holder(deck, ref_conf):
+        if isinstance(ref_conf.get('key'), Key):
+            return ref_conf['key']
+        if isinstance(ref_conf.get('page'), Page):
+            return ref_conf['page']
+        return deck
+
+    @classmethod
+    def add_waiting_reference(cls, parent, path, ref_conf):
+        cls.get_waiting_reference_holder(parent.deck, ref_conf).waiting_child_references.setdefault(cls, {})[path] = (parent, ref_conf)
+
+    @classmethod
+    def remove_waiting_reference(cls, deck, path, ref_conf):
+        cls.get_waiting_reference_holder(deck, ref_conf).waiting_child_references.setdefault(cls, {}).pop(path, None)
+
+    def get_waiting_references(self):
+        return []
+
     def on_create(self):
-        return
+        for path, parent, ref_conf in self.get_waiting_references():
+            if parent.on_file_change(path.name, f.CREATE | (f.ISDIR if self.is_dir else 0), entity_class=self.__class__):
+                self.remove_waiting_reference(self.deck, path, ref_conf)
 
     def on_delete(self):
-        return
+        for ref in list(self.referenced_by):
+            ref.on_reference_deleted()
+        if self.reference:
+            self.reference.referenced_by.remove(self)
 
-    def on_child_entity_change(self, path, flags, expect_dir, entity_class, data_dict, data_identifier, args, modified_at=None):
-        if (bool(flags & f.ISDIR) ^ expect_dir) or (flags & f.DELETE) or (flags & f.MOVED_FROM):
-            if entity := data_dict[data_identifier].remove_version(path):
+    def on_reference_deleted(self):
+        if self.reference:
+            self.add_waiting_reference(self.parent, self.path, self.ref_conf)
+        self.on_delete()
+        self.parent_container[self.identifier].remove_version(self.path)
+
+    def on_child_entity_change(self, path, flags, entity_class, data_identifier, args, ref_conf, ref, modified_at=None):
+        data_dict = getattr(self, entity_class.parent_container_attr)
+
+        if (bool(flags & f.ISDIR) ^ entity_class.is_dir) or (flags & f.DELETE) or (flags & f.MOVED_FROM):
+            if entity := data_dict[data_identifier].get_version(path):
                 entity.on_delete()
+                data_dict[data_identifier].remove_version(path)
+            if ref_conf:
+                entity_class.remove_waiting_reference(self.deck, path, ref_conf)
             return False
 
         if modified_at is None:
@@ -364,8 +483,8 @@ class Entity:
             except Exception:
                 return False
 
-        if data_dict[data_identifier].has_version(path):
-            data_dict[data_identifier].get_version(path).path_modified_at = modified_at
+        if entity := data_dict[data_identifier].get_version(path):
+            entity.path_modified_at = modified_at
             return False
 
         entity = entity_class.create_from_args(
@@ -375,6 +494,9 @@ class Entity:
             args=args,
             path_modified_at=modified_at
         )
+        if ref:
+            entity.reference = ref
+            entity.ref_conf = ref_conf
         data_dict[data_identifier].add_version(path, entity)
         entity.on_create()
         return True
@@ -387,6 +509,9 @@ class Entity:
 
     @classmethod
     def find_by_identifier_or_name(cls, data, filter, to_identifier, allow_disabled=False):
+        if not filter:
+            return None
+
         try:
             # find by identifier
             if (identifier := to_identifier(filter)) not in data:
@@ -426,7 +551,7 @@ class Entity:
         return False
 
 
-@dataclass
+@dataclass(eq=False)
 class KeyFile(Entity):
     parent_attr = 'key'
 
@@ -439,6 +564,17 @@ class KeyFile(Entity):
     @property
     def deck(self):
         return self.page.deck
+
+    @classmethod
+    def iter_waiting_references_for_key(cls, check_key):
+        for path, (parent, ref_conf) in check_key.waiting_child_references.get(cls, {}).items():
+            yield check_key, path, parent, ref_conf
+        for path, (parent, ref_conf) in check_key.page.waiting_child_references.get(cls, {}).items():
+            if (key := check_key.page.find_key(ref_conf['key'])) and key.key == check_key.key:
+                yield key, path, parent, ref_conf
+        for path, (parent, ref_conf) in check_key.deck.waiting_child_references.get(cls, {}).items():
+            if (page := check_key.deck.find_page(ref_conf['page'])) and page.number == check_key.page.number and  (key := page.find_key(ref_conf['key'])) and key.key == check_key.key:
+                yield key, path, parent, ref_conf
 
 
 class NamedThread(threading.Thread):
@@ -511,11 +647,13 @@ class Repeater(StopEventThread):
             self.end_callback(thread=self)
 
 
-@dataclass
+@dataclass(eq=False)
 class KeyEvent(KeyFile):
     path_glob = 'ON_*'
     main_path_re = re.compile('^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
+        # reference
+        # re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>.+)$'),
         # if the process must be detached from ours (ie launch and forget)
         re.compile('^(?P<flag>detach)(?:=(?P<value>false|true))?$'),
         # delay before launching action
@@ -542,6 +680,7 @@ class KeyEvent(KeyFile):
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
     filename_parts = [
         Entity.name_filename_part,
+        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref["event"]}' if (ref := args.get('ref')) else None,
         lambda args: f'action={action}' if (action := args.get('action')) else None,
         lambda args: f'level={level.get("brightness_operation", "")}{level["brightness_level"]}' if args.get('action') == 'brightness' and (level := args.get('level')) else None,
         lambda args: f'page={args["page"]}' if args.get('action') == 'page' else None,
@@ -558,9 +697,12 @@ class KeyEvent(KeyFile):
     ]
 
     identifier_attr = 'kind'
+    parent_container_attr = 'events'
+
     kind: str
 
     def __post_init__(self):
+        super().__post_init__()
         self.mode = None
         self.to_stop = False
         self.brightness_level = ('=', DEFAULT_BRIGHTNESS)
@@ -795,7 +937,7 @@ class KeyEvent(KeyFile):
         self.stop()
 
 
-@dataclass
+@dataclass(eq=False)
 class keyImagePart(KeyFile):
 
     no_margins = {'top': ('int', 0), 'right': ('int', 0), 'bottom': ('int', 0), 'left': ('int', 0)}
@@ -804,6 +946,7 @@ class keyImagePart(KeyFile):
         return f'{self.key}, {self.str}'
 
     def __post_init__(self):
+        super().__post_init__()
         self.compose_cache = None
 
     def version_activated(self):
@@ -855,12 +998,13 @@ class keyImagePart(KeyFile):
         image.putalpha(ImageEnhance.Brightness(image.getchannel('A')).enhance(self.opacity/100))
 
 
-@dataclass
+@dataclass(eq=False)
 class KeyImageLayer(keyImagePart):
     path_glob = 'IMAGE*'
     main_path_re = re.compile('^(?P<kind>IMAGE)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         re.compile('^(?P<arg>layer)=(?P<value>\d+)$'),
+        re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<layer>.*)$'),  # we'll use -1 if no layer given
         re.compile(f'^(?P<arg>colorize)=(?P<value>{RE_PART_COLOR})$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
@@ -878,6 +1022,7 @@ class KeyImageLayer(keyImagePart):
     filename_parts = [
         lambda args: f'layer={layer}' if (layer := args.get('layer')) else None,
         Entity.name_filename_part,
+        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("layer") or ""}' if (ref := args.get('ref')) else None,
         lambda args: f'draw={draw}' if (draw := args.get('draw')) else None,
         lambda args: f'coords={coords}' if (coords := args.get('coords')) else None,
         lambda args: f'outline={color}' if (color := args.get('outline')) else None,
@@ -894,6 +1039,8 @@ class KeyImageLayer(keyImagePart):
     ]
 
     identifier_attr = 'layer'
+    parent_container_attr = 'layers'
+
     layer: int
 
     def __post_init__(self):
@@ -954,6 +1101,31 @@ class KeyImageLayer(keyImagePart):
             setattr(layer, key, args[key])
         return layer
 
+    @classmethod
+    def find_reference(cls, parent, ref_conf):
+        final_ref_conf = ref_conf.copy()
+        if not final_ref_conf.get('layer'):
+            final_ref_conf['layer'] = -1
+        if ref_page := ref_conf.get('page'):
+            if not (page := parent.deck.find_page(ref_page)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['page'] = page = parent.page
+        if ref_key := ref_conf.get('key'):
+            if not (key := page.find_key(ref_key)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf['key'] = key = parent
+        return final_ref_conf, key.find_layer(final_ref_conf['layer'])
+
+    def get_waiting_references(self):
+        return [
+            (path, parent, ref_conf)
+            for key, path, parent, ref_conf
+            in self.iter_waiting_references_for_key(self.key)
+            if (layer := key.find_layer(ref_conf['layer'])) and layer.layer == self.layer
+        ]
+
     def _compose(self):
 
         image_size = self.key.image_size
@@ -985,7 +1157,7 @@ class KeyImageLayer(keyImagePart):
                 drawer.pieslice(coords, start=self.draw_angles[0], end=self.draw_angles[1], outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
 
         else:
-            layer_image = Image.open(self.path)
+            layer_image = Image.open(self.resolved_path)
 
         if self.crop:
             crops = {
@@ -1015,12 +1187,13 @@ class KeyImageLayer(keyImagePart):
         return thumbnail, thumbnail_x, thumbnail_y, thumbnail
 
 
-@dataclass
+@dataclass(eq=False)
 class KeyTextLine(keyImagePart):
     path_glob = 'TEXT*'
     main_path_re = re.compile('^(?P<kind>TEXT)(?:;|$)')
     filename_re_parts = Entity.filename_re_parts + [
         re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
+        # re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<line>.*)$'),  # we'll use -1 if no line given
         re.compile('^(?P<arg>text)=(?P<value>.+)$'),
         re.compile('^(?P<arg>size)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
@@ -1037,6 +1210,7 @@ class KeyTextLine(keyImagePart):
     filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
         Entity.name_filename_part,
+        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("line") or ""}' if (ref := args.get('ref')) else None,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1056,6 +1230,8 @@ class KeyTextLine(keyImagePart):
     text_size_cache = {}
 
     identifier_attr = 'line'
+    parent_container_attr = 'text_lines'
+
     line: int
 
     text_size_drawer = None
@@ -1386,21 +1562,32 @@ class KeyTextLine(keyImagePart):
         super().version_deactivated()
         self.stop_scroller()
 
-@dataclass
+@dataclass(eq=False)
 class Key(Entity):
 
+    is_dir = True
     path_glob = 'KEY_ROW_*_COL_*'
     dir_template = 'KEY_ROW_{row}_COL_{col}'
     main_path_re = re.compile('^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)(?:;|$)')
+    filename_re_parts = Entity.filename_re_parts + [
+        # re.compile('^(?P<arg>ref)=(?P<page>.*):(?P<key>.+)$'),
+    ]
     main_filename_part = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
+    filename_parts = [
+        Entity.name_filename_part,
+        lambda args: f'ref={ref.get("page")}:{ref["key"]}' if (ref := args.get('ref')) else None,
+        Entity.disabled_filename_part,
+    ]
 
     parent_attr = 'page'
     identifier_attr = 'key'
+    parent_container_attr = 'keys'
 
     page: 'Page'
     key: Tuple[int, int]
 
     def __post_init__(self):
+        super().__post_init__()
         self.compose_image_cache = None
         self.pressed_at = None
         self.events = versions_dict_factory()
@@ -1443,14 +1630,12 @@ class Key(Entity):
         return args
 
     @classmethod
-    def parse_filename(cls, name, parent, raw=False):
-        main, args = super().parse_filename(name, parent, raw=raw)
-        if raw:
-            return main, args
+    def parse_filename(cls, name, parent):
+        ref_conf, ref, main, args = super().parse_filename(name, parent)
         if main is not None and parent.deck.device:
             if main['row'] < 1 or main['row'] > parent.deck.nb_rows or main['col'] < 1 or main['col'] > parent.deck.nb_cols:
-                return None, None
-        return main, args
+                return None, None, None, None
+        return ref_conf, ref, main, args
 
     def on_create(self):
         super().on_create()
@@ -1458,8 +1643,17 @@ class Key(Entity):
         Manager.add_watch(self.path, self)
 
     def on_delete(self):
-        super().on_delete()
         Manager.remove_watch(self.path)
+        for layer_versions in self.layers.values():
+            for layer in layer_versions.all_versions:
+                layer.on_delete()
+        for text_line_versions in self.text_lines.values():
+            for text_line in text_line_versions.all_versions:
+                text_line.on_delete()
+        for event_versions in self.events.values():
+            for event in event_versions.all_versions:
+                event.on_delete()
+        super().on_delete()
 
     def read_directory(self):
         if self.deck.filters.get('event') != FILTER_DENY:
@@ -1476,15 +1670,15 @@ class Key(Entity):
         path = self.path / name
         if (event_filter := self.deck.filters.get('event')) != FILTER_DENY:
             if not entity_class or entity_class is KeyEvent:
-                main, args = KeyEvent.parse_filename(name, self)
+                ref_conf, ref, main, args = KeyEvent.parse_filename(name, self)
                 if main:
                     if event_filter is not None:
                         if main.get('kind') != event_filter:
                             return
-                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=False, entity_class=KeyEvent, data_dict=self.events, data_identifier=main['kind'], args=args, modified_at=modified_at)
+                    return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyEvent, data_identifier=main['kind'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
         if (layer_filter := self.deck.filters.get('layer')) != FILTER_DENY:
             if not entity_class or entity_class is KeyImageLayer:
-                main, args = KeyImageLayer.parse_filename(name, self)
+                ref_conf, ref, main, args = KeyImageLayer.parse_filename(name, self)
                 if main:
                     if layer_filter is not None:
                         try:
@@ -1494,10 +1688,12 @@ class Key(Entity):
                         is_matching = is_matching or args.get('name') == layer_filter
                         if not is_matching:
                             return
-                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=False, entity_class=KeyImageLayer, data_dict=self.layers, data_identifier=args['layer'], args=args, modified_at=modified_at)
+                    return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyImageLayer, data_identifier=args['layer'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                elif ref_conf:
+                    KeyImageLayer.add_waiting_reference(self, path, ref_conf)
         if (text_line_filter := self.deck.filters.get('text_line')) != FILTER_DENY:
             if not entity_class or entity_class is KeyTextLine:
-                main, args = KeyTextLine.parse_filename(name, self)
+                ref_conf, ref, main, args = KeyTextLine.parse_filename(name, self)
                 if main:
                     if text_line_filter is not None:
                         try:
@@ -1507,11 +1703,13 @@ class Key(Entity):
                         is_matching = is_matching or args.get('name') == text_line_filter
                         if not is_matching:
                             return
-                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=False, entity_class=KeyTextLine, data_dict=self.text_lines, data_identifier=args['line'], args=args, modified_at=modified_at)
+                    return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyTextLine, data_identifier=args['line'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     def on_image_changed(self):
         self.compose_image_cache = None
         self.render()
+        # for reference in self.referenced_by:
+        #     reference.on_image_changed()
 
     @property
     def image_size(self):
@@ -1654,13 +1852,22 @@ class Key(Entity):
         self.pressed_at = None
 
 
-@dataclass
+@dataclass(eq=False)
 class Page(Entity):
 
+    is_dir = True
     path_glob = 'PAGE_*'
     dir_template = 'PAGE_{page}'
     main_path_re = re.compile('^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)')
+    filename_re_parts = Entity.filename_re_parts + [
+        # re.compile('^(?P<arg>ref)=(?P<page>.+)$'),
+    ]
     main_filename_part = lambda args: f'PAGE_{args["page"]}'
+    filename_parts = [
+        Entity.name_filename_part,
+        lambda args: f'ref={ref["page"]}' if (ref := args.get('ref')) else None,
+        Entity.disabled_filename_part,
+    ]
 
     FIRST = '__first__'
     BACK = '__back__'
@@ -1669,11 +1876,13 @@ class Page(Entity):
 
     parent_attr = 'deck'
     identifier_attr = 'number'
+    parent_container_attr = 'pages'
 
     deck: 'Deck'
     number: int
 
     def __post_init__(self):
+        super().__post_init__()
         self.keys = versions_dict_factory()
 
     @property
@@ -1695,11 +1904,11 @@ class Page(Entity):
         Manager.add_watch(self.path, self)
 
     def on_delete(self):
-        super().on_delete()
         Manager.remove_watch(self.path)
         for key_versions in self.keys.values():
             for key in key_versions.all_versions:
                 key.on_delete()
+        super().on_delete()
 
     def read_directory(self):
         if self.deck.filters.get('key') != FILTER_DENY:
@@ -1710,7 +1919,7 @@ class Page(Entity):
         path = self.path / name
         if (key_filter := self.deck.filters.get('key')) != FILTER_DENY:
             if not entity_class or entity_class is Key:
-                main, args = Key.parse_filename(name, self)
+                ref_conf, ref, main, args = Key.parse_filename(name, self)
                 if main:
                     if key_filter is not None:
                         try:
@@ -1720,7 +1929,7 @@ class Page(Entity):
                         is_matching = is_matching or args.get('name') == key_filter
                         if not is_matching:
                             return
-                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=True, entity_class=Key, data_dict=self.keys, data_identifier=(main['row'], main['col']), args=args, modified_at=modified_at)
+                    return self.on_child_entity_change(path=path, flags=flags, entity_class=Key, data_identifier=(main['row'], main['col']), args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     @property
     def is_current(self):
@@ -1781,11 +1990,14 @@ class Page(Entity):
         self.deck.go_to_page(Page.BACK, None)
 
 
-@dataclass
+@dataclass(eq=False)
 class Deck(Entity):
+    is_dir = True
+
     device: StreamDeck
 
     def __post_init__(self):
+        super().__post_init__()
         self.serial = self.device.info['serial'] if self.device else None
         self.nb_cols = self.device.info['cols'] if self.device else None
         self.nb_rows = self.device.info['rows'] if self.device else None
@@ -1809,6 +2021,10 @@ class Deck(Entity):
 
     def __str__(self):
         return self.str
+
+    @property
+    def deck(self):
+        return self
 
     def key_to_index(self, row, col=None):
         if col is None:  # when key as (row, col) is passed instead of *key
@@ -1835,7 +2051,7 @@ class Deck(Entity):
         path = self.path / name
         if (page_filter := self.filters.get('page')) != FILTER_DENY:
             if not entity_class or entity_class is Page:
-                main, args = Page.parse_filename(name, self)
+                ref_conf, ref, main, args = Page.parse_filename(name, self)
                 if main:
                     if page_filter is not None:
                         try:
@@ -1845,7 +2061,7 @@ class Deck(Entity):
                         is_matching = is_matching or args.get('name') == page_filter
                         if not is_matching:
                             return
-                    return self.on_child_entity_change(path=path, flags=flags, expect_dir=True, entity_class=Page, data_dict=self.pages, data_identifier=main['page'], args=args, modified_at=modified_at)
+                    return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     def update_visible_pages_stack(self):
         # first page in `visible_pages` is the current one, then the one below, etc... 
@@ -2505,7 +2721,7 @@ class FilterCommands:
 
     @classmethod
     def get_args(cls, obj):
-        return obj.parse_filename(obj.path.name, obj.path.parent, raw=True)
+        return obj.get_resovled_raw_args()
 
     @classmethod
     def get_args_as_json(cls, obj, only_names=None):
@@ -2534,7 +2750,7 @@ class FilterCommands:
                 final_args.pop(name, None)
             else:
                 try:
-                    final_args[name] = obj.parse_filename(cls.compose_filename(obj, main, {}) + f';{name}={value}', obj.path.parent, raw=True)[1][name]
+                    final_args[name] = obj.raw_parse_filename(cls.compose_filename(obj, main, {}) + f';{name}={value}', obj.path.parent)[1][name]
                 except KeyError:
                     Manager.exit(1, f'[{obj}] Configuration `{name} {value}` is not valid')
 
