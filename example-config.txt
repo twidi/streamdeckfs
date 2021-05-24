@@ -1,0 +1,145 @@
+twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
+.
+├── PAGE_1;name=main
+│   ├── KEY_ROW_1_COL_1;ref=spotify:toggle
+│   │   └── ON_LONGPRESS;page=spotify;duration-min=300
+│   ├── KEY_ROW_2_COL_1;name=volume-up
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
+│   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;brightness=+10;every=250;max-runs=10
+│   ├── KEY_ROW_3_COL_1;name=volume-down
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:volume-up:background
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
+│   ├── KEY_ROW_3_COL_2;name=webcam;disabled
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=18,18,18,18 -> /home/twidi/dev/streamdeck-scripts/webcam/assets/icon.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2;colorize=red
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_START;disabled -> /home/twidi/dev/streamdeck-scripts/webcam/listen-changes.py
+│   ├── KEY_ROW_3_COL_8;name=deck-brightness-down
+│   │   ├── IMAGE;layer=1;name=icon;colorize=#ffffff;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
+│   │   ├── IMAGE;ref=:deck-brightness-up:background
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
+│   ├── KEY_ROW_4_COL_1;name=volume-mute
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
+│   │   ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,32%,92
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:volume-up:background
+│   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
+│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
+│   └── KEY_ROW_4_COL_2;ref=microphone:microphone
+│       └── ON_LONGPRESS;page=microphone;duration-min=300;overlay
+├── PAGE_50;name=microphone
+│   ├── KEY_ROW_2_COL_2;name=sensitivity-up
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=40,10,10,40 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
+│   │   ├── IMAGE;layer=2;name=increase;crop=70%,18%,100%,83%;colorize=white;margin=30,50,30,15 -> /home/twidi/dev/streamdeck-scripts/mic/assets/increase.png
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/increase.sh
+│   ├── KEY_ROW_3_COL_2;name=sensitivity-down
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=40,10,10,40 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
+│   │   ├── IMAGE;layer=2;name=decrease;crop=74%,35%,100%,70%;colorize=white;margin=35,50,35,32 -> /home/twidi/dev/streamdeck-scripts/mic/assets/decrease.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:sensitivity-up:background
+│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/decrease.sh
+│   └── KEY_ROW_4_COL_2;name=microphone
+│       ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
+│       ├── IMAGE;layer=2;name=sensitivity;ref=ref:draw:progress;coords=0%,92,28%,92
+│       ├── IMAGE;ref=ref:img:overlay
+│       ├── IMAGE;ref=:sensitivity-up:background;colorize=red
+│       ├── ON_LONGPRESS;ref=ref:ev:back
+│       ├── ON_PRESS;duration-max=300 -> /home/twidi/dev/streamdeck-scripts/mic/toggle-mute.sh
+│       └── ON_START -> /home/twidi/dev/streamdeck-scripts/mic/listen-changes.sh
+├── PAGE_60;name=spotify
+│   ├── KEY_ROW_1_COL_1;name=toggle
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
+│   │   ├── IMAGE;layer=2;name=pause;colorize=green;margin=20,20,20,20;opacity=0;disabled -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
+│   │   ├── IMAGE;layer=3;ref=ref:draw:progress;coords=0%,92,22%,92
+│   │   ├── IMAGE;ref=ref:draw:background;fill=#8cc63f
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── ON_LONGPRESS;ref=ref:ev:back
+│   │   ├── ON_PRESS;duration-max=300 -> /home/twidi/dev/streamdeck-scripts/spotify/play_pause.py
+│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/spotify/listen_changes.py
+│   ├── KEY_ROW_1_COL_2;name=prev
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/prev.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:toggle:background
+│   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/go_prev.py
+│   ├── KEY_ROW_1_COL_3;name=next
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/next.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:toggle:background
+│   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/go_next.py
+│   ├── KEY_ROW_1_COL_4;name=restart
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/restart.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:toggle:background
+│   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/restart_song.py
+│   ├── KEY_ROW_1_COL_6;name=album-image
+│   │   └── IMAGE;layer=1;name=2tlqeiRrUFcqGK4JILK8VZ;crop=0,0,33.33%,33.33%
+│   ├── KEY_ROW_1_COL_7;name=album-image-part2
+│   │   └── IMAGE;ref=:album-image:1;crop=33.33%,0,66.67%,33.33%
+│   ├── KEY_ROW_1_COL_8;name=album-image-part3
+│   │   └── IMAGE;ref=:album-image:1;crop=66.67%,0,100%,33.33%
+│   ├── KEY_ROW_2_COL_2;name=seek-backward
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,30,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/seek-backward.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:toggle:background
+│   │   ├── ON_PRESS;every=1000;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_backward.py
+│   │   └── TEXT;line=1;name=label;text=-20s;align=center;valign=bottom;margin=0,1,3,1
+│   ├── KEY_ROW_2_COL_3;name=seek-forward
+│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,15,30,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/seek-forward.png
+│   │   ├── IMAGE;ref=ref:img:overlay
+│   │   ├── IMAGE;ref=:toggle:background
+│   │   ├── ON_PRESS;every=1000;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_forward.py
+│   │   └── TEXT;ref=:seek-backward:label;text=+20s
+│   ├── KEY_ROW_2_COL_4;name=progress
+│   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=-90,-12;opacity=50
+│   │   ├── TEXT;line=1;name=progress;text=1:39;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1
+│   │   └── TEXT;line=2;name=duration;text=7:39;align=center;valign=middle;margin=60%,1,10,1
+│   ├── KEY_ROW_2_COL_6;name=album-image-part4
+│   │   └── IMAGE;ref=:album-image:1;crop=0,33.33%,33.33%,66.67%
+│   ├── KEY_ROW_2_COL_7;name=album-image-part5
+│   │   └── IMAGE;ref=:album-image:1;crop=33.33%,33.33%,66.67%,66.67%
+│   ├── KEY_ROW_2_COL_8;name=album-image-part6
+│   │   └── IMAGE;ref=:album-image:1;crop=66.67%,33.33%,100%,66.67%
+│   ├── KEY_ROW_3_COL_6;name=album-image-part7
+│   │   └── IMAGE;ref=:album-image:1;crop=0%,66.67%,33.33%,100%
+│   ├── KEY_ROW_3_COL_7;name=album-image-part8
+│   │   └── IMAGE;ref=:album-image:1;crop=33.33%,66.67%,66.67%,100%
+│   ├── KEY_ROW_3_COL_8;name=album-image-part9
+│   │   └── IMAGE;ref=:album-image:1;crop=66.67%,66.67%,100%,100%
+│   ├── KEY_ROW_4_COL_6;name=album
+│   │   ├── IMAGE;ref=ref:titled-text:separator;outline=#8cc63f
+│   │   ├── TEXT;ref=ref:titled-text:content;text=Microdosio
+│   │   └── TEXT;ref=ref:titled-text:title;text=Album;color=#8cc63f
+│   ├── KEY_ROW_4_COL_7;name=artist;ref=:album
+│   │   ├── TEXT;ref=:album:content;text=Papadosio
+│   │   └── TEXT;ref=:album:title;text=Artist
+│   └── KEY_ROW_4_COL_8;name=song;ref=:album
+│       ├── TEXT;ref=:album:content;text=Versicolor
+│       └── TEXT;ref=:album:title;text=Track
+└── PAGE_999;name=ref
+    ├── KEY_ROW_1_COL_1;name=img
+    │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
+    ├── KEY_ROW_1_COL_2;name=draw
+    │   ├── IMAGE;layer=0;name=background;draw=rectangle;coords=0,0,100%,100%;width=0;fill=
+    │   └── IMAGE;name=progress;draw=line;coords=0%,92,100%,92;outline=white;width=7
+    ├── KEY_ROW_1_COL_4;name=ev
+    │   └── ON_LONGPRESS;name=back;page=__back__;duration-min=300
+    ├── KEY_ROW_2_COL_1;name=close
+    │   ├── IMAGE;layer=1;colorize=white;margin=20,10,10,10 -> /home/twidi/dev/streamdeck-scripts/assets/close.png
+    │   ├── IMAGE;ref=:images:overlay
+    │   └── ON_PRESS;page=__back__
+    └── KEY_ROW_2_COL_2;name=titled-text
+        ├── IMAGE;layer=1;name=separator;draw=line;coords=0,25,100%,25;outline=
+        ├── TEXT;line=1;name=title;text=Title;weight=bold;align=center;valign=top;color=
+        └── TEXT;line=2;name=content;text=Some content that will scroll if too long;size=18;align=center;valign=middle;margin=28,0,0,0;scroll=20;wrap
