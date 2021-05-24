@@ -1268,12 +1268,17 @@ class KeyTextLine(keyImagePart):
         re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile('^(?P<arg>scroll)=(?P<value>\d+)$'),
+        # to read text from a file
+        re.compile('^(?P<arg>file)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
     filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
         Entity.name_filename_part,
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
+        lambda args: f'file={file}' if (file := args.get('file')) else None,
+        lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1302,7 +1307,9 @@ class KeyTextLine(keyImagePart):
 
     def __post_init__(self):
         super().__post_init__()
+        self.mode = None
         self.text = None
+        self.file = None
         self.size = None
         self.weight = None
         self.italic = False
@@ -1326,8 +1333,21 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def convert_args(cls, args):
         final_args = super().convert_args(args)
+
+        if len([1 for key in ('text', 'file') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "text", "file"')
+
         final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
-        final_args['text'] = args.get('text') or ''
+        if 'file' in args:
+            if args['file'] == '__self__':
+                final_args['mode'] = 'content'
+            else:
+                raise InvalidArg('Argument "file" used with something else than "__self__" is not allowed yet.')
+                final_args['mode'] = 'file'
+                final_args['file'] = args['file'].replace(args.get('slash', '\\\\'), '/')# double \ by default
+        else:
+            final_args['mode'] = 'text'
+            final_args['text'] = args.get('text') or ''
         final_args['size'] = int(args.get('size') or 20)
         final_args['weight'] = args.get('weight') or 'medium'
         if 'italic' in args:
@@ -1351,7 +1371,7 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         line = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
+        for key in ('mode', 'file', 'text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
             if key not in args:
                 continue
             setattr(line, key, args[key])
@@ -1386,6 +1406,25 @@ class KeyTextLine(keyImagePart):
         except ValueError:
             pass
         return args.get('name') == filter
+
+    @property
+    def resolved_text(self):
+        if self.text is None:
+            if self.mode == 'content':
+                try:
+                    with open(self.path) as f:
+                        self.text = f.read()
+                except:
+                    pass
+                if not self.text and self.reference:
+                    self.text = self.reference.resolved_text
+            elif self.mode == 'file':
+                try:
+                    with open(self.file) as f:
+                        self.text = f.read()
+                except:
+                    pass
+        return self.text
 
     @classmethod
     def  get_text_size_drawer(cls):
@@ -1475,7 +1514,8 @@ class KeyTextLine(keyImagePart):
         return self.compose_cache
 
     def _compose_base(self):
-        if not self.text:
+        text = self.resolved_text
+        if not text:
             return None
 
         image_size = self.key.image_size
@@ -1484,7 +1524,7 @@ class KeyTextLine(keyImagePart):
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
         font = self.get_font(self.get_font_path(), self.size)
-        text = self.text.replace('\n', ' ')
+        text = text.replace('\n', ' ')
         if self.wrap:
             lines = self.split_text_in_lines(text, max_width, font)
         else:
