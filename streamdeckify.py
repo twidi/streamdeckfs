@@ -1071,7 +1071,7 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile('^(?P<arg>width)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>radius)=(?P<value>\d+)$'),
-        re.compile('^(?P<arg>angles)=(?P<value>\d+,\d+)$'),
+        re.compile('^(?P<arg>angles)=(?P<value>-?\d+,-?\d+)$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = [
