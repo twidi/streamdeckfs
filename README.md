@@ -55,7 +55,7 @@ The first thing to do is to discover your StreamDecks.
 
 For this, use the `inspect` command:
 
-"`bash
+```bash
 path/to/streamdeckify.py inspect
 ```
 
@@ -67,7 +67,7 @@ The main useful thing is the serial number, as it will be the name of the direct
 
 You can create the directories by hand (we'll explain how later), but we provide a command to create the tree for you, `make-dirs`:
 
-"`bash
+```bash
 path/to/streamdeckify.py make-dirs SERIAL BASE_DIRECTORY
 ```
 
@@ -118,7 +118,7 @@ PS: you can have `IMAGE` without `ON_PRESS` or `ON_PRESS` without `IMAGE`.
 
 Now that you have your configuration directory, run:
 
-"`bash
+```bash
 path/to/streamdeckify.py run SERIAL CONFIG_DIRECTORY
 ```
 
