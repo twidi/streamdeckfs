@@ -598,7 +598,7 @@ The `scroll` option is useful when the text is not fully visible. It allows scro
 
 It must be defined like this: `scroll=SIZE`, with:
 
-- `SIZE`: the number of pixels to scroll per second, can be negative, and can be percents (percents of key height if `wrap` is activated or key width if not)
+- `SIZE`: the number of pixels to scroll per second. Ccan be negative, and can be percents (percents of key height if `wrap` is activated or key width if not)
 
 There will be no scroll if the text is small enough to fit in its defined area (the whole key or the area left inside the margins).
 
@@ -792,7 +792,7 @@ By default, the action executed by an event is the program of the file itself (o
 
 And another example could be to open a specific page in your default browser. As there is an argument (the page to open), you cannot make a link and need to make this bash script (it's not complicated, but maybe you want to stick to the whole configuration in file names)
 
-The `program` configuration option allows you to define the full command to execute, and it will be run as-is. You still have to respect the known limitations of the file name (max length and no slash `/`). For the `slash`, which is common if you have a path in the command, you can replace it with any suite of characters defined in the `slash` option.
+The `program` configuration option allows you to define the full command to execute, and it will be run as-is. You still have to respect the known limitations of the file name (max length and no slash `/`) and avoid semi-colons `;` as it is interpreted as the end of the program (because it's the configuration options separator) . For the slash, which is common if you have a path in the command, you can replace it with any suite of characters defined in the `slash` option (default to `\\`). For the semi-colon, you can replace it with any suite of caracters defined in the `semicolon` option (default to `^`).
 
 The `program` configuration option can include `|`, `>`, etc., as you would do in a console.
 
@@ -805,11 +805,12 @@ It must be defined like this: `program=COMMAND` with:
 Examples:
 
 - `ON_PRESS;program=gnome-calculator` will run the gnome calculator
-- `ON_PRESS;program=browse http:||elgato.com;slash=|` will open your default browser on the `http://elgato.com` web page. Note that the `/` in `http://` are replaced by `|` as defined by the `slash` configuration option.
+- `ON_PRESS;program=browse https:||elgato.com;slash=|` will open your default browser on the `https://elgato.com` web page. Note that the `/` in `https://` are replaced by `|` as defined by the `slash` configuration option.
+- `ON_PRESS;program=browse https:\\\\elgato.com` same but using the default value of the `slash` configuration option when not passed.
 
 ### Option "slash"
 
-When using the `program` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option.
+When using the `program` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
 
 It must be defined like this: `slash=REPLACEMENT` with:
 
@@ -819,7 +820,20 @@ Examples:
 
 - `ON_PRESS;program=@path@to@myscript | grep foobar > @path@to@log;slash=@` will run the command `/path/to/myscript | grep foobar > /path/to/log`
 - `ON_PRESS;program=XXXpathXXXtoXXXmyscript;slash=XXX` will run the command `/path/to/myscript`
+- `ON_PRESS;program=\\path\\to\\myscript` will run the command `/path/to/myscript` using the default value of `slash`, `\\`
 
+### Option "semicolon"
+
+When using the `program` option, it's impossible to use semi-colons in the filename, so you can replace it with any character or suite of characters you defined with the `semicolon` option. If not defined, the default value of `^` is used/
+
+It must be defined like this: `semicolon=REPLACEMENT` with:
+
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `program` configuration option for the `;` character
+
+Examples:
+
+- `ON_PRESS;program=browse https:\\\\elgato.com^browse https:\\\\github.com` will do two actions: open your default browser on the `https://elgato.com` web page and then on the `https://github.com` one, using default replacement values for `slash` and `semicolon`
+- `ON_PRESS;program=browse https:XXelgato.com AND browse https:XXgithub.com;slash=X;semicolon= AND ` same but using `X` for the `slash` and ` AND ` for the `semicolon`
 
 ### Option "brightness"
 

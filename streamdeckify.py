@@ -120,6 +120,9 @@ click_log.basic_config(logger)
 ASSETS_PATH = Path.resolve(Path(__file__)).parent / 'assets'
 LONGPRESS_DURATION_MIN = 300  # in ms
 
+DEFAULT_SLASH_REPL = '\\\\'  # double \
+DEFAULT_SEMICOLON_REPL = '^'
+
 class VersionProxy(ObjectWrapper):
     versions = None
     sort_key_func = None
@@ -555,6 +558,10 @@ class Entity:
             return True
         return False
 
+    @staticmethod
+    def replace_special_chars(value, args):
+        return value.replace(args.get('slash', DEFAULT_SLASH_REPL), '/').replace(args.get('semicolon', DEFAULT_SEMICOLON_REPL), ';')
+
 
 @dataclass(eq=False)
 class KeyFile(Entity):
@@ -694,6 +701,7 @@ class KeyEvent(KeyFile):
         # action run
         re.compile('^(?P<arg>program)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
         # do not run many times the same program at the same time
         re.compile('^(?P<flag>unique)(?:=(?P<value>false|true))?$'),
     ]
@@ -705,6 +713,7 @@ class KeyEvent(KeyFile):
         lambda args: f'page={page}' if (page := args.get('page')) else None,
         lambda args: f'program={program}' if (program := args.get('program')) else None,
         lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
+        lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
         lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
         lambda args: f'every={every}' if (every := args.get('every')) else None,
         lambda args: f'max-runs={max_runs}' if (max_runs := args.get('max-runs')) else None,
@@ -774,7 +783,7 @@ class KeyEvent(KeyFile):
 
         if final_args['mode'] in ('path', 'program'):
             if final_args['mode'] == 'program':
-                final_args['program'] = args['program'].replace(args.get('slash', '\\\\'), '/')# double \ by default
+                final_args['program'] = cls.replace_special_chars(args['program'], args)
             final_args['detach'] = args.get('detach', False)
             final_args['unique'] = args.get('unique', False)
         elif final_args['mode'] == 'page':
@@ -1281,6 +1290,7 @@ class KeyTextLine(keyImagePart):
         # to read text from a file
         re.compile('^(?P<arg>file)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
     filename_parts = [
@@ -1289,6 +1299,7 @@ class KeyTextLine(keyImagePart):
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
         lambda args: f'file={file}' if (file := args.get('file')) else None,
         lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
+        lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1354,7 +1365,7 @@ class KeyTextLine(keyImagePart):
             else:
                 raise InvalidArg('Argument "file" used with something else than "__self__" is not allowed yet.')
                 final_args['mode'] = 'file'
-                final_args['file'] = args['file'].replace(args.get('slash', '\\\\'), '/')# double \ by default
+                final_args['file'] = cls.replace_special_chars(args['file'], args)
         else:
             final_args['mode'] = 'text'
             final_args['text'] = args.get('text') or ''
