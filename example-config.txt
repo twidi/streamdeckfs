@@ -131,7 +131,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
     ├── KEY_ROW_1_COL_1;name=img
     │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
     ├── KEY_ROW_1_COL_2;name=draw
-    │   ├── IMAGE;layer=0;name=background;draw=rectangle;coords=0,0,100%,100%;width=0;fill=
+    │   ├── IMAGE;layer=0;name=background;draw=fill;fill=
     │   └── IMAGE;name=progress;draw=line;coords=0%,92,100%,92;outline=white;width=7
     ├── KEY_ROW_1_COL_4;name=ev
     │   └── ON_LONGPRESS;name=back;page=__back__;duration-min=300

@@ -342,8 +342,15 @@ It must be defined like this: `draw=rectangle;coords=X1,Y1,X2,Y2;outline=LINE_CO
 
 Examples:
 
-- `IMAGE;draw=rectangle;coords=0,0,100%,100%;fill=red;width=0` will fill the whole key area with red
+- `IMAGE;draw=rectangle;coords=0,0,100%,100%;fill=red;width=0` will fill the whole key area with red (note that you can use `draw=fill` as described below to achieve the same effect)
 - `IMAGE;draw=rectangle;coords=10,10,40,40;outline=blue;width=5;fill=#0000FF80` will draw a thick blue rectangle in the top left area, with the inner filled in semi (via the ending `80`) transparent blue
+
+#### Kind "fill"
+
+The `fill` kind is a shortcut to a rectangle covering the full key without outline.
+
+
+So `IMAGE;draw=fill;fill=red` is the same as `IMAGE;draw=rectangle;coords=0,0,100%,100%;width=0;fill=red`. Only the `fill` configuration option needs to be specified (see kind `rectangle` above).
 
 #### Kind "polygon"
 
