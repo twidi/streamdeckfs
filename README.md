@@ -470,7 +470,7 @@ The size of the font.
 
 It must be defined like this: `size=SIZE` with:
 
-- `SIZE`: the size in pixels of the text to write. The default is `20`.
+- `SIZE`: the size in pixels of the text to write, or in percents of the key height (will be converted to pixels). The default is `20%`.
 
 Examples:
 

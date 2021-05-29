@@ -1268,7 +1268,7 @@ class KeyTextLine(keyImagePart):
         re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$'),  # we'll use -1 if no line given
         re.compile('^(?P<arg>text)=(?P<value>.+)$'),
-        re.compile('^(?P<arg>size)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>size)=(?P<value>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile('^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
         re.compile('^(?P<flag>italic)(?:=(?P<value>false|true))?$'),
         re.compile('^(?P<arg>align)(?:=(?P<value>left|center|right))?$'),
@@ -1358,7 +1358,7 @@ class KeyTextLine(keyImagePart):
         else:
             final_args['mode'] = 'text'
             final_args['text'] = args.get('text') or ''
-        final_args['size'] = int(args.get('size') or 20)
+        final_args['size'] = cls.parse_value_or_percent(args.get('size') or '20%')
         final_args['weight'] = args.get('weight') or 'medium'
         if 'italic' in args:
             final_args['italic'] = args['italic']
@@ -1533,7 +1533,7 @@ class KeyTextLine(keyImagePart):
         max_width = image_size[0] - (margins['right'] + margins['left'])
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
-        font = self.get_font(self.get_font_path(), self.size)
+        font = self.get_font(self.get_font_path(), self.convert_coordinate(self.size, 'height'))
         text = text.replace('\n', ' ')
         if self.wrap:
             lines = self.split_text_in_lines(text, max_width, font)
