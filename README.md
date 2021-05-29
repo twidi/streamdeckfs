@@ -212,7 +212,7 @@ Once cropped, the part that is kept will be the source image for the other confi
 
 #### Option "rotate"
 
-The `rotate` option takes the source image (or the one already updated by previous options) and rotates it the number given of degrees counterclockwise.
+The `rotate` option takes the source image (or the one already updated by previous options) and rotates it the number given of degrees clockwise.
 
 It must be defined like this: `rotate=ANGLE`, with:
 
@@ -381,14 +381,14 @@ It must be defined like this: `draw=arch;coords=X1,Y1,X2,Y2;angles=START,END;out
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at 3 o'clock
-- `END`: the end angle of the arc. The arc is down clockwise.
+- `START`: the start angle of the arc. "0" is at midnight
+- `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 
 Example:
 
-- `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=-45,180;width=5;outline=red` will draw a thick red arc representing a circular progress bar of 75% starting at midnight and ending a 9 o'clock
+- `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,270;width=5;outline=red` will draw a thick red arc representing a circular progress bar of 75% starting at midnight and ending a 9 o'clock
 
 #### Kind "chord"
 
@@ -398,15 +398,15 @@ It must be defined like this: `draw=chord;coords=X1,Y1,X2,Y2;angles=START,END;ou
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at 3 o'clock
-- `END`: the end angle of the arc. The arc is down clockwise.
+- `START`: the start angle of the arc. "0" is at midnight
+- `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 - `FILL_COLOR`: the color to fill the inside of the chord. Optional
 
 Example:
 
-- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=180,360` will draw a closed semi circle on the top half
+- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=270,90` will draw a closed semi circle on the top half
 
 
 #### Kind "pieslice"
@@ -417,15 +417,15 @@ It must be defined like this: `draw=pieslice;coords=X1,Y1,X2,Y2;angles=START,END
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at 3 o'clock
-- `END`: the end angle of the arc. The arc is down clockwise.
+- `START`: the start angle of the arc. "0" is at midnight
+- `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 - `FILL_COLOR`: the color to fill the inside of the pie slice. Optional
 
 Example:
 
-- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=270,360` will draw a quarter circle on the top right quarter
+- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=0,90` will draw a quarter circle on the top right quarter
 
 
 ### Texts
@@ -941,7 +941,7 @@ Here is an example of such a page:
     │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
     ├── KEY_ROW_1_COL_2;name=draw
     │   ├── IMAGE;layer=0;name=background;draw=rectangle;coords=0,0,100%,100%;width=0;fill=
-    │   └── IMAGE;name=progress;draw=line;coords=0%,92,100%,92;outline=white;width=7
+    │   └── IMAGE;name=progress;draw=line;coords=0%,92,32%,92;outline=white;width=7
     ├── KEY_ROW_2_COL_1;name=close
     │   ├── IMAGE;layer=1;colorize=white;margin=20,10,10,10;name=icon -> /home/twidi/dev/streamdeck-scripts/assets/close.png
     │   ├── IMAGE;ref=:images:overlay
@@ -966,7 +966,7 @@ This key contains two drawings:
 
 One named `background` (where only the fill color is missing), which can be referenced like this: `IMAGE;ref=ref:draw:background;fill=ref`
 
-One named `progress` which draws a progress bar on the bottom of the key (where the X1 and X2 coordinates must be updated to the proper progress value (both must be the same, here at 92%)), which can be referenced like this: `IMAGE;layer=3;ref=ref:draw:progress;coords=0%,50%,0,50%` (here we change the progress to 50% and set the layer number to `3` as the reference does not have it defined because each key using it may want to place the `progress` at a different layer)
+One named `progress` which draws a progress bar on the bottom of the key (where the Y2 coordinate must be updated to the proper progress value (here at 32%)), which can be referenced like this: `IMAGE;layer=3;ref=ref:draw:progress;coords=0%,92,50%,92%` (here we change the progress to 50% and set the layer number to `3` as the reference does not have it defined because each key using it may want to place the `progress` at a different layer)
 
 - `KEY_ROW_2_COL_1;name=close`
 

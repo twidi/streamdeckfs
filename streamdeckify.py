@@ -1131,7 +1131,8 @@ class KeyImageLayer(keyImagePart):
         if 'opacity' in args:
             final_args['opacity'] = int(args['opacity'])
         if 'rotate' in args:
-            final_args['rotate'] = int(args['rotate'])
+            # we negate the given value because PIL rotates counterclockwise
+            final_args['rotate'] = -int(args['rotate'])
         if 'draw' in args:
             final_args['draw'] = args['draw']
             if 'coords' in args:
@@ -1143,7 +1144,8 @@ class KeyImageLayer(keyImagePart):
             if 'radius' in args:
                 final_args['draw_radius'] = int(args['radius'])
             if 'angles' in args:
-                final_args['draw_angles'] = tuple(int(v) for v in args['angles'].split(','))
+                # we remove 90 degres from given values because PIL starts at 3 o'clock
+                final_args['draw_angles'] = tuple(int(v) - 90 for v in args['angles'].split(','))
         return final_args
 
     @classmethod
