@@ -109,7 +109,7 @@ except ImportError:
 
 DEFAULT_BRIGHTNESS = 30
 RE_PART_0_100 = '0*(?:\d{1,2}?|100)'
-RE_PART_PERCENT = '(?:0*(?:\d{1,2}?)(?:.\d+)?|(?:100(?:.0+)?))%'
+RE_PART_PERCENT = '(?:\d+|\d*\.\d+)%'
 RE_PART_PERCENT_OR_NUMBER = f'(?:\d+|{RE_PART_PERCENT})'
 RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
 RE_PART_COLOR_WITH_POSSIBLE_ALPHA = '\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)'
