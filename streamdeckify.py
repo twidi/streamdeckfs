@@ -1294,18 +1294,18 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>scroll)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         # to read text from a file
-        re.compile('^(?P<arg>file)=(?P<value>.+)$'),
-        re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
-        re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
+        # re.compile('^(?P<arg>file)=(?P<value>.+)$'),
+        # re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
+        # re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
     filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
         Entity.name_filename_part,
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
-        lambda args: f'file={file}' if (file := args.get('file')) else None,
-        lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
-        lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
+        # lambda args: f'file={file}' if (file := args.get('file')) else None,
+        # lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
+        # lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1365,16 +1365,14 @@ class KeyTextLine(keyImagePart):
             raise InvalidArg('Only one of these arguments must be used: "text", "file"')
 
         final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
-        if 'file' in args:
-            if args['file'] == '__self__':
-                final_args['mode'] = 'content'
-            else:
-                raise InvalidArg('Argument "file" used with something else than "__self__" is not allowed yet.')
-                final_args['mode'] = 'file'
-                final_args['file'] = cls.replace_special_chars(args['file'], args)
-        else:
+        if 'text' in args:
             final_args['mode'] = 'text'
             final_args['text'] = args.get('text') or ''
+        # elif 'file' in args:
+        #     final_args['mode'] = 'file'
+        #     final_args['file'] = cls.replace_special_chars(args['file'], args)
+        else:
+            final_args['mode'] = 'content'
         final_args['size'] = cls.parse_value_or_percent(args.get('size') or '20%')
         final_args['weight'] = args.get('weight') or 'medium'
         if 'italic' in args:

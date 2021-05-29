@@ -445,9 +445,9 @@ Examples:
 
 Images are great to have keys with meaning, but having a way to display text can be helpful, to add a visible title on the key or present some information.
 
-Texts are not defined like image layers and drawings but on their own. The most basic text is `TEXT;text=foo`. It will write "foo" above all image layers (if any) in white color in the top left corner.
+Texts are not defined like image layers and drawings but on their own. The most basic text is `TEXT;text=foo`. It will write "foo" above all image layers (if any) in white color in the top left corner. Or it can simlpy be `TEXT` without the `text` configuration option, in which case the text will be read from the file content
 
-But like layers, you can either have one text line or many, using the `line=XX` configuration option (same as the `layer=XX` configuration option of images/drawings).
+Like layers, you can either have one text line or many, using the `line=XX` configuration option (same as the `layer=XX` configuration option of images/drawings).
 
 "Lines" of texts can have different configuration options and will be written on top of each other in their numerical order. Note that all `IMAGE` layers will be drawn BEFORE the text lines.
 
@@ -463,9 +463,9 @@ It's the number of the line to write. It is only needed if many lines are define
 
 #### Option "text"
 
-It's the text to write. New lines are replaced by spaces (except when wrapping is enabled).
+If defined, it's the text to write instead of reading if from the file content. New lines are replaced by spaces (except when wrapping is enabled).
 
-When setting the text, don't forget to consider the rules regarding the file names limitation: no `/` and length not longer than the max authorized on the operating system (256 characters on Linux). Plus, a last rule: the text cannot contain semi-colon as it is interpreted as the end of the text (because it's the configuration options separator)
+When setting the text using `text` in the file name, don't forget to consider the rules regarding the file names limitation: no `/` and length not longer than the max authorized on the operating system (256 characters on Linux). Plus, a last rule: the text cannot contain semi-colon as it is interpreted as the end of the text (because it's the configuration options separator)
 
 If you need to bypass these rules, see the `file` configuration option below.
 
@@ -623,18 +623,6 @@ Examples:
 
 - `TEXT;text=this is a long text for a single line;wrap=false;scroll=20` will keep the text on one line but will scroll at a speed of 20 pixels per second
 - `TEXT;text=this is a very long text that even when wrapped, will not fit;wrap;scroll=20` will wrap the text and scroll it at a speed of 20 pixels per second
-
-#### Option "file"
-
-If the text is too long to fit in the file name or contains some forbidden characters, it can be placed in the file itself. 
-
-You can specify this by NOT setting the `text` option but setting the `file` option to `__self__`: `file=__self__`
-
-Example:
-
-- `TEXT;file=__self__` will read the text from the content of the file
-
-In the future, it will be possible to specify another file.
 
 
 ## Configuring events (press, long-press, release, start)
