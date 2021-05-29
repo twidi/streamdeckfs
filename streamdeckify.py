@@ -1040,6 +1040,14 @@ class keyImagePart(KeyFile):
         if kind == '%':
             return int(value * (getattr(self.key if source is None else source, dimension) - 1) / 100)
 
+    @staticmethod
+    def convert_angle(value):
+        kind, value = value
+        if kind == 'int':
+            return value
+        if kind == '%':
+            return round(value * 360 / 100)
+
     def convert_margins(self):
         return {
             margin_name: self.convert_coordinate(margin, 'width' if margin_name in ('left', 'right')  else 'height')
@@ -1070,7 +1078,7 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile('^(?P<arg>width)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>radius)=(?P<value>\d+)$'),
-        re.compile('^(?P<arg>angles)=(?P<value>-?\d+,-?\d+)$'),
+        re.compile(f'^(?P<arg>angles)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER})$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = [
@@ -1145,7 +1153,7 @@ class KeyImageLayer(keyImagePart):
                 final_args['draw_radius'] = int(args['radius'])
             if 'angles' in args:
                 # we remove 90 degres from given values because PIL starts at 3 o'clock
-                final_args['draw_angles'] = tuple(int(v) - 90 for v in args['angles'].split(','))
+                final_args['draw_angles'] = tuple(cls.convert_angle(cls.parse_value_or_percent(val)) - 90 for val in args['angles'].split(','))
         return final_args
 
     @classmethod

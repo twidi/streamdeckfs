@@ -294,6 +294,7 @@ Common things to know about drawings configuration options:
 - default line width, if not defined, is 1
 - default "fill" is not set, i.e., by default, when not defining any color/width, you'll have a thin white line
 - colors ("outline" and "fill") can be set as a name, a simple hexadecimal value (#RRGGBB), or a hexadecimal value with opacity (#RRGGBBAA)
+- angles can be expressed in degrees (from 0 to 360, but can be negative or more than 360, 0 is at midnight) or in percents (100%=360 degrees)
 
 #### Kind "points"
 
@@ -382,14 +383,15 @@ It must be defined like this: `draw=arch;coords=X1,Y1,X2,Y2;angles=START,END;out
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at midnight
+- `START`: the start angle of the arc.
 - `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 
-Example:
+Examples:
 
 - `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,270;width=5;outline=red` will draw a thick red arc representing a circular progress bar of 75% starting at midnight and ending a 9 o'clock
+- `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,75%;width=5;outline=red` same but end angle expressed as percents
 
 #### Kind "chord"
 
@@ -399,15 +401,16 @@ It must be defined like this: `draw=chord;coords=X1,Y1,X2,Y2;angles=START,END;ou
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at midnight
+- `START`: the start angle of the arc.
 - `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 - `FILL_COLOR`: the color to fill the inside of the chord. Optional
 
-Example:
+Examples:
 
 - `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=270,90` will draw a closed semi circle on the top half
+- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=-25%,25%` same but angles expressed as percents
 
 
 #### Kind "pieslice"
@@ -418,7 +421,7 @@ It must be defined like this: `draw=pieslice;coords=X1,Y1,X2,Y2;angles=START,END
 
 - `X1,Y1`: the coordinates of the top left corner of the bounding box
 - `X2,Y2`: the coordinates of the bottom right corner of the bounding box
-- `START`: the start angle of the arc. "0" is at midnight
+- `START`: the start angle of the arc.
 - `END`: the end angle of the arc. The arc is drawn clockwise.
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional

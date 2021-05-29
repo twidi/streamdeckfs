@@ -102,7 +102,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── ON_PRESS;every=1000;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_forward.py
 │   │   └── TEXT;ref=:seek-backward:label;text=+20s
 │   ├── KEY_ROW_2_COL_4;name=progress
-│   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,78;opacity=50
+│   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,21.7%;opacity=50
 │   │   ├── TEXT;line=1;name=progress;text=1:39;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1
 │   │   └── TEXT;line=2;name=duration;text=7:39;align=center;valign=middle;margin=60%,1,10,1
 │   ├── KEY_ROW_2_COL_6;name=album-image-part4
