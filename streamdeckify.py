@@ -1478,46 +1478,53 @@ class KeyTextLine(keyImagePart):
         algorithm to restrict the text to a pixel width of `width`.
         Based on:
         https://web.archive.org/web/20110818230121/http://jesselegg.com/archives/2009/09/5/simple-word-wrap-algorithm-pythons-pil/
-        But with split word in parts if it os too long to fit on a line (always start on its own line, but the last of its lines 
-        can be followed by another word)
+        With some updates:
+        - respect new lines
+        - split word in parts if it is too long to fit on a line (always start on its own line, but the last of its lines 
+          can be followed by another word)
         '''
         line_width, line_height = cls.get_text_size(text, font)
         if line_width <= max_width:
             return [text]
-        remaining = max_width
         space_width = cls.get_text_size(' ', font)[0]
         lines = []
-        for word in text.split(None):
-            if (word_width := cls.get_text_size(word, font)[0]) + space_width > remaining:
-                if word_width > max_width:
-                    word, left = word[:-1], word[-1]
-                    while True:
-                        word_width = cls.get_text_size(word, font)[0]
-                        if len(word) == 1 and word_width >= max_width:  # big letters!
-                            lines.append(word)
-                            word, left = left, ''
-                            remaining = 0
-                            if not word:
-                                break
-                        elif word_width  <= remaining:
-                            lines.append(word)
-                            word, left = left, ''
-                            if word:
-                                remaining = max_width
+        text_lines = [line.strip() for line in text.splitlines()]
+        for text_line in text_lines:
+            if not text_line:
+                lines.append(' ')
+                continue
+            remaining = 0 if lines else max_width
+            for word in text_line.split(None):
+                if (word_width := cls.get_text_size(word, font)[0]) + space_width > remaining:
+                    if word_width > max_width:
+                        word, left = word[:-1], word[-1]
+                        while True:
+                            word_width = cls.get_text_size(word, font)[0]
+                            if len(word) == 1 and word_width >= max_width:  # big letters!
+                                lines.append(word)
+                                word, left = left, ''
+                                remaining = 0
+                                if not word:
+                                    break
+                            elif word_width  <= remaining:
+                                lines.append(word)
+                                word, left = left, ''
+                                if word:
+                                    remaining = max_width
+                                else:
+                                    remaining = remaining - word_width
+                                    break
                             else:
-                                remaining = remaining - word_width
-                                break
-                        else:
-                            word, left = word[:-1], word[-1] + left
+                                word, left = word[:-1], word[-1] + left
+                    else:
+                        lines.append(word)
+                        remaining = max_width - word_width
                 else:
-                    lines.append(word)
-                    remaining = max_width - word_width
-            else:
-                if not lines:
-                    lines.append(word)
-                else:
-                    lines[-1] += ' %s' % word
-                remaining = remaining - (word_width + space_width)
+                    if not lines:
+                        lines.append(word)
+                    else:
+                        lines[-1] += ' %s' % word
+                    remaining = remaining - (word_width + space_width)
         return lines
 
     def on_changed(self):
@@ -1554,11 +1561,10 @@ class KeyTextLine(keyImagePart):
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
         font = self.get_font(self.get_font_path(), self.convert_coordinate(self.size, 'height'))
-        text = text.replace('\n', ' ')
         if self.wrap:
             lines = self.split_text_in_lines(text, max_width, font)
         else:
-            lines = [text]
+            lines = [" ".join(stripped_line for line in text.splitlines() if (stripped_line := line.strip()))]
 
         # compute all sizes
         lines_with_dim = [(line, ) + self.get_text_size(line, font) for line  in lines]
