@@ -21,7 +21,7 @@ Features:
 TODO:
 - page on_open/open_close events
 - conf to "animate" layer properties ?
-- allow passing "part" of config via set-*-conf (like "-c coords.3 100%" to change the 3 value of the current "coords" settings; maybe it could also be used when overriding references?)
+- allow overriding "part" of config when using references, (like `coords.2=50%` to change the 2nd value of the inherited "coords" settings)
 
 
 
@@ -113,6 +113,8 @@ RE_PART_PERCENT = '(?:\d+|\d*\.\d+)%'
 RE_PART_PERCENT_OR_NUMBER = f'(?:\d+|{RE_PART_PERCENT})'
 RE_PART_COLOR = '\w+|(?:#[a-fA-F0-9]{6})'
 RE_PART_COLOR_WITH_POSSIBLE_ALPHA = '\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)'
+
+RE_CONF_PART = re.compile('^(?P<name>.+)\.(?P<index>\d+)$')
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -3070,6 +3072,18 @@ class FilterCommands:
                 Manager.exit(1, f'[{obj}] Configuration value for `{name}` is not valid')
             if name in main:
                 Manager.exit(1, f'[{obj}] Configuration name `{name}` cannot be changed')
+
+            if partial_match := RE_CONF_PART.match(name):
+                name = (partial_conf := partial_match.groupdict())['name']
+                index = int(partial_conf['index'])
+                if name not in final_args:
+                    Manager.exit(1, f'[{obj}] Configuration name `{name}` not present, cannot update part {index}')
+                parts = final_args[name].split(',')
+                if len(parts) <= index:
+                    Manager.exit(1, f'[{obj}] Not enough parts in `{name}` ({final_args[name]}) to update part {index}')
+                parts[index] = value
+                value = ','.join(parts)
+
             if not value:
                 final_args.pop(name, None)
             else:
