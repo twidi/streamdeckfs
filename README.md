@@ -908,6 +908,8 @@ For example, say you have three pages of classic actions and want to navigate be
 
 Using names is very useful when you configure your page actions: having `page=spotify` is a lot more meaningful than `page=50` (and it allows reorganizing your pages as you want)
 
+The `run` command will start with the first page, using page numbers. You can change that by passing the page argument: `--page PAGE` (or `-p PAGE`) with `PAGE` being the number or name of an available page.
+
 
 # References
 

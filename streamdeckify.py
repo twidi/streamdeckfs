@@ -2310,10 +2310,10 @@ class Deck(Entity):
         self.read_directory()
         Manager.add_watch(self.path, self)
 
-    def run(self):
+    def run(self, open_page=None):
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(Page.FIRST, False)
+        self.go_to_page(Page.FIRST if open_page is None else open_page, False)
 
     def read_directory(self):
         if self.filters.get('page') != FILTER_DENY:
@@ -2908,9 +2908,10 @@ def make_dirs(deck, directory, pages, yes):
 @cli.command()
 @common_options['optional_deck']
 @click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True, exists=True))
+@click.option('-p', '--page', type=str, help="Page (number or name) to open first. Default to the first available number.")
 @click.option('--scroll/--no-scroll', default=True, help='If scroll in keys is activated. Default to true.')
 @common_options['verbosity']
-def run(deck, directory, scroll):
+def run(deck, directory, page, scroll):
     """Run, Forrest, Run!"""
 
     device = Manager.get_deck(deck)
@@ -2924,7 +2925,9 @@ def run(deck, directory, scroll):
 
     deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=serial, disabled=False, device=device, scroll_activated=scroll)
     deck.on_create()
-    deck.run()
+    deck.run(page)
+    if not deck.current_page_number:
+        return Manager.exit(1, f'Unable to find page "{page}"' if page is not None else "Unable to find a page")
 
     ended = False
     def end(signum, frame):
