@@ -598,11 +598,19 @@ The `scroll` option is useful when the text is not fully visible. It allows scro
 
 It must be defined like this: `scroll=SIZE`, with:
 
-- `SIZE`: the number of pixels to scroll per second
+- `SIZE`: the number of pixels to scroll per second, can be negative, and can be percents (percents of key height if `wrap` is activated or key width if not)
 
 There will be no scroll if the text is small enough to fit in its defined area (the whole key or the area left inside the margins).
 
-About the alignment, if the text needs to scroll because it doesn't fit, if `wrap` is not activated, the `align` option will be ignored, and the text will be left-aligned (and will move to the left). And if `wrap` is activated, the `valid` option will be ignored, and the text will be aligned to the top (and will move to the top)
+Note about the alignment, if the text needs to scroll because it doesn't fit:
+
+- if `wrap` is not activated, the `align` option will be ignored, and the text will be:
+    - if scroll is positive: left-aligned (and will move from right to left)
+    - if scroll is negative: right-aligned (and will move from left to right)
+
+ - if `wrap` is activated, the `valign` option will be ignored, and the text will be:
+     - if scroll is positive: aligned to the top (and will move from the bottom to the top)
+     - if scroll is negaive: aligned to the bottom (and will move from the top to the bottom)
 
 Examples:
 

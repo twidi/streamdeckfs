@@ -1277,7 +1277,7 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile('^(?P<arg>scroll)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>scroll)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         # to read text from a file
         re.compile('^(?P<arg>file)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
@@ -1374,7 +1374,7 @@ class KeyTextLine(keyImagePart):
             for part, val in list(args['margin'].items()):
                 final_args['margin'][part] = cls.parse_value_or_percent(val)
         if 'scroll' in args:
-            final_args['scroll'] = int(args['scroll'])
+            final_args['scroll'] = cls.parse_value_or_percent(args['scroll'])
 
         return final_args
 
@@ -1585,9 +1585,8 @@ class KeyTextLine(keyImagePart):
                 crop['left'] = 0
                 crop['right'] = total_width 
             else:
-                if self.scroll and not self.wrap:
-                    align = 'left'
-                    self.scrollable = 'left'
+                if self.scroll_pixels and not self.wrap:
+                    self.scrollable = align = ('left' if self.scroll_pixels > 0 else 'right')
                 self._complete_image['fixed_position_left'] = margins['left']
                 if align == 'left':
                     crop['left'] = 0
@@ -1604,9 +1603,8 @@ class KeyTextLine(keyImagePart):
                 crop['top'] = 0
                 crop['bottom'] = total_height
             else:
-                if self.scroll and self.wrap:
-                    valign = 'top'
-                    self.scrollable = 'top'
+                if self.scroll_pixels and self.wrap:
+                    self.scrollable = valign = ('top' if self.scroll_pixels > 0 else 'bottom')
                 self._complete_image['fixed_position_top'] = margins['top']
                 if valign == 'top':
                     crop['top'] = 0
@@ -1638,14 +1636,15 @@ class KeyTextLine(keyImagePart):
                     self.scrolled = 0
                 else:
                     crop = crop.copy()
-                    if self.scrollable == 'left':
-                        if self.scrolled >= ci['total_width']:
-                            self.scrolled = -ci['max_width']
+                    sign = self.scroll_pixels // abs(self.scroll_pixels)
+                    if self.scrollable in ('left', 'right'):
+                        if sign * self.scrolled >= ci['total_width']:
+                            self.scrolled = -sign * ci['max_width']
                         crop['left'] += self.scrolled
                         crop['right'] = max(crop['right'] + self.scrolled, ci['total_width'])
-                    else:  #  top
-                        if self.scrolled >= ci['total_height']:
-                            self.scrolled = -ci['max_height']
+                    else: # top, bottom
+                        if sign * self.scrolled >= ci['total_height']:
+                            self.scrolled = -sign * ci['max_height']
                         crop['top'] += self.scrolled
                         crop['bottom'] = max(crop['bottom'] + self.scrolled, ci['total_height'])
 
@@ -1669,12 +1668,18 @@ class KeyTextLine(keyImagePart):
 
         return final_image, left, top, final_image
 
+    @property
+    def scroll_pixels(self):
+        if not hasattr(self, '_scroll_pixels'):
+            self._scroll_pixels = self.convert_coordinate(self.scroll, 'height' if self.wrap else 'height')
+        return self._scroll_pixels
+
     def start_scroller(self):
         if self.scroll_thread or not self.scrollable:
             return
         self.scrolled = 0
         self.scrolled_at = time() + self.SCROLL_WAIT
-        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1/self.scroll), wait_first=self.SCROLL_WAIT, name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line else ""}')
+        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1/abs(self.scroll_pixels)), wait_first=self.SCROLL_WAIT, name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line else ""}')
         self.scroll_thread.start()
 
     def stop_scroller(self, *args, **kwargs):
@@ -1684,9 +1689,9 @@ class KeyTextLine(keyImagePart):
         self.scroll_thread = None
 
     def do_scroll(self):
-        # we scroll `self.scroll` pixels each second, so we compute the nb of pixels to move since the last move
+        # we scroll `self.scroll_pixels` pixels each second, so we compute the nb of pixels to move since the last move
         time_passed = (now := time()) - self.scrolled_at
-        nb_pixels = round(time_passed * self.scroll)
+        nb_pixels = round(time_passed * self.scroll_pixels)
         if not nb_pixels:
             return
         self.scrolled += nb_pixels
