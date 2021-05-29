@@ -210,6 +210,8 @@ Examples:
 
 Once cropped, the part that is kept will be the source image for the other configuration options.
 
+In addition to `crop`, it's also possible to override the individual parts. For example `crop=10,10 10,10;crop.1=20` will be equal to `crop=10,20,10,10`. For this to work, `crop` must have been defined. And indexes (the `1` in `crop.1` starts at 0: 4 parts (from `0` to `3`) can be overridden. It may not seems useful for now, but we'll see later that it can be powerful.
+
 #### Option "rotate"
 
 The `rotate` option takes the source image (or the one already updated by previous options) and rotates it the number given of degrees clockwise.
@@ -243,6 +245,7 @@ Examples:
 - `IMAGE;margin=10,10,10,10` makes a margin of 10 pixels on all size
 - `IMAGE;margin=0,33.33%,0,33.33%` will fit the image if the middle third of the key (margin of 33.33% on left and right, so 33.33% are available in the middle)
 
+In addition to `margin`, it's also possible to override the individual parts. For example `margin=10,10 10,10;margin.1=20` will be equal to `margin=10,20,10,10`. For this to work, `margin` must have been defined. And indexes (the `1` in `margin.1` starts at 0: 4 parts (from `0` to `3`) can be overridden. It may not seems useful for now, but we'll see later that it can be powerful.
 
 #### Option "colorize"
 
@@ -296,6 +299,8 @@ Common things to know about drawings configuration options:
 - default "fill" is not set, i.e., by default, when not defining any color/width, you'll have a thin white line
 - colors ("outline" and "fill") can be set as a name, a simple hexadecimal value (#RRGGBB), or a hexadecimal value with opacity (#RRGGBBAA)
 - angles can be expressed in degrees (from 0 to 360, but can be negative or more than 360, 0 is at midnight) or in percents (100%=360 degrees)
+
+For `coords` and `angles` (both described below), in addition to the full configuration option, it's also possible to override the individual parts. For example `angles=0,90;angles.1=180` will be equal to `angles=0,180`. For this to work, the full configuration option must have been defined. And indexes (the `1` in `angles.1` starts at 0: for angles, 2 parts ( `0` and `1`) can be overridden, and for coords, it must be an index present in the original coords. It may not seems useful for now, but we'll see later that it can be powerful.
 
 #### Kind "points"
 
@@ -954,6 +959,12 @@ A key can reference another key like this: `ref=PAGE:KEY`, with:
 
 Keys references are particular because a key can contain text, images, events, etc. The way it works is simple: by default, everything that is available in the reference key is "imported" in the key referencing it, but in the directory key referencing it, you can add texts, images, events... that will "replace" the ones in the reference key. So you can add layers, texts, and if you want to change one configuration of, say, an image, you can reference it and only add the configuration to update. See below when using the "close" reference.
 
+## Partial configuration updates
+
+When describing `margin`, `crop`, `coords` and `angles` in the previous sections we saw that it was possible to define for example `margin.1`, but it seemed useless at the time. Now, with references and overriding the power of this feature is visible: you can define the full option on the reference, and update just the part you need on the object defining the reference.
+
+Say you have many keys that need a "progress bar", with a different length. You can define your reference layer like this: `IMAGE;name=progress;draw=line;coords=0,92,0,92;outline=white;width=7`. You can see that the third of the `coords` configuration option is `0`. It's the `X2` coordinate of the line, ie where it ends. When you need to reference it, you only have to set the `coords.2` (`2` for the third part as indexes starts at `0`): `IMAGE;ref=page:key:progress;coords.2=50%`. Now you have a line that spreads 50% of the key width.
+
 ## Usage example: references page
 
 Among many things that are possible with references, one way of using them is to have a "references" page where you put things that are common among your configuration.
@@ -965,7 +976,7 @@ Here is an example of such a page:
     ├── KEY_ROW_1_COL_1;name=img
     │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
     ├── KEY_ROW_1_COL_2;name=draw
-    │   ├── IMAGE;layer=0;name=background;draw=rectangle;coords=0,0,100%,100%;width=0;fill=
+    │   ├── IMAGE;layer=0;name=background;draw=fill;fill=
     │   └── IMAGE;name=progress;draw=line;coords=0%,92,32%,92;outline=white;width=7
     ├── KEY_ROW_2_COL_1;name=close
     │   ├── IMAGE;layer=1;colorize=white;margin=20,10,10,10;name=icon -> /home/twidi/dev/streamdeck-scripts/assets/close.png
@@ -991,7 +1002,7 @@ This key contains two drawings:
 
 One named `background` (where only the fill color is missing), which can be referenced like this: `IMAGE;ref=ref:draw:background;fill=ref`
 
-One named `progress` which draws a progress bar on the bottom of the key (where the Y2 coordinate must be updated to the proper progress value (here at 32%)), which can be referenced like this: `IMAGE;layer=3;ref=ref:draw:progress;coords=0%,92,50%,92%` (here we change the progress to 50% and set the layer number to `3` as the reference does not have it defined because each key using it may want to place the `progress` at a different layer)
+One named `progress` which draws a progress bar on the bottom of the key (where the `X2` coordinate must be updated to the proper progress value (here at `32%`)), which can be referenced like this: `IMAGE;layer=3;ref=ref:draw:progress;coords.2=50%` (here we change the progress to `50%` and set the layer number to `3` as the reference does not have it defined because each key using it may want to place the `progress` at a different layer)
 
 - `KEY_ROW_2_COL_1;name=close`
 

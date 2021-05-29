@@ -21,7 +21,6 @@ Features:
 TODO:
 - page on_open/open_close events
 - conf to "animate" layer properties ?
-- allow overriding "part" of config when using references, (like `coords.2=50%` to change the 2nd value of the inherited "coords" settings)
 
 
 
@@ -311,7 +310,10 @@ class Entity:
         args_parts = []
         for part in cls.filename_parts:
             if (arg_part := cls.compose_filename_part(part, args)) is not None:
-                args_parts.append(arg_part)
+                if isinstance(arg_part, list):
+                    args_parts.extend(arg_part)
+                else:
+                    args_parts.append(arg_part)
         return main_part, args_parts
 
     @classmethod
@@ -377,8 +379,46 @@ class Entity:
             ref_main, ref_args = ref.get_resovled_raw_args()
             if ref_main is None or ref_args is None:
                 return ref_conf, None, None, None
+
             main = ref_main | main
+
+            # do not inherit "sub arguments" (things like `margin.2` if whole argument is defined in the current conf, like, in this example, `margin`)
+            sub_ref_args = {}
+            for key, value in ref_args.items():
+                if '.' not in key:
+                    continue
+                parent_key = key.split('.', 1)[0]
+                sub_ref_args.setdefault(parent_key, {})[key] = value
+            if sub_ref_args:
+                ref_args = ref_args.copy()
+                for parent_key in sub_ref_args.keys():
+                    if parent_key in args:
+                        for key, value in sub_ref_args[parent_key].items():
+                            ref_args.pop(key)
+
             args = ref_args | args
+
+        # merge "sub arguments" in their main arguments
+        sub_args = {}
+        for key, value in args.items():
+            if '.' not in key:
+                continue
+            parent_key = key.split('.', 1)[0]
+            sub_args.setdefault(parent_key, {})[key] = value
+        if sub_args:
+            for parent_key in sub_args.keys():
+                if parent_key in args:
+                    try:
+                        parts = args[parent_key].split(',')
+                        for key, value in sub_args[parent_key].items():
+                            try:
+                                index = int(key.split('.')[-1])
+                                parts[index] = value
+                            except Exception:
+                                continue
+                        args[parent_key] = ','.join(parts)
+                    except Exception:
+                        pass
 
         try:
             main = cls.convert_main_args(main)
@@ -1080,16 +1120,20 @@ class KeyImageLayer(keyImagePart):
         re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<layer>.*)$'),  # we'll use -1 if no layer given
         re.compile(f'^(?P<arg>colorize)=(?P<value>{RE_PART_COLOR})$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>margin\.[0123])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>crop\.[0123])=(?P<value>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile(f'^(?P<arg>rotate)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile('^(?P<arg>draw)=(?P<value>line|rectangle|fill|points|polygon|ellipse|arc|chord|pieslice)$'),
         re.compile(f'^(?P<arg>coords)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER}(?:,-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER})*)$'),
+        re.compile(f'^(?P<arg>coords\.\d+)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>outline)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile('^(?P<arg>width)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>radius)=(?P<value>\d+)$'),
         re.compile(f'^(?P<arg>angles)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>angles\.[12])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
     ]
     main_filename_part = lambda args: 'IMAGE'
     filename_parts = [
@@ -1098,15 +1142,19 @@ class KeyImageLayer(keyImagePart):
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("layer") or ""}' if (ref := args.get('ref')) else None,
         lambda args: f'draw={draw}' if (draw := args.get('draw')) else None,
         lambda args: f'coords={coords}' if (coords := args.get('coords')) else None,
+        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('coords.')],
         lambda args: f'outline={color}' if (color := args.get('outline')) else None,
         lambda args: f'fill={color}' if (color := args.get('fill')) else None,
         lambda args: f'width={width}' if (width := args.get('width')) else None,
         lambda args: f'radius={radius}' if (radius := args.get('radius')) else None,
         lambda args: f'angles={angles}' if (angles := args.get('angles')) else None,
+        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('angles.')],
         lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}' if (crop := args.get('crop')) else None,
+        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('crop.')],
         lambda args: f'colorize={color}' if (color := args.get('colorize')) else None,
         lambda args: f'rotate={rotate}' if (rotate := args.get('rotate')) else None,
         lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
+        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('margin.')],
         lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
         Entity.disabled_filename_part,
     ]
@@ -1294,6 +1342,7 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>margin\.[0123])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>scroll)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         # to read text from a file
         # re.compile('^(?P<arg>file)=(?P<value>.+)$'),
@@ -1316,6 +1365,7 @@ class KeyTextLine(keyImagePart):
         lambda args: f'align={align}' if (align := args.get('align')) else None,
         lambda args: f'valign={valign}' if (valign := args.get('valign')) else None,
         lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
+        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('margin.')],
         lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
         lambda args: f'scroll={scroll}' if (scroll := args.get('scroll')) else None,
         lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
@@ -3072,17 +3122,6 @@ class FilterCommands:
                 Manager.exit(1, f'[{obj}] Configuration value for `{name}` is not valid')
             if name in main:
                 Manager.exit(1, f'[{obj}] Configuration name `{name}` cannot be changed')
-
-            if partial_match := RE_CONF_PART.match(name):
-                name = (partial_conf := partial_match.groupdict())['name']
-                index = int(partial_conf['index'])
-                if name not in final_args:
-                    Manager.exit(1, f'[{obj}] Configuration name `{name}` not present, cannot update part {index}')
-                parts = final_args[name].split(',')
-                if len(parts) <= index:
-                    Manager.exit(1, f'[{obj}] Not enough parts in `{name}` ({final_args[name]}) to update part {index}')
-                parts[index] = value
-                value = ','.join(parts)
 
             if not value:
                 final_args.pop(name, None)

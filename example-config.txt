@@ -30,7 +30,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
 │   ├── KEY_ROW_4_COL_1;name=volume-mute
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-│   │   ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,32%,92
+│   │   ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords.2=32%
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:volume-up:background
 │   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
@@ -52,7 +52,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/decrease.sh
 │   └── KEY_ROW_4_COL_2;name=microphone
 │       ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
-│       ├── IMAGE;layer=2;name=sensitivity;ref=ref:draw:progress;coords=0%,92,28%,92
+│       ├── IMAGE;layer=2;name=sensitivity;ref=ref:draw:progress;coords.2=28%
 │       ├── IMAGE;ref=ref:img:overlay
 │       ├── IMAGE;ref=:sensitivity-up:background;colorize=red
 │       ├── ON_LONGPRESS;ref=ref:ev:back
@@ -62,7 +62,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   ├── KEY_ROW_1_COL_1;name=toggle
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
 │   │   ├── IMAGE;layer=2;name=pause;colorize=green;margin=20,20,20,20;opacity=0;disabled -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
-│   │   ├── IMAGE;layer=3;ref=ref:draw:progress;coords=0%,92,22%,92
+│   │   ├── IMAGE;layer=3;ref=ref:draw:progress;coords.2=22%
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#8cc63f
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── ON_LONGPRESS;ref=ref:ev:back
@@ -102,7 +102,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── ON_PRESS;every=1000;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_forward.py
 │   │   └── TEXT;ref=:seek-backward:label;text=+20s
 │   ├── KEY_ROW_2_COL_4;name=progress
-│   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,21.7%;opacity=50
+│   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0;opacity=50;angles.1=21.7%
 │   │   ├── TEXT;line=1;name=progress;text=1:39;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1
 │   │   └── TEXT;line=2;name=duration;text=7:39;align=center;valign=middle;margin=60%,1,10,1
 │   ├── KEY_ROW_2_COL_6;name=album-image-part4
