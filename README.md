@@ -139,7 +139,7 @@ But first, let's talk a bit about the way configuration works.
 
 ## Configuration format
 
-Everything is done in the name of the file. Say you want to configure the `IMAGE` with the option ` foo' taking the value `bar`, then you have to rename the file from `IMAGE` to `IMAGE;foo=bar`.
+Everything is done in the name of the file. Say you want to configure the `IMAGE` with the option `foo` taking the value `bar`, then you have to rename the file from `IMAGE` to `IMAGE;foo=bar`.
 
 And if you want to add a name (explained later) of `my-key`, the file's name will be `IMAGE;foo=bar;name=my-key`.
 
@@ -287,6 +287,7 @@ Common things to know about drawings configuration options:
 
 - coordinates are based on the size of the key, based on the (0,0) coordinate being in the top left corner of the image
 - coordinates can be given in pixels or percents. If percents they will be from the width or the height of the key size
+- coordinates can be negative
 - coordinates are given as a suite of `X,Y` pairs, separated by commas, like `X1,Y1,X2,Y2` for two points
 - default line ("outline") color if not defined is `white`
 - width if the width of the line, in pixels, and if it is more than 1, it will spread equally around the "center" of the line
@@ -423,9 +424,10 @@ It must be defined like this: `draw=pieslice;coords=X1,Y1,X2,Y2;angles=START,END
 - `WIDTH`: the width of the line. Optional
 - `FILL_COLOR`: the color to fill the inside of the pie slice. Optional
 
-Example:
+Examples:
 
-- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=0,90` will draw a quarter circle on the top right quarter
+- `IMAGE;draw=pieslice;coords=20%,20%,80%,80%;angles=0,90` will draw a quarter circle on the top right quarter "pointing" towards the middle
+- `IMAGE;draw=pieslice;coords=-50%,-50%,50%,50%;angles=90,180` will draw a quarter circle on the top left quarter "pointing" towards the top left corner
 
 
 ### Texts

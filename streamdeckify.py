@@ -1065,7 +1065,7 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile('^(?P<arg>rotate)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>draw)=(?P<value>line|rectangle|points|polygon|ellipse|arc|chord|pieslice)$'),
-        re.compile(f'^(?P<arg>coords)=(?P<value>{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER}(?:,{RE_PART_PERCENT_OR_NUMBER},{RE_PART_PERCENT_OR_NUMBER})*)$'),
+        re.compile(f'^(?P<arg>coords)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER}(?:,-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER})*)$'),
         re.compile(f'^(?P<arg>outline)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile(f'^(?P<arg>fill)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
         re.compile('^(?P<arg>width)=(?P<value>\d+)$'),
