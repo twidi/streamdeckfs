@@ -1509,6 +1509,15 @@ class KeyTextLine(keyImagePart):
                 remaining = remaining - (word_width + space_width)
         return lines
 
+    def on_changed(self):
+        self.stop_scroller()
+        if self.mode != 'text':
+            self.text = None
+        self._complete_image = self.compose_cache = None
+        self.key.on_image_changed()
+        for reference in self.referenced_by:
+            reference.on_changed()
+
     def compose(self):
         if not self.scrollable:
             # will always be run the first time, because we'll only know
