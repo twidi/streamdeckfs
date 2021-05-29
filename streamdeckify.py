@@ -1071,7 +1071,7 @@ class KeyImageLayer(keyImagePart):
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
-        re.compile('^(?P<arg>rotate)=(?P<value>\d+)$'),
+        re.compile(f'^(?P<arg>rotate)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile('^(?P<arg>draw)=(?P<value>line|rectangle|points|polygon|ellipse|arc|chord|pieslice)$'),
         re.compile(f'^(?P<arg>coords)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER}(?:,-?{RE_PART_PERCENT_OR_NUMBER},-?{RE_PART_PERCENT_OR_NUMBER})*)$'),
         re.compile(f'^(?P<arg>outline)=(?P<value>{RE_PART_COLOR_WITH_POSSIBLE_ALPHA})$'),
@@ -1140,7 +1140,7 @@ class KeyImageLayer(keyImagePart):
             final_args['opacity'] = int(args['opacity'])
         if 'rotate' in args:
             # we negate the given value because PIL rotates counterclockwise
-            final_args['rotate'] = -int(args['rotate'])
+            final_args['rotate'] = -cls.convert_angle(cls.parse_value_or_percent(args['rotate']))
         if 'draw' in args:
             final_args['draw'] = args['draw']
             if 'coords' in args:

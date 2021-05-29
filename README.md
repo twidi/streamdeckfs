@@ -216,11 +216,12 @@ The `rotate` option takes the source image (or the one already updated by previo
 
 It must be defined like this: `rotate=ANGLE`, with:
 
-- `ANGLE`: the angle, in degrees, from 0 to 360 (it can be more than 360, in which case it will work as you may expect)
+- `ANGLE`: the angle, in degrees, from 0 to 360, or in percents (100%=360 degrees) (it can be negative or more than 360/100%, in which case it will work as you expect)
 
-Example:
+Examples:
 
 - `IMAGE;rotate=180` will make the image upside down
+- `IMAGE;rotate=50%` same but expressed in percents
 
 Once rotated, the updated image will be the source image for the other configuration options.
 
