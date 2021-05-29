@@ -699,10 +699,10 @@ class KeyEvent(KeyFile):
         re.compile('^(?P<arg>page)=(?P<value>.+)$'),
         re.compile('^(?P<flag>overlay)(?:=(?P<value>false|true))?$'),
         # action run
-        re.compile('^(?P<arg>program)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>command)=(?P<value>.+)$'),
         re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
         re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
-        # do not run many times the same program at the same time
+        # do not run many times the same command at the same time
         re.compile('^(?P<flag>unique)(?:=(?P<value>false|true))?$'),
     ]
     main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
@@ -711,7 +711,7 @@ class KeyEvent(KeyFile):
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref["event"]}' if (ref := args.get('ref')) else None,
         lambda args: f'brightness={brightness.get("brightness_operation", "")}{brightness["brightness_level"]}' if (brightness := args.get('brightness')) else None,
         lambda args: f'page={page}' if (page := args.get('page')) else None,
-        lambda args: f'program={program}' if (program := args.get('program')) else None,
+        lambda args: f'command={command}' if (command := args.get('command')) else None,
         lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
         lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
         lambda args: f'wait={wait}' if (wait := args.get('wait')) else None,
@@ -742,7 +742,7 @@ class KeyEvent(KeyFile):
         self.duration_min = None
         self.overlay = False
         self.detach = False
-        self.program = None
+        self.command = None
         self.unique = False
         self.pids = []
         self.activated = False
@@ -769,21 +769,21 @@ class KeyEvent(KeyFile):
     def convert_args(cls, args):
         final_args = super().convert_args(args)
 
-        if len([1 for key in ('page', 'brightness', 'program') if args.get(key)]) > 1:
-            raise InvalidArg('Only one of these arguments must be used: "page", "brightness", "program')
+        if len([1 for key in ('page', 'brightness', 'command') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "page", "brightness", "command')
 
         if args.get('page'):
             final_args['mode'] = 'page'
         elif args.get('brightness'):
             final_args['mode'] = 'brightness'
-        elif args.get('program'):
-            final_args['mode'] = 'program'
+        elif args.get('command'):
+            final_args['mode'] = 'command'
         else:
             final_args['mode'] = 'path'
 
-        if final_args['mode'] in ('path', 'program'):
-            if final_args['mode'] == 'program':
-                final_args['program'] = cls.replace_special_chars(args['program'], args)
+        if final_args['mode'] in ('path', 'command'):
+            if final_args['mode'] == 'command':
+                final_args['command'] = cls.replace_special_chars(args['command'], args)
             final_args['detach'] = args.get('detach', False)
             final_args['unique'] = args.get('unique', False)
         elif final_args['mode'] == 'page':
@@ -817,12 +817,12 @@ class KeyEvent(KeyFile):
         elif event.mode == 'page':
             event.page_ref = args['page_ref']
             event.overlay = args.get('overlay', False)
-        elif event.mode in ('path', 'program'):
+        elif event.mode in ('path', 'command'):
             event.detach = args['detach']
             event.unique = args['unique']
             event.to_stop = event.kind == 'start' and not event.detach
-            if event.mode == 'program':
-                event.program = args['program']
+            if event.mode == 'command':
+                event.command = args['command']
         if event.kind in ('press', 'start'):
             if args.get('repeat-every'):
                 event.repeat_every = args['repeat-every']
@@ -919,17 +919,17 @@ class KeyEvent(KeyFile):
                 self.deck.set_brightness(*self.brightness_level)
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref, self.overlay)
-            elif self.mode in ('path', 'program'):
+            elif self.mode in ('path', 'command'):
                 if self.unique and not self.ended_running.is_set():
                     logger.warning(f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]')
                     return True
                 if self.mode == 'path':
-                    program = self.resolved_path
+                    command = self.resolved_path
                     shell = False
                 else:
-                    program = self.program
+                    command = self.command
                     shell = True
-                if (pid := Manager.start_process(program, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running)):
+                if (pid := Manager.start_process(command, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running)):
                     self.pids.append(pid)
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
@@ -979,7 +979,7 @@ class KeyEvent(KeyFile):
 
     @property
     def is_stoppable(self):
-        return self.kind == 'start' and self.to_stop and self.mode in ('path', 'program') and self.pids
+        return self.kind == 'start' and self.to_stop and self.mode in ('path', 'command') and self.pids
 
     def activate(self, page=None):
         if page is None:
@@ -990,7 +990,7 @@ class KeyEvent(KeyFile):
             return
         self.activated = True
         self.ended_running.set()
-        if self.kind == 'start' and self.mode in ('path', 'program'):
+        if self.kind == 'start' and self.mode in ('path', 'command'):
             self.wait_run_and_repeat()
 
     def deactivate(self):
@@ -2718,7 +2718,7 @@ class Manager:
     def check_running_processes(cls):
         for pid, process_info in list(cls.processes.items()):
             if (return_code := process_info['process'].poll()) is not None:
-                logger.info(f'[PROCESS] `{process_info["program"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]')
+                logger.info(f'[PROCESS] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]')
                 cls.processes.pop(pid, None)
                 if (event := process_info.get('done_event')):
                     event.set()
@@ -2739,19 +2739,19 @@ class Manager:
         cls.processes_checker_thread = None
 
     @classmethod
-    def start_process(cls, program, register_stop=False, detach=False, shell=False, done_event=None):
+    def start_process(cls, command, register_stop=False, detach=False, shell=False, done_event=None):
         if done_event is not None:
             done_event.clear()
         if not cls.processes_checker_thread:
             cls.start_processes_checker()
 
-        base_str = f'[PROCESS] Launching `{program}`{" (in detached mode)" if detach else ""}'
+        base_str = f'[PROCESS] Launching `{command}`{" (in detached mode)" if detach else ""}'
         logger.info(f'{base_str}...')
         try:
-            process = psutil.Popen(program, start_new_session=bool(detach), shell=bool(shell))
+            process = psutil.Popen(command, start_new_session=bool(detach), shell=bool(shell))
             cls.processes[process.pid] = {
                 'pid': process.pid,
-                'program': program,
+                'command': command,
                 'process' : process,
                 'to_stop': bool(register_stop),
                 'detached': detach,
@@ -2795,7 +2795,7 @@ class Manager:
             return
         if not psutil.pid_exists(pid):
             return
-        base_str = f"[PROCESS {pid}] Terminating `{process_info['program']}`"
+        base_str = f"[PROCESS {pid}] Terminating `{process_info['command']}`"
         logger.info(f'{base_str}...')
         gone, alive = cls.kill_proc_tree(pid, timeout=5)
         if alive:

@@ -12,7 +12,7 @@ It provides numerous features:
 - references (explained later, but see this as a way to have templates, or to repeat keys on pages, or have many times the same key with a few differences)
 
 
-The program will look at the directory passed on the command line and read all the configuration from directories and files.
+`streamdeckify` will look at the directory passed on the command line and read all the configuration from directories and files.
 
 And while running, it will catch any changes to them to update in real-time the StreamDeck
 
@@ -71,7 +71,7 @@ You can create the directories by hand (we'll explain how later), but we provide
 path/to/streamdeckify.py make-dirs SERIAL BASE_DIRECTORY
 ```
 
-`SERIAL` is the serial number you got from the `inspect` command. Note that if you have only one connected StreamDeck, you can ignore this argument as the program will automatically find it for you.
+`SERIAL` is the serial number you got from the `inspect` command. Note that if you have only one connected StreamDeck, you can ignore this argument as `streamdeckify` will automatically find it for you.
 
 `BASE_DIRECTORY` is the directory that will contain the configuration directory of this StreamDeck. So it will create (if it does not exist yet) a directory named `YOUR_SERIAL_NUMBER` in `BASE_DIRECTORY`.
 
@@ -79,7 +79,7 @@ Before creating (or updating) the tree, you'll be asked to confirm (unless you p
 
 Only one page will be created unless you pass `--page XX`, `XX` being the number of pages to create.
 
-Once confirmed, the program will create all missing directories.
+Once confirmed, `streamdeckify` will create all missing directories.
 
 The resulting tree will look like this, for example for a deck with 3 rows of 5 keys:
 
@@ -126,7 +126,7 @@ And voila!
 
 Note that, like for `make-dirs`, the `SERIAL` argument is optional if you have only one connected StreamDeck.
 
-And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (the program will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `path/to/streamdeckify.py run BASE_DIRECTORY`)
+And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (`streamdeckify` will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `path/to/streamdeckify.py run BASE_DIRECTORY`)
 
 Now that you have your StreamDeck running, try adding an image for another key (on the first page). You'll see that the deck automatically updates. And maybe you're starting to see the infinite possibilities.
 
@@ -166,7 +166,7 @@ It's the name of the page, key, image, event, or text. It can be whatever you wa
 
 ### `disabled`
 
-To make the program ignore a page, image, text, event..., you can use the `disabled` option, which is a flag, meaning that simply adding `;disabled` is enough to have it disabled, but you can also set a boolean value `;disabled=true` or `;disabled=false`.
+To make `streamdeckify` ignore a page, image, text, event..., you can use the `disabled` option, which is a flag, meaning that simply adding `;disabled` is enough to have it disabled, but you can also set a boolean value `;disabled=true` or `;disabled=false`.
 
 ## Configuring appearance (images, drawings, texts)
 
@@ -638,7 +638,7 @@ An event for a key is a file in a `KEY...` directory that starts with `ON_`, fol
 
 And it is configured the same way as images, texts, with configurations options, like this: `ON_PRESS;conf1=value1;conf2=value2`
 
-An event is an action that is triggered when the key is pressed, released, etc., and, like images, it will use the file itself as the script the run. So to run a script/program for a specific action, copy, or make a link, the program in the `KEY...` directory and rename it `ON__...`. It can be any executable the OS knows to execute or a script with the correct shebang.
+An event is an action that is triggered when the key is pressed, released, etc., and, like images, it will use the file itself as the script the run. So to run a script/program for a specific action, copy the script/program (or make a link to it) in the `KEY...` directory and rename it `ON__...`. It can be any executable the OS knows to execute or a script with the correct shebang.
 
 There can be only one of each event for each key. If the same `ON_XXX` is defined many times, the most recent will be used and the others ignored.
 
@@ -652,15 +652,15 @@ Now let see the different events, then how they can be configured:
 
 #### Event "ON_START"
 
-When a key is displayed, the `ON_START` command is executed. And if it still runs when the key stops to be displayed (at the end of the `streamdeckify` program or when you change page), the command will be terminated. It can be used, for example, to start a script that will periodically fetch some information and update a key, like the temperature of your CPU, the title of the current Spotify song, etc.
+When a key is displayed, the `ON_START` command is executed. And if it still runs when the key stops to be displayed (when `streamdeckify` ends or when you change page), the command will be terminated. It can be used, for example, to start a script that will periodically fetch some information and update a key, like the temperature of your CPU, the title of the current Spotify song, etc.
 
-If the program must still run when the key stops to be displayed, it can be "detached" (and in this case, it will not even be stopped when the `streamdeckify` program ends)
+If the command must still run when the key stops to be displayed, it can be "detached" (and in this case, it will not even be stopped when `streamdeckify` ends)
 
 #### Event "ON_PRESS"
 
 When a key is pressed (note that we have a different event for "press" and "release"), the `ON_PRESS` command is executed. Among the configuration options, it's possible to run the command only if the key is pressed more, or less, than a specific period; it can be repeated if pressed long enough, etc.
 
-Same as for the `ON_START` event, the program, if it still runs when the key stops being displayed, will be terminated, except if the `detach` option is set.
+Same as for the `ON_START` event, the command, if it still runs when the key stops being displayed, will be terminated, except if the `detach` option is set.
 
 #### Event "ON_RELEASE"
 
@@ -758,7 +758,7 @@ Example:
 
 ### Option "detach"
 
-By default, all scripts/programs executed by a StreamDeck event are "tied" to the `streamdeckify` process. And they are stopped, if still running, when the key stops being displayed for `ON_START` events, or, for others, when `streamdeckify` ends.
+By default, all commands executed by a StreamDeck event are "tied" to the `streamdeckify` process. And they are stopped, if still running, when the key stops being displayed for `ON_START` events, or, for others, when `streamdeckify` ends.
 
 It's common to want to run an external program that should stay open even if the `streamdeckify` ends. The `detach` flag is here for that.
 
@@ -774,7 +774,7 @@ Examples:
 
 ### Option "unique"
 
-The `unique` flag avoids running a program when its previous execution (from the same event) is not yet finished. It's useful with the `every` option to wait for the previous iteration to be done before running the next one. Or for multiple presses.
+The `unique` flag avoids running a command when its previous execution (from the same event) is not yet finished. It's useful with the `every` option to wait for the previous iteration to be done before running the next one. Or for multiple presses.
 
 It must be defined like this:
 
@@ -786,58 +786,58 @@ Examples:
 - `ON_PRESS;every=100;detach` or `ON_PRESS;every=100;detach=true` will run the program every 100 milliseconds but will skip an iteration if the execution from the previous one is not finished yet, so if the program takes 140ms, it will run at 0ms, 200ms, 400ms... instead of 0ms, 100ms, 200ms...
 - `ON_PRESS;every=100;detach=false` or `ON_PRESS;every=100` will not detach the program, so it will run at 0ms, 100ms, 200ms, and many occurrences of the same program may be running at the same time
 
-### Option "program"
+### Option "command"
 
-By default, the action executed by an event is the program of the file itself (or the one it links to), but it may not be convenient. Imagine if you want to run the gnome calculator on a press, you'd have to find the path of the gnome-calculator binary and link it to your `ON_PRESS` file, or make your `ON_PRESS` file a bash script that would call `gnome-calculator`.
+By default, the action executed by an event is the script/program of the file itself (or the one it links to), but it may not be convenient. Imagine if you want to run the gnome calculator on a press, you'd have to find the path of the gnome-calculator binary and link it to your `ON_PRESS` file, or make your `ON_PRESS` file a bash script that would call `gnome-calculator`.
 
 And another example could be to open a specific page in your default browser. As there is an argument (the page to open), you cannot make a link and need to make this bash script (it's not complicated, but maybe you want to stick to the whole configuration in file names)
 
-The `program` configuration option allows you to define the full command to execute, and it will be run as-is. You still have to respect the known limitations of the file name (max length and no slash `/`) and avoid semi-colons `;` as it is interpreted as the end of the program (because it's the configuration options separator) . For the slash, which is common if you have a path in the command, you can replace it with any suite of characters defined in the `slash` option (default to `\\`). For the semi-colon, you can replace it with any suite of caracters defined in the `semicolon` option (default to `^`).
+The `command` configuration option allows you to define the full command to execute, and it will be run as-is. You still have to respect the known limitations of the file name (max length and no slash `/`) and avoid semi-colons `;` as it is interpreted as the end of the command (because it's the configuration options separator) . For the slash, which is common if you have a path in the command, you can replace it with any suite of characters defined in the `slash` option (default to `\\`). For the semi-colon, you can replace it with any suite of caracters defined in the `semicolon` option (default to `^`).
 
-The `program` configuration option can include `|`, `>`, etc., as you would do in a console.
+The `command` configuration option can include `|`, `>`, etc., as you would do in a console.
 
 Note that the file can be empty when this option is set, as its content will be ignored.
 
-It must be defined like this: `program=COMMAND` with:
+It must be defined like this: `command=COMMAND` with:
 
 - `COMMAND`: the command to execute
 
 Examples:
 
-- `ON_PRESS;program=gnome-calculator` will run the gnome calculator
-- `ON_PRESS;program=browse https:||elgato.com;slash=|` will open your default browser on the `https://elgato.com` web page. Note that the `/` in `https://` are replaced by `|` as defined by the `slash` configuration option.
-- `ON_PRESS;program=browse https:\\\\elgato.com` same but using the default value of the `slash` configuration option when not passed.
+- `ON_PRESS;command=gnome-calculator` will run the gnome calculator
+- `ON_PRESS;command=browse https:||elgato.com;slash=|` will open your default browser on the `https://elgato.com` web page. Note that the `/` in `https://` are replaced by `|` as defined by the `slash` configuration option.
+- `ON_PRESS;command=browse https:\\\\elgato.com` same but using the default value of the `slash` configuration option when not passed.
 
 ### Option "slash"
 
-When using the `program` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
+When using the `command` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
 
 It must be defined like this: `slash=REPLACEMENT` with:
 
-- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `program` configuration option for the `/` character
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `/` character
 
 Examples:
 
-- `ON_PRESS;program=@path@to@myscript | grep foobar > @path@to@log;slash=@` will run the command `/path/to/myscript | grep foobar > /path/to/log`
-- `ON_PRESS;program=XXXpathXXXtoXXXmyscript;slash=XXX` will run the command `/path/to/myscript`
-- `ON_PRESS;program=\\path\\to\\myscript` will run the command `/path/to/myscript` using the default value of `slash`, `\\`
+- `ON_PRESS;command=@path@to@myscript | grep foobar > @path@to@log;slash=@` will run the command `/path/to/myscript | grep foobar > /path/to/log`
+- `ON_PRESS;command=XXXpathXXXtoXXXmyscript;slash=XXX` will run the command `/path/to/myscript`
+- `ON_PRESS;command=\\path\\to\\myscript` will run the command `/path/to/myscript` using the default value of `slash`, `\\`
 
 ### Option "semicolon"
 
-When using the `program` option, it's impossible to use semi-colons in the filename, so you can replace it with any character or suite of characters you defined with the `semicolon` option. If not defined, the default value of `^` is used/
+When using the `command` option, it's impossible to use semi-colons in the filename, so you can replace it with any character or suite of characters you defined with the `semicolon` option. If not defined, the default value of `^` is used/
 
 It must be defined like this: `semicolon=REPLACEMENT` with:
 
-- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `program` configuration option for the `;` character
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `;` character
 
 Examples:
 
-- `ON_PRESS;program=browse https:\\\\elgato.com^browse https:\\\\github.com` will do two actions: open your default browser on the `https://elgato.com` web page and then on the `https://github.com` one, using default replacement values for `slash` and `semicolon`
-- `ON_PRESS;program=browse https:XXelgato.com AND browse https:XXgithub.com;slash=X;semicolon= AND ` same but using `X` for the `slash` and ` AND ` for the `semicolon`
+- `ON_PRESS;command=browse https:\\\\elgato.com^browse https:\\\\github.com` will do two actions: open your default browser on the `https://elgato.com` web page and then on the `https://github.com` one, using default replacement values for `slash` and `semicolon`
+- `ON_PRESS;command=browse https:XXelgato.com AND browse https:XXgithub.com;slash=X;semicolon= AND ` same but using `X` for the `slash` and ` AND ` for the `semicolon`
 
 ### Option "brightness"
 
-Another possible action when pressing a key is, instead of running a program, simply change the brightness of the connected `StreamDeck`.
+Another possible action when pressing a key is, instead of running a command, simply change the brightness of the connected `StreamDeck`.
 
 It must be defined like this: `brightness=BRIGHTNESS` with:
 
