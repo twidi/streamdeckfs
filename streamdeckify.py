@@ -182,6 +182,10 @@ versions_dict_factory = lambda: defaultdict(VersionProxyMostRecent)
 
 
 class Inotifier:
+    name = 'FilesWatcher'
+
+    WATCHED_DIR_REMOVED = f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT
+
     def __init__(self):
         self.running = False
         self.inotify = INotify()
@@ -193,30 +197,48 @@ class Inotifier:
         if self.inotify:
             self.inotify.close()
 
-    def add_watch(self, directory, owner, flags=f.CREATE | f.DELETE | f.MODIFY | f.MOVED_FROM | f.MOVED_TO):
-        if directory in self.watched:
-            return
-        watcher = self.inotify.add_watch(directory, flags)
+    def add_watch(self, directory, owner, flags=f.CREATE | f.DELETE | f.MODIFY | f.MOVED_FROM | f.MOVED_TO | f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT):
         if not isinstance(directory, Path):
             directory = Path(directory)
-        self.watchers[watcher] = (directory, owner)
-        self.watched[directory] = watcher
+        if directory not in self.watched:
+            self.watched[directory] = {
+                'watcher': (watcher := self.inotify.add_watch(directory, flags)),
+                'owners': [],
+            }
+            self.watchers[watcher] = directory
+        elif owner in self.watched[directory]['owners']:
+            return
+        self.watched[directory]['owners'].append(owner)
+        # add a watcher on all parent directories to be notified when the directory is removed
+        for parent in directory.parents:
+            # we don't tie the watcher to a specific owner: if the directory is removed, we'll go through all
+            # watched dirs and if they are sub dirs, we'll go through all owners
+            self.add_watch(parent, None)
 
-    def remove_watch(self, directory):
+
+    def remove_watch(self, directory, owner=None):
         if not isinstance(directory, Path):
             directory = Path(directory)
-        watcher = self.watched.pop(directory, None)
-        if not watcher:
+        if directory not in self.watched:
             return
-        try:
-            self.inotify.rm_watch(watcher)
-        except OSError:
-            # can happen when a directory is deleted, the watcher is removed on the kernel side
-            pass
-        self.watchers.pop(watcher)
+        if owner:
+            try:
+                self.watched[directory]['owners'].remove(owner)
+            except ValueError:
+                pass
+        owners_left = self.watched[directory]['owners']
+        watcher = self.watched[directory]['watcher']
+        if not owner or not owners_left:
+            del self.watched[directory]
+            try:
+                self.inotify.rm_watch(watcher)
+            except OSError:
+                # can happen when a directory is deleted, the watcher is removed on the kernel side
+                pass
+            self.watchers.pop(watcher)
 
     def run(self):
-        set_thread_name('FilesWatcher')
+        set_thread_name(self.name)
         self.running = True
         while True:
             if not self.running or self.inotify.closed:
@@ -228,13 +250,31 @@ class Inotifier:
                     watcher, name, flags = event.wd, event.name, event.mask
                     if watcher not in self.watchers:
                         continue
-                    directory, owner = self.watchers[watcher]
-                    if f.IGNORED & flags:
+                    directory = self.watchers[watcher]
+                    logger.debug(f'{event} ; {directory}/{event.name} ; FLAGS: {", ".join(str(flag) for flag in f.from_mask(event.mask))}')
+                    if directory in self.watched:
+                        owners = self.watched[directory]['owners']
+                    else:
+                        owners = None
+                    if flags & f.IGNORED:
                         if watcher in self.watchers:
                             self.remove_watch(directory)
                         continue
-                    logger.debug(f'{event} ; {directory} ; FLAGS: {", ".join(str(flag) for flag in f.from_mask(event.mask))}')
-                    owner.on_file_change(name, flags, time())
+                    if flags & self.WATCHED_DIR_REMOVED:
+                        notified = set()
+                        for watched_directory in sorted(self.watched.keys(), reverse=True):
+                            if watched_directory.is_relative_to(directory):
+                                for owner in self.watched[watched_directory]['owners']:
+                                    if not owner or owner in notified:
+                                        continue
+                                    notified.add(owner)
+                                    owner.on_directory_removed(directory, flags)
+                                self.remove_watch(watched_directory)
+                        self.remove_watch(directory)
+                    else:
+                        for owner in owners:
+                            if owner:
+                                owner.on_file_change(directory, name, flags, time())
             except ValueError:
                 # happen if read while closed
                 break
@@ -497,7 +537,7 @@ class Entity:
 
     def on_create(self):
         for path, parent, ref_conf in self.get_waiting_references():
-            if parent.on_file_change(path.name, f.CREATE | (f.ISDIR if self.is_dir else 0), entity_class=self.__class__):
+            if parent.on_file_change(parent.path, path.name, f.CREATE | (f.ISDIR if self.is_dir else 0), entity_class=self.__class__):
                 self.remove_waiting_reference(self.deck, path, ref_conf)
 
     def on_changed(self):
@@ -1905,7 +1945,7 @@ class Key(Entity):
         return text_lines
 
     def on_delete(self):
-        Manager.remove_watch(self.path)
+        Manager.remove_watch(self.path, self)
         for layer_versions in self.layers.values():
             for layer in layer_versions.all_versions:
                 layer.on_delete()
@@ -1955,15 +1995,17 @@ class Key(Entity):
     def read_directory(self):
         if self.deck.filters.get('event') != FILTER_DENY:
             for event_file in sorted(self.path.glob(KeyEvent.path_glob)):
-                self.on_file_change(event_file.name, f.CREATE | (f.ISDIR if event_file.is_dir() else 0), entity_class=KeyEvent)
+                self.on_file_change(self.path, event_file.name, f.CREATE | (f.ISDIR if event_file.is_dir() else 0), entity_class=KeyEvent)
         if self.deck.filters.get('layer') != FILTER_DENY:
             for image_file in sorted(self.path.glob(KeyImageLayer.path_glob)):
-                self.on_file_change(image_file.name, f.CREATE | (f.ISDIR if image_file.is_dir() else 0), entity_class=KeyImageLayer)
+                self.on_file_change(self.path, image_file.name, f.CREATE | (f.ISDIR if image_file.is_dir() else 0), entity_class=KeyImageLayer)
         if self.deck.filters.get('text_line') != FILTER_DENY:
             for text_file in sorted(self.path.glob(KeyTextLine.path_glob)):
-                self.on_file_change(text_file.name, f.CREATE | (f.ISDIR if text_file.is_dir() else 0), entity_class=KeyTextLine)
+                self.on_file_change(self.path, text_file.name, f.CREATE | (f.ISDIR if text_file.is_dir() else 0), entity_class=KeyTextLine)
 
-    def on_file_change(self, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+        if directory != self.path:
+            return
         path = self.path / name
         if (event_filter := self.deck.filters.get('event')) != FILTER_DENY:
             if not entity_class or entity_class is KeyEvent:
@@ -1992,6 +2034,10 @@ class Key(Entity):
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=KeyTextLine, data_identifier=args['line'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
                 elif ref_conf:
                     KeyTextLine.add_waiting_reference(self, path, ref_conf)
+
+    def on_directory_removed(self, directory, flags):
+        pass
+
     @staticmethod
     def args_matching_filter(main, args, filter):
         if filter is None:
@@ -2215,7 +2261,7 @@ class Page(Entity):
         Manager.add_watch(self.path, self)
 
     def on_delete(self):
-        Manager.remove_watch(self.path)
+        Manager.remove_watch(self.path, self)
         for key_versions in self.keys.values():
             for key in key_versions.all_versions:
                 key.on_delete()
@@ -2224,9 +2270,11 @@ class Page(Entity):
     def read_directory(self):
         if self.deck.filters.get('key') != FILTER_DENY:
             for key_dir in sorted(self.path.glob(Key.path_glob)):
-                self.on_file_change(key_dir.name, f.CREATE | (f.ISDIR if key_dir.is_dir() else 0))
+                self.on_file_change(self.path, key_dir.name, f.CREATE | (f.ISDIR if key_dir.is_dir() else 0))
 
-    def on_file_change(self, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+        if directory != self.path:
+            return
         path = self.path / name
         if (key_filter := self.deck.filters.get('key')) != FILTER_DENY:
             if not entity_class or entity_class is Key:
@@ -2237,6 +2285,9 @@ class Page(Entity):
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Key, data_identifier=(main['row'], main['col']), args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
                 elif ref_conf:
                     Key.add_waiting_reference(self, path, ref_conf)
+
+    def on_directory_removed(self, directory, flags):
+        pass
 
     @staticmethod
     def args_matching_filter(main, args, filter):
@@ -2336,6 +2387,8 @@ class Deck(Entity):
         self.visible_pages = []
         self.pressed_key = None
         self.is_running = False
+        self.end_event = threading.Event()
+        self.end_reason = None
 
     @property
     def str(self):
@@ -2368,9 +2421,11 @@ class Deck(Entity):
     def read_directory(self):
         if self.filters.get('page') != FILTER_DENY:
             for page_dir in sorted(self.path.glob(Page.path_glob)):
-                self.on_file_change(page_dir.name, f.CREATE | (f.ISDIR if page_dir.is_dir() else 0))
+                self.on_file_change(self.path, page_dir.name, f.CREATE | (f.ISDIR if page_dir.is_dir() else 0))
 
-    def on_file_change(self, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+        if directory != self.path:
+            return
         path = self.path / name
         if (page_filter := self.filters.get('page')) != FILTER_DENY:
             if not entity_class or entity_class is Page:
@@ -2379,6 +2434,11 @@ class Deck(Entity):
                     if page_filter is not None and not Page.args_matching_filter(main, args, page_filter):
                         return None
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+
+    def on_directory_removed(self, directory, flags):
+        self.unrender()
+        self.end_reason = (1, f'[{self}] Deck configuration directory "{directory}" was removed')
+        self.end_event.set()
 
     def update_visible_pages_stack(self):
         # first page in `visible_pages` is the current one, then the one below, etc... 
@@ -2517,7 +2577,6 @@ class Deck(Entity):
                 return key, level
         return None, None
 
-
     @property
     def current_page(self):
         return self.pages.get(self.current_page_number) or None
@@ -2577,7 +2636,7 @@ class Deck(Entity):
     def set_image(self, row, col, image):
         if self.render_images_thread is None:
             self.render_images_queue = SimpleQueue()
-            self.render_images_thread = threading.Thread(target=render_deck_images, args=(self.device, self.render_images_queue))
+            self.render_images_thread = threading.Thread(name='ImgRenderer', target=render_deck_images, args=(self.device, self.render_images_queue))
             self.render_images_thread.start()
 
         self.render_images_queue.put((self.key_to_index(row, col), image))
@@ -2712,17 +2771,17 @@ class Manager:
         cls.files_watcher.add_watch(directory, owner)
 
     @classmethod
-    def remove_watch(cls, directory):
+    def remove_watch(cls, directory, owner):
         if not cls.files_watcher:
             return
-        cls.files_watcher.remove_watch(directory)
+        cls.files_watcher.remove_watch(directory, owner)
 
     @classmethod
     def start_files_watcher(cls):
         if cls.files_watcher:
             return
         cls.files_watcher = Inotifier()
-        cls.files_watcher_thread = threading.Thread(target=cls.files_watcher.run)
+        cls.files_watcher_thread = threading.Thread(name=cls.files_watcher.name, target=cls.files_watcher.run)
         cls.files_watcher_thread.start()
 
     @classmethod
@@ -2979,21 +3038,18 @@ def run(deck, directory, page, scroll):
     if not deck.current_page_number:
         return Manager.exit(1, f'Unable to find page "{page}"' if page is not None else "Unable to find a page")
 
-    ended = False
     def end(signum, frame):
-        nonlocal ended
         logger.info(f'Ending ({signal.strsignal(signum)})...')
-        ended = True
         signal.signal(signal.SIGTERM, sigterm_handler)
         signal.signal(signal.SIGINT, sigint_handler)
+        deck.end_event.set()
 
     sigterm_handler = signal.getsignal(signal.SIGTERM)
     sigint_handler = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGTERM, end)
     signal.signal(signal.SIGINT, end)
 
-    while not ended:
-        sleep(1)
+    deck.end_event.wait()
 
     Manager.end_files_watcher()
     Manager.end_processes_checker()
@@ -3007,6 +3063,9 @@ def run(deck, directory, page, scroll):
     for t in threading.enumerate():
         if t is not main_thread and t.is_alive():
             t.join()
+
+    if deck.end_reason:
+        Manager.exit(deck.end_reason[0], deck.end_reason[1])
 
 class FilterCommands:
     options = {
@@ -3263,10 +3322,9 @@ if __name__ == '__main__':
     try:
         start = time()
         cli()
-    except (Exception, SystemExit) as exc:
-        if isinstance(exc, SystemExit) and exc.code == 0:
-            Manager.exit(0, 'Bye.')
-        else:
-            Manager.exit(exc.code if isinstance(exc, SystemExit) else 1, 'Oops...', log_exception=True)
+    except SystemExit as exc:
+        Manager.exit(exc.code, 'Bye.')
+    except Exception:
+        Manager.exit(1, 'Oops...', log_exception=True)
     else:
         Manager.exit(0, 'Bye.')
