@@ -2354,11 +2354,13 @@ class Page(Entity):
         self.render()
 
     def version_deactivated(self):
+        is_current_page_number = self.deck.current_page_number == self.number
         super().version_deactivated()
         if self.disabled:
             return
         self.unrender()
-        self.deck.go_to_page(Page.BACK, None)
+        if is_current_page_number:
+            self.deck.go_to_page(Page.BACK, None)
 
 
 @dataclass(eq=False)
