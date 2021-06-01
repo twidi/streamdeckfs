@@ -724,7 +724,11 @@ class Entity:
 
     @property
     def resolved_path(self):
-        if self.reference:
+        try:
+            is_empty = self.path.stat().st_size == 0
+        except Exception:
+            is_empty = False
+        if is_empty and self.reference:
             return self.reference.resolved_path
         return self.path
 
@@ -1318,7 +1322,7 @@ class keyImagePart(KeyFile):
         super().__post_init__()
         self.mode = None
         self.file = None
-        self.file_dir_watched = False
+        self.watched_directory = False
         self.compose_cache = None
 
     @classmethod
@@ -1346,13 +1350,25 @@ class keyImagePart(KeyFile):
             setattr(obj, key, args[key])
         return obj
 
+    def start_watching_directory(self, directory):
+        if not self.watched_directory:
+            self.watched_directory = directory
+            Manager.add_watch(directory, self)
+
+    def stop_watching_directory(self):
+        if (watched_directory := self.watched_directory):
+            self.watched_directory = None
+            Manager.remove_watch(watched_directory, self)
+
+    def track_symlink_dir(self):
+        if not self.watched_directory and self.path.is_symlink():
+            self.start_watching_directory(self.path.resolve().parent)
+
     def get_file_path(self):
         if not self.file:
             return None
 
-        if not self.file_dir_watched:
-            self.file_dir_watched = True
-            Manager.add_watch(self.file.parent, self)
+        self.start_watching_directory(self.file.parent)
 
         if not self.file.exists() or self.file.is_dir():
             return None
@@ -1360,7 +1376,8 @@ class keyImagePart(KeyFile):
         return self.file
 
     def on_file_change(self, directory, name, flags, modified_at=None):
-        if directory / name == self.file:
+        path = directory / name
+        if (self.file and path == self.file) or (not self.file and self.path.is_symlink() and path == self.path.resolve()):
             self.on_changed()
 
     def on_directory_removed(self, directory):
@@ -1374,9 +1391,7 @@ class keyImagePart(KeyFile):
 
     def version_deactivated(self):
         super().version_deactivated()
-        if self.file_dir_watched:
-            self.file_dir_watched = False
-            Manager.remove_watch(self.file.parent, self)
+        self.stop_watching_directory()
         if self.disabled or self.key.disabled or self.page.disabled:
             return
         self.key.on_image_changed()
@@ -1590,6 +1605,7 @@ class KeyImageLayer(keyImagePart):
     @property
     def resolved_image_path(self):
         if self.mode == 'content':
+            self.track_symlink_dir()
             return self.resolved_path
         if self.mode == 'file':
             return self.get_file_path()
@@ -1808,6 +1824,7 @@ class KeyTextLine(keyImagePart):
     def resolved_text(self):
         if self.text is None:
             if self.mode == 'content':
+                self.track_symlink_dir()
                 try:
                     self.text = self.resolved_path.read_text()
                 except Exception:

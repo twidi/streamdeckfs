@@ -84,7 +84,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/restart_song.py
 │   ├── KEY_ROW_1_COL_6;name=album-image
-│   │   └── IMAGE;layer=1;name=cover;crop=0,0,33.33%,33.33%;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\cover
+│   │   └── IMAGE;layer=1;name=cover;crop=0,0,33.33%,33.33% -> /home/twidi/dev/streamdeck-scripts/spotify/data/cover
 │   ├── KEY_ROW_1_COL_7;name=album-image-part2
 │   │   └── IMAGE;ref=:album-image:1;crop.left=33.33%;crop.right=66.67%
 │   ├── KEY_ROW_1_COL_8;name=album-image-part3
@@ -103,8 +103,8 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   └── TEXT;ref=:seek-backward:label;text=+20s
 │   ├── KEY_ROW_2_COL_4;name=progress
 │   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0;opacity=50;angles.1=21.7%
-│   │   ├── TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\progress
-│   │   └── TEXT;line=2;name=duration;align=center;valign=middle;margin=60%,1,10,1;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\duration
+│   │   ├── TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1 -> /home/twidi/dev/streamdeck-scripts/spotify/data/progress
+│   │   └── TEXT;line=2;name=duration;align=center;valign=middle;margin=60%,1,10,1 -> /home/twidi/dev/streamdeck-scripts/spotify/data/duration
 │   ├── KEY_ROW_2_COL_6;name=album-image-part4
 │   │   └── IMAGE;ref=:album-image:1;crop.top=33.33%;crop.bottom=66.67%
 │   ├── KEY_ROW_2_COL_7;name=album-image-part5
@@ -119,13 +119,13 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   └── IMAGE;ref=:album-image-part7:1;crop.left=66.67%;crop.right=100%
 │   ├── KEY_ROW_4_COL_6;name=album
 │   │   ├── IMAGE;ref=ref:titled-text:separator;outline=#8cc63f
-│   │   ├── TEXT;ref=ref:titled-text:content;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\album
+│   │   ├── TEXT;ref=ref:titled-text:content -> /home/twidi/dev/streamdeck-scripts/spotify/data/album
 │   │   └── TEXT;ref=ref:titled-text:title;text=Album;color=#8cc63f
 │   ├── KEY_ROW_4_COL_7;name=artist;ref=:album
-│   │   ├── TEXT;ref=:album:content;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\artist
+│   │   ├── TEXT;ref=:album:content -> /home/twidi/dev/streamdeck-scripts/spotify/data/artist
 │   │   └── TEXT;ref=:album:title;text=Artist
 │   └── KEY_ROW_4_COL_8;name=song;ref=:album
-│       ├── TEXT;ref=:album:content;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\song
+│       ├── TEXT;ref=:album:content -> /home/twidi/dev/streamdeck-scripts/spotify/data/song
 │       └── TEXT;ref=:album:title;text=Track
 └── PAGE_999;name=ref
     ├── KEY_ROW_1_COL_1;name=img
