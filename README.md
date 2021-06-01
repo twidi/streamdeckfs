@@ -260,7 +260,6 @@ Examples:
 - `IMAGE;colorize=red` colorizes the image in red
 - `IMAGE;colorize=#00FFFF` colorizes the image in cyan
 
-
 #### Option "opacity"
 
 The `opacity` option allows defining how transparent the image will be, i.e., how the layers below will be visible.
@@ -275,6 +274,50 @@ Examples:
 
 - `IMAGE;opacity=100` does not change the transparency at all
 - `IMAGE;opacity=50` makes the image 50% transparent
+
+#### Option "file"
+
+If you don't want do copy or link the image to the `IMAGE...` file in the `KEY...` directory, you can use the `file` configuration option to define the path where to find the image to render.
+
+You have to respect the known limitations of the file name (max length and no slash `/`) and avoid semi-colons `;` as it is interpreted as the end of the path (because it's the configuration options separator) . For the slash, you can replace it with any suite of characters defined in the `slash` option (default to `\\`). For the semi-colon, you can replace it with any suite of caracters defined in the `semicolon` option (default to `^`).
+
+Note that the `IMAGE...` file can be empty when this option is set, as its content will be ignored. And you cannot set both `file` and `draw` options (see `Drawings` for this last one).
+
+It must be defined like this: `file=PATH` with:
+
+Examples:
+
+- `IMAGE;file=|home|myself|Images|logo.png;slash=|` will use the image at `/home/myself/Images/logo.png`. Note that the `/`  are replaced by `|` as defined by the `slash` configuration option.
+- `IMAGE;file=\\home\\myself\\Images\\logo.png` same but using the default value of the `slash` configuration option when not passed.
+
+The key will be updated when the referenced image changes.
+
+#### Option "slash"
+
+When using the `file` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
+
+It must be defined like this: `slash=REPLACEMENT` with:
+
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `/` character
+
+Examples:
+
+- `IMAGE;file=|home|myself|Images|logo.png;slash=|` will use the image at `/home/myself/Images/logo.png`. Note that the `/`  are replaced by `|` as defined by the `slash` configuration option.
+- `IMAGE;file=XXXhomeXXXmyselfXXXImagesXXXlogo.png;slash=XXX` same but using `XXX` instead of `|`
+- `IMAGE;file=\\home\\myself\\Images\\logo.png` same but using the default value of the `slash` configuration option when not passed.
+
+#### Option "semicolon"
+
+When using the `file` option, it's impossible to use semi-colons in the filename, so you can replace it with any character or suite of characters you defined with the `semicolon` option. If not defined, the default value of `^` is used/
+
+It must be defined like this: `semicolon=REPLACEMENT` with:
+
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `;` character
+
+Examples:
+
+- `IMAGE;file=\\home\\myself\\Images\\logo^version2.png` will use the image at `/home/myself/Images/logo;version2.png` using default value for `/` (`\\`) and for `;` (`^`)
+- `IMAGE;file=|home|myself|Images|logo,version2.png;slash=|;semicolon=,` same but using `|` for slashes and `,` for semicolons
 
 
 ### Drawings
@@ -629,6 +672,50 @@ Examples:
 - `TEXT;text=this is a long text for a single line;wrap=false;scroll=20` will keep the text on one line but will scroll at a speed of 20 pixels per second
 - `TEXT;text=this is a very long text that even when wrapped, will not fit;wrap;scroll=20` will wrap the text and scroll it at a speed of 20 pixels per second
 
+#### Option "file"
+
+If you don't want do copy or link the text to the `TEXT...` file in the `KEY...` directory, you can use the `file` configuration option to define the path where to find the text to render. The file will then be read to get the text.
+
+You have to respect the known limitations of the file name (max length and no slash `/`) and avoid semi-colons `;` as it is interpreted as the end of the path (because it's the configuration options separator) . For the slash, you can replace it with any suite of characters defined in the `slash` option (default to `\\`). For the semi-colon, you can replace it with any suite of caracters defined in the `semicolon` option (default to `^`).
+
+Note that the `TEXT...` file can be empty when this option is set, as its content will be ignored. And you cannot set both `file` and `text` options.
+
+It must be defined like this: `file=PATH` with:
+
+Examples:
+
+- `TEXT;file=|home|myself|texts|intro.txt;slash=|` will use the text in the file at `/home/myself/texts/intro.txt`. Note that the `/`  are replaced by `|` as defined by the `slash` configuration option.
+- `TEXT;file=\\home\\myself\\texts\\intro.txt` same but using the default value of the `slash` configuration option when not passed.
+
+The key will be updated when the referenced image changes.
+
+#### Option "slash"
+
+When using the `file` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
+
+It must be defined like this: `slash=REPLACEMENT` with:
+
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `/` character
+
+Examples:
+
+- `TEXT;file=|home|myself|texts|intro.txt;slash=|` will use text in the file at `/home/myself/texts/intro.txt`. Note that the `/`  are replaced by `|` as defined by the `slash` configuration option.
+- `TEXT;file=XXXhomeXXXmyselfXXXtextsXXXintro.txt;slash=XXX` same but using `XXX` instead of `|`
+- `TEXT;file=\\home\\myself\\texts\\intro.txt` same but using the default value of the `slash` configuration option when not passed.
+
+#### Option "semicolon"
+
+When using the `file` option, it's impossible to use semi-colons in the filename, so you can replace it with any character or suite of characters you defined with the `semicolon` option. If not defined, the default value of `^` is used/
+
+It must be defined like this: `semicolon=REPLACEMENT` with:
+
+- `REPLACEMENT`: a character or suite of characters to use as a replacement in the `command` configuration option for the `;` character
+
+Examples:
+
+- `TEXT;file=\\home\\myself\\texts\\intro^version2.txt` will use the text in the file at `/home/myself/texts/intro;version2.txt` using default value for `/` (`\\`) and for `;` (`^`)
+- `TEXT;file=|home|myself|texts|intro,version2.txt;slash=|;semicolon=,` same but using `|` for slashes and `,` for semicolons
+
 
 ## Configuring events (press, long-press, release, start)
 
@@ -796,7 +883,7 @@ The `command` configuration option allows you to define the full command to exec
 
 The `command` configuration option can include `|`, `>`, etc., as you would do in a console.
 
-Note that the file can be empty when this option is set, as its content will be ignored.
+Note that the `KEY...` file can be empty when this option is set, as its content will be ignored.
 
 It must be defined like this: `command=COMMAND` with:
 

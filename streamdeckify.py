@@ -5,73 +5,7 @@ STREAMDECKIFY
 
 A software to handle a Stream Deck from Elgato, via directories and files.
 
-The concept is simple: with a basic directories structure, put files (or better, symbolic links) 
-with specific names to handle images and programs/actions to run
-
-Features:
-- pages/overlays
-- multi-layers key images with configuration in file name (margin, crop, rotate, color, opacity)
-- image layers can be simple drawings (dot, rectangle, ellipses...)
-- multi-layers key texts (also with configuration in file name: size, format, alignment, color, opacity, margin, wrapping, scrolling)
-- action on start and key press/long-press/release, with delay, repeat...
-- easily update from external script
-- changes on the fly from the directories/files names via inotify
-- references for key/images/texts/events (allow to reuse things and override only what is needed)
-
-TODO:
-- page on_open/open_close events
-- conf to "animate" layer properties ?
-
-
-
-Example structure for the first page of an Stream Deck XL (4 rows of 8 keys):
-
-/home/twidi/streamdeck-data/MYSTREAMDECKSERIAL
-├── PAGE_1;name=main
-│   ├── KEY_ROW_1_COL_1;ref=spotify:toggle
-│   │   └── ON_LONGPRESS;page=spotify;duration-min=300
-│   ├── KEY_ROW_2_COL_1;name=volume-up
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
-│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
-│   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
-│   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;brightness=+10;every=250;max-runs=10
-│   ├── KEY_ROW_3_COL_1;name=volume-down
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   ├── IMAGE;ref=:volume-up:background
-│   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
-│   ├── KEY_ROW_3_COL_2;name=webcam;disabled
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=18,18,18,18 -> /home/twidi/dev/streamdeck-scripts/webcam/assets/icon.png
-│   │   ├── IMAGE;ref=ref:draw:background;fill=#29abe2;colorize=red
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_START;disabled -> /home/twidi/dev/streamdeck-scripts/webcam/listen-changes.py
-│   ├── KEY_ROW_3_COL_8;name=deck-brightness-down
-│   │   ├── IMAGE;layer=1;name=icon;colorize=#ffffff;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
-│   │   ├── IMAGE;ref=:deck-brightness-up:background
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
-│   ├── KEY_ROW_4_COL_1;name=volume-mute
-│   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
-│   │   ├── IMAGE;layer=2;name=volume;ref=ref:draw:progress;coords=0%,92,26%,92
-│   │   ├── IMAGE;ref=ref:img:overlay
-│   │   ├── IMAGE;ref=:volume-up:background
-│   │   ├── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/volume/toggle-mute.sh
-│   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/volume/listen-changes.sh
-│   └── KEY_ROW_4_COL_2;ref=microphone:microphone
-│       └── ON_LONGPRESS;page=microphone;duration-min=300;overlay
-
-Note that nearly every files (`IMAGES*`, `ON_*`) are links to images and scripts hosted in another directory. It's not mandatory but better to keep things organized.
-Or they can reference other images (like `IMAGE;ref=:volume-up:background`).
-
-`ON_*` files must be executable (`chmod +x`) and can be in any language (don't forget shebangs!). Except for some actions where the file can be empty, only the name counts:
-- `action=brightness` (see `KEY_ROW_3_COL_8/ON_PRESS*` and `KEY_ROW_4_COL_1/ON_PRESS*`) to change the deck brightness (with absolute or relative values)
-- `action=page` (see `KEY_ROW_4_COL_8/ON_PRESS*`) to change page (a specific number or name, or thefirst, previous (-1), next (+1), or previously displayed (like the "back" action in browsers) page)
-
+See https://github.com/twidi/streamdeckify for more information
 
 """
 
@@ -1347,12 +1281,72 @@ class keyImagePart(KeyFile):
 
     no_margins = {'top': ('int', 0), 'right': ('int', 0), 'bottom': ('int', 0), 'left': ('int', 0)}
 
+    filename_re_parts = Entity.filename_re_parts + [
+        re.compile('^(?P<arg>file)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
+        re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
+    ]
+
+    filename_file_parts = [
+        lambda args: f'file={file}' if (file := args.get('file')) else None,
+        lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
+        lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
+    ]
+
     def __str__(self):
         return f'{self.key}, {self.str}'
 
     def __post_init__(self):
         super().__post_init__()
+        self.mode = None
+        self.file = None
+        self.file_dir_watched = False
         self.compose_cache = None
+
+    @classmethod
+    def convert_args(cls, args):
+        final_args = super().convert_args(args)
+        final_args['mode'] = 'content'
+        if 'file' in args:
+            final_args['mode'] = 'file'
+            try:
+                final_args['file'] = Path(cls.replace_special_chars(args['file'], args))
+            except Exception:
+                final_args['file'] = None
+        return final_args
+
+    def check_file_exists(self):
+        if self.deck.is_running and self.mode == 'file' and self.file and not self.file.exists():
+            logger.warning(f'[{self}] File "{self.file} does not exist')
+
+    @classmethod
+    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
+        obj = super().create_from_args(path, parent, identifier, args, path_modified_at)
+        for key in ('mode', 'file'):
+            if key not in args:
+                continue
+            setattr(obj, key, args[key])
+        return obj
+
+    def get_file_path(self):
+        if not self.file:
+            return None
+
+        if not self.file_dir_watched:
+            self.file_dir_watched = True
+            Manager.add_watch(self.file.parent, self)
+
+        if not self.file.exists() or self.file.is_dir():
+            return None
+
+        return self.file
+
+    def on_file_change(self, directory, name, flags, modified_at=None):
+        if directory / name == self.file:
+            self.on_changed()
+
+    def on_directory_removed(self, directory):
+        self.on_changed()
 
     def version_activated(self):
         super().version_activated()
@@ -1362,6 +1356,9 @@ class keyImagePart(KeyFile):
 
     def version_deactivated(self):
         super().version_deactivated()
+        if self.file_dir_watched:
+            self.file_dir_watched = False
+            Manager.remove_watch(self.file.parent, self)
         if self.disabled or self.key.disabled or self.page.disabled:
             return
         self.key.on_image_changed()
@@ -1415,7 +1412,7 @@ class keyImagePart(KeyFile):
 class KeyImageLayer(keyImagePart):
     path_glob = 'IMAGE*'
     main_path_re = re.compile('^(?P<kind>IMAGE)(?:;|$)')
-    filename_re_parts = Entity.filename_re_parts + [
+    filename_re_parts = keyImagePart.filename_re_parts + [
         re.compile('^(?P<arg>layer)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<layer>.*)$'),  # we'll use -1 if no layer given
         re.compile(f'^(?P<arg>colorize)=(?P<value>{RE_PART_COLOR})$'),
@@ -1440,6 +1437,7 @@ class KeyImageLayer(keyImagePart):
         lambda args: f'layer={layer}' if (layer := args.get('layer')) else None,
         Entity.name_filename_part,
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("layer") or ""}' if (ref := args.get('ref')) else None,
+    ] + keyImagePart.filename_file_parts + [
         lambda args: f'draw={draw}' if (draw := args.get('draw')) else None,
         lambda args: f'coords={coords}' if (coords := args.get('coords')) else None,
         lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('coords.')],
@@ -1486,6 +1484,10 @@ class KeyImageLayer(keyImagePart):
     @classmethod
     def convert_args(cls, args):
         final_args = super().convert_args(args)
+
+        if len([1 for key in ('draw', 'file') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "draw", "file"')
+
         final_args['layer'] = int(args['layer']) if 'layer' in args else -1  # -1 for image used if no layers
         for name in ('margin', 'crop'):
             if name not in args:
@@ -1501,6 +1503,7 @@ class KeyImageLayer(keyImagePart):
             # we negate the given value because PIL rotates counterclockwise
             final_args['rotate'] = -cls.convert_angle(cls.parse_value_or_percent(args['rotate']))
         if 'draw' in args:
+            final_args['mode'] = 'draw'
             if args['draw'] == 'fill':
                 args.update({
                     'draw': 'rectangle',
@@ -1528,6 +1531,7 @@ class KeyImageLayer(keyImagePart):
             if key not in args:
                 continue
             setattr(layer, key, args[key])
+        layer.check_file_exists()
         return layer
 
     @classmethod
@@ -1559,15 +1563,23 @@ class KeyImageLayer(keyImagePart):
         return args.get('name') == filter
 
     def on_changed(self):
+        super().on_changed()
         self.compose_cache = None
         self.key.on_image_changed()
         for reference in self.referenced_by:
             reference.on_changed()
 
+    @property
+    def resolved_image_path(self):
+        if self.mode == 'content':
+            return self.resolved_path
+        if self.mode == 'file':
+            return self.get_file_path()
+
     def _compose(self):
 
         image_size = self.key.image_size
-        if self.draw:
+        if self.mode == 'draw':
             layer_image = Image.new("RGBA", image_size)
             drawer = ImageDraw.Draw(layer_image)
             coords = [
@@ -1595,7 +1607,9 @@ class KeyImageLayer(keyImagePart):
                 drawer.pieslice(coords, start=self.draw_angles[0], end=self.draw_angles[1], outline=self.draw_outline_color, fill=self.draw_fill_color, width=self.draw_outline_width)
 
         else:
-            layer_image = Image.open(self.resolved_path)
+            if not (image_path := self.resolved_image_path):
+                return None
+            layer_image = Image.open(image_path)
 
         if self.crop:
             crops = {
@@ -1629,7 +1643,7 @@ class KeyImageLayer(keyImagePart):
 class KeyTextLine(keyImagePart):
     path_glob = 'TEXT*'
     main_path_re = re.compile('^(?P<kind>TEXT)(?:;|$)')
-    filename_re_parts = Entity.filename_re_parts + [
+    filename_re_parts = keyImagePart.filename_re_parts + [
         re.compile('^(?P<arg>line)=(?P<value>\d+)$'),
         re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$'),  # we'll use -1 if no line given
         re.compile('^(?P<arg>text)=(?P<value>.+)$'),
@@ -1644,19 +1658,13 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>margin\.[0123])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>scroll)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
-        # to read text from a file
-        # re.compile('^(?P<arg>file)=(?P<value>.+)$'),
-        # re.compile('^(?P<arg>slash)=(?P<value>.+)$'),
-        # re.compile('^(?P<arg>semicolon)=(?P<value>.+)$'),
     ]
     main_filename_part = lambda args: 'TEXT'
     filename_parts = [
         lambda args: f'line={line}' if (line := args.get('line')) else None,
         Entity.name_filename_part,
         lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
-        # lambda args: f'file={file}' if (file := args.get('file')) else None,
-        # lambda args: f'slash={slash}' if (slash := args.get('slash')) else None,
-        # lambda args: f'semicolon={semicolon}' if (semicolon := args.get('semicolon')) else None,
+    ] + keyImagePart.filename_file_parts + [
         lambda args: f'text={text}' if (text := args.get('text')) else None,
         lambda args: f'size={size}' if (size := args.get('size')) else None,
         lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
@@ -1686,9 +1694,7 @@ class KeyTextLine(keyImagePart):
 
     def __post_init__(self):
         super().__post_init__()
-        self.mode = None
         self.text = None
-        self.file = None
         self.size = None
         self.weight = None
         self.italic = False
@@ -1720,11 +1726,6 @@ class KeyTextLine(keyImagePart):
         if 'text' in args:
             final_args['mode'] = 'text'
             final_args['text'] = args.get('text') or ''
-        # elif 'file' in args:
-        #     final_args['mode'] = 'file'
-        #     final_args['file'] = cls.replace_special_chars(args['file'], args)
-        else:
-            final_args['mode'] = 'content'
         final_args['size'] = cls.parse_value_or_percent(args.get('size') or '20%')
         final_args['weight'] = args.get('weight') or 'medium'
         if 'italic' in args:
@@ -1748,12 +1749,13 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         line = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('mode', 'file', 'text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
+        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
             if key not in args:
                 continue
             setattr(line, key, args[key])
         if not line.deck.scroll_activated:
             line.scroll = None
+        line.check_file_exists()
         return line
 
     @classmethod
@@ -1789,18 +1791,17 @@ class KeyTextLine(keyImagePart):
         if self.text is None:
             if self.mode == 'content':
                 try:
-                    with open(self.path) as f:
-                        self.text = f.read()
-                except:
+                    self.text = self.resolved_path.read_text()
+                except Exception:
                     pass
                 if not self.text and self.reference:
                     self.text = self.reference.resolved_text
             elif self.mode == 'file':
-                try:
-                    with open(self.file) as f:
-                        self.text = f.read()
-                except:
-                    pass
+                if (path := self.get_file_path()):
+                    try:
+                        self.text = path.read_text()
+                    except Exception:
+                        pass
         return self.text
 
     @classmethod
@@ -1884,6 +1885,7 @@ class KeyTextLine(keyImagePart):
         return lines
 
     def on_changed(self):
+        super().on_changed()
         self.stop_scroller()
         if self.mode != 'text':
             self.text = None
@@ -2352,7 +2354,9 @@ class Key(Entity):
                         final_image = Image.new("RGB", self.image_size, 'black')
                         for layer in all_layers:
                             try:
-                                thumbnail, thumbnail_x, thumbnail_y, mask = layer.compose()
+                                if (composed := layer.compose()) is None:
+                                    continue
+                                thumbnail, thumbnail_x, thumbnail_y, mask = composed
                             except Exception:
                                 logger.exception(f'[{layer}] Layer could not be rendered')
                                 continue  # we simply ignore a layer that couldn't be created
