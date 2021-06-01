@@ -591,15 +591,15 @@ class Entity:
         return self.raw_parse_filename(self.path.name, self.path.parent)
 
     def get_resovled_raw_args(self):
-        main, args = self.get_raw_args()
+        main, args = map(deepcopy, self.get_raw_args())
         if self.reference:
-            ref_main, ref_args = self.reference.get_resovled_raw_args()
+            ref_main, ref_args = map(deepcopy, self.reference.get_resovled_raw_args())
             return ref_main | main, ref_args | args
         return main, args
 
     @classmethod
     def parse_filename(cls, name, parent):
-        main, args = cls.raw_parse_filename(name, parent)
+        main, args = map(deepcopy, cls.raw_parse_filename(name, parent))
         if main is None or args is None:
             return None, None, None, None
 
@@ -642,17 +642,29 @@ class Entity:
         if sub_args:
             for parent_key in sub_args.keys():
                 if parent_key in args:
-                    try:
-                        parts = args[parent_key].split(',')
-                        for key, value in sub_args[parent_key].items():
-                            try:
-                                index = int(key.split('.')[-1])
-                                parts[index] = value
-                            except Exception:
-                                continue
-                        args[parent_key] = ','.join(parts)
-                    except Exception:
-                        pass
+                    if isinstance(args[parent_key], str):
+                        try:
+                            parts = args[parent_key].split(',')
+                            for key, value in sub_args[parent_key].items():
+                                try:
+                                    index = int(key.split('.')[-1])
+                                    parts[index] = value
+                                except Exception:
+                                    continue
+                            args[parent_key] = ','.join(parts)
+                        except Exception:
+                            pass
+                    elif isinstance(args[parent_key], dict):
+                        try:
+                            parts = list(args[parent_key].keys())
+                            for key, value in sub_args[parent_key].items():
+                                try:
+                                    index = int(key.split('.')[-1])
+                                    args[parent_key][parts[index]] = value
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
 
         try:
             main = cls.convert_main_args(main)
