@@ -212,6 +212,8 @@ Once cropped, the part that is kept will be the source image for the other confi
 
 In addition to `crop`, it's also possible to override the individual parts. For example `crop=10,10 10,10;crop.1=20` will be equal to `crop=10,20,10,10`. For this to work, `crop` must have been defined. And indexes (the `1` in `crop.1` starts at 0: 4 parts (from `0` to `3`) can be overridden. It may not seems useful for now, but we'll see later that it can be powerful.
 
+To be more readable, instead of `crop.0`, `crop.1`, `crop.2` and `crop.3` you can use `crop.left`, `crop.top`, `crop.right` and `crop.bottom`.
+
 #### Option "rotate"
 
 The `rotate` option takes the source image (or the one already updated by previous options) and rotates it the number given of degrees clockwise.
@@ -246,6 +248,8 @@ Examples:
 - `IMAGE;margin=0,33.33%,0,33.33%` will fit the image if the middle third of the key (margin of 33.33% on left and right, so 33.33% are available in the middle)
 
 In addition to `margin`, it's also possible to override the individual parts. For example `margin=10,10 10,10;margin.1=20` will be equal to `margin=10,20,10,10`. For this to work, `margin` must have been defined. And indexes (the `1` in `margin.1` starts at 0: 4 parts (from `0` to `3`) can be overridden. It may not seems useful for now, but we'll see later that it can be powerful.
+
+To be more readable, instead of `margin.0`, `margin.1`, `margin.2` and `margin.3` you can use `margin.top`, `margin.right`, `margin.bottom` and `margin.left`.
 
 #### Option "colorize"
 
@@ -1051,6 +1055,8 @@ Keys references are particular because a key can contain text, images, events, e
 When describing `margin`, `crop`, `coords` and `angles` in the previous sections we saw that it was possible to define for example `margin.1`, but it seemed useless at the time. Now, with references and overriding the power of this feature is visible: you can define the full option on the reference, and update just the part you need on the object defining the reference.
 
 Say you have many keys that need a "progress bar", with a different length. You can define your reference layer like this: `IMAGE;name=progress;draw=line;coords=0,92,0,92;outline=white;width=7`. You can see that the third of the `coords` configuration option is `0`. It's the `X2` coordinate of the line, ie where it ends. When you need to reference it, you only have to set the `coords.2` (`2` for the third part as indexes starts at `0`): `IMAGE;ref=page:key:progress;coords.2=50%`. Now you have a line that spreads 50% of the key width.
+
+For `crop` and `margin` you can use `.left`, `.right`, `.top` and `.bottom` instead of position.
 
 ## Usage example: references page
 

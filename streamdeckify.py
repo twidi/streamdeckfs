@@ -659,8 +659,14 @@ class Entity:
                             parts = list(args[parent_key].keys())
                             for key, value in sub_args[parent_key].items():
                                 try:
-                                    index = int(key.split('.')[-1])
-                                    args[parent_key][parts[index]] = value
+                                    part = key.split('.')[-1]
+                                    try:
+                                        index = int(part)
+                                    except ValueError:
+                                        if part in args[parent_key]:
+                                            args[parent_key][part] = value
+                                    else:
+                                        args[parent_key][parts[index]] = value
                                 except Exception:
                                     pass
                         except Exception:
@@ -1429,9 +1435,9 @@ class KeyImageLayer(keyImagePart):
         re.compile('^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<layer>.*)$'),  # we'll use -1 if no layer given
         re.compile(f'^(?P<arg>colorize)=(?P<value>{RE_PART_COLOR})$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile(f'^(?P<arg>margin\.[0123])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>crop)=(?P<left>{RE_PART_PERCENT_OR_NUMBER}),(?P<top>{RE_PART_PERCENT_OR_NUMBER}),(?P<right>{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile(f'^(?P<arg>crop\.[0123])=(?P<value>{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>crop\.(?:[0123]|left|top|right|bottom))=(?P<value>{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile(f'^(?P<arg>rotate)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile('^(?P<arg>draw)=(?P<value>line|rectangle|fill|points|polygon|ellipse|arc|chord|pieslice)$'),
@@ -1668,7 +1674,7 @@ class KeyTextLine(keyImagePart):
         re.compile(f'^(?P<arg>opacity)=(?P<value>{RE_PART_0_100})$'),
         re.compile('^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
         re.compile(f'^(?P<arg>margin)=(?P<top>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<right>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<bottom>-?{RE_PART_PERCENT_OR_NUMBER}),(?P<left>-?{RE_PART_PERCENT_OR_NUMBER})$'),
-        re.compile(f'^(?P<arg>margin\.[0123])=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
+        re.compile(f'^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
         re.compile(f'^(?P<arg>scroll)=(?P<value>-?{RE_PART_PERCENT_OR_NUMBER})$'),
     ]
     main_filename_part = lambda args: 'TEXT'

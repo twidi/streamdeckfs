@@ -86,9 +86,9 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   ├── KEY_ROW_1_COL_6;name=album-image
 │   │   └── IMAGE;layer=1;name=cover;crop=0,0,33.33%,33.33%;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\cover
 │   ├── KEY_ROW_1_COL_7;name=album-image-part2
-│   │   └── IMAGE;ref=:album-image:1;crop.0=33.33%;crop.2=66.67%
+│   │   └── IMAGE;ref=:album-image:1;crop.left=33.33%;crop.right=66.67%
 │   ├── KEY_ROW_1_COL_8;name=album-image-part3
-│   │   └── IMAGE;ref=:album-image:1;crop.0=66.67%;crop.2=100%
+│   │   └── IMAGE;ref=:album-image:1;crop.left=66.67%;crop.right=100%
 │   ├── KEY_ROW_2_COL_2;name=seek-backward
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,30,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/seek-backward.png
 │   │   ├── IMAGE;ref=ref:img:overlay
@@ -106,17 +106,17 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\progress
 │   │   └── TEXT;line=2;name=duration;align=center;valign=middle;margin=60%,1,10,1;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\duration
 │   ├── KEY_ROW_2_COL_6;name=album-image-part4
-│   │   └── IMAGE;ref=:album-image:1;crop.1=33.33%;crop.3=66.67%
+│   │   └── IMAGE;ref=:album-image:1;crop.top=33.33%;crop.bottom=66.67%
 │   ├── KEY_ROW_2_COL_7;name=album-image-part5
-│   │   └── IMAGE;ref=:album-image-part4:1;crop.0=33.33%;crop.2=66.67%
+│   │   └── IMAGE;ref=:album-image-part4:1;crop.left=33.33%;crop.right=66.67%
 │   ├── KEY_ROW_2_COL_8;name=album-image-part6
-│   │   └── IMAGE;ref=:album-image-part4:1;crop.0=66.67%;crop.2=100%
+│   │   └── IMAGE;ref=:album-image-part4:1;crop.left=66.67%;crop.right=100%
 │   ├── KEY_ROW_3_COL_6;name=album-image-part7
-│   │   └── IMAGE;ref=:album-image:1;crop.1=66.67%;crop.3=100%
+│   │   └── IMAGE;ref=:album-image:1;crop.top=66.67%;crop.bottom=100%
 │   ├── KEY_ROW_3_COL_7;name=album-image-part8
-│   │   └── IMAGE;ref=:album-image-part7:1;crop.0=33.33%;crop.2=66.67%
+│   │   └── IMAGE;ref=:album-image-part7:1;crop.left=33.33%;crop.right=66.67%
 │   ├── KEY_ROW_3_COL_8;name=album-image-part9
-│   │   └── IMAGE;ref=:album-image-part7:1;crop.0=66.67%;crop.2=100%
+│   │   └── IMAGE;ref=:album-image-part7:1;crop.left=66.67%;crop.right=100%
 │   ├── KEY_ROW_4_COL_6;name=album
 │   │   ├── IMAGE;ref=ref:titled-text:separator;outline=#8cc63f
 │   │   ├── TEXT;ref=ref:titled-text:content;file=\\home\\twidi\\dev\\streamdeck-scripts\\spotify\\data\\album
