@@ -1247,3 +1247,383 @@ And if you want to change the color of the close key, you add in your directory 
 - `KEY_ROW_2_COL_2;name=titled-text`
 
 This key represents a key rendered with a title on top, a small line as a separator, and a text in the central area that is wrapped and will scroll if it does not fit. The key itself is not meant to be used as a reference because each part must be configured, so you define your key directory as usual, and inside, you add three empty files `IMAGE;ref=ref:titled-text:separator;outline=COLOR` (with `COLOR` being the color you want for the separator), `TEXT;ref=ref:titled-text:title;text=TITLE` (with `TITLE` being the text you want for the title) and `TEXT;ref=ref:titled-text:content;text=TEXT` (with `TEXT` being the text you want in the central area, or you can set `file=__self__` instead of `text=...` and put the text in the file itself)
+
+
+# Programmatic access
+
+As everything is done in file names (except sometimes for texts/images), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
+
+But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
+
+`streamdeckify` provides a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful)
+
+With these commands you can, for a page, key, text, image, or event:
+
+- get its path
+- get its configuration options as JSON
+- update one or many configuration options
+
+The are all called the same way:
+
+```bash
+path/to/streamdeckify.py COMMAND SERIAL_DIRECTORY ARGUMENTS
+```
+
+For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
+
+## get-page-path
+
+Will print the full path of the asked page.
+
+```bash
+path/to/streamdeckify.py get-page-path SERIAL_DIRECTORY -p PAGE
+```
+
+with:
+
+- `PAGE`: the number or name of the wanted page
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify
+```
+
+## get-page-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked page.
+
+```bash
+path/to/streamdeckify.py get-page-conf SERIAL_DIRECTORY -p PAGE
+```
+
+with:
+
+- `PAGE`: the number or name of the wanted page
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
+{"kind": "PAGE", "page": "60", "name": "spotify"}
+```
+
+## set-page-conf
+
+Will update the configuration of the asked page.
+
+```bash
+path/to/streamdeckify.py get-page-conf SERIAL_DIRECTORY -p PAGE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the wanted page
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns nothing.
+
+Example, to change the name of the page and disable it:
+
+```bash
+$ path/to/streamdeckify.py set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
+```
+
+## get-key-path
+
+Will print the full path of the asked key.
+
+```bash
+path/to/streamdeckify.py get-key-path SERIAL_DIRECTORY -p PAGE -k KEY
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted key
+- `KEY`: the name of the key or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress
+```
+
+## get-key-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked key.
+
+```bash
+path/to/streamdeckify.py get-key-conf SERIAL_DIRECTORY -p PAGE -k KEY
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted key
+- `KEY`: the name of the key or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+{"kind": "KEY", "row": "2", "col": "4", "name": "progress"}
+```
+
+## set-key-conf
+
+Will update the configuration of the asked key.
+
+```bash
+path/to/streamdeckify.py set-key-conf SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted key
+- `KEY`: the name of the key or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns nothing.
+
+Example, to disable the key:
+
+```bash
+$ path/to/streamdeckify.py set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
+```
+
+## get-image-path
+
+Will print the full path of the asked image layer.
+
+```bash
+path/to/streamdeckify.py get-image-path SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted image
+- `KEY`: the name of the key where to find the wanted image, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the wanted layer (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0%;angles.1=33%;opacity=50
+```
+
+Here you see `angles` and `angles.1` because `angles.1` was set by a call to `set-image-conf`
+
+## get-image-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked image layer.
+
+```bash
+path/to/streamdeckify.py get-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted image
+- `KEY`: the name of the key where to find the wanted image, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the wanted layer (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+{"kind": "IMAGE", "layer": "0", "name": "progress", "draw": "arc", "coords": "0,0,100%,100%", "outline": "#8cc63f", "width": "5", "angles": "0,0%", "angles.1": "29%", "opacity": "50"}
+```
+
+You see that `coords` is not split as a JSON array, and that `angles` and `angles.1` are not merged. It's because the returned configuration is only based on validated configuration options in the file names (and its references). But for margins and crops, you'll have objects with `top`, `left`, `bottom` and `right` keys, but the "raw" values (as string, like `"10"` or `"10%"`)
+
+## set-image-conf
+
+Will update the configuration of the asked image layer.
+
+```bash
+path/to/streamdeckify.py set-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted image
+- `KEY`: the name of the key where to find the wanted image, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the wanted layer (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns nothing.
+
+Example, to update the end angle of the arc that we use as a circular progress bar:
+
+```bash
+$ path/to/streamdeckify.py set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c angles.1 '31%'
+```
+
+To have the progress bar automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with your real listening progress.
+
+## get-text-path
+
+Will print the full path of the asked text line.
+
+```bash
+path/to/streamdeckify.py get-text-path SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted text line
+- `KEY`: the name of the key where to find the wanted text line, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;text=2:23
+```
+
+## get-text-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked text line.
+
+```bash
+path/to/streamdeckify.py get-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted text line
+- `KEY`: the name of the key where to find the wanted text line, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+{"kind": "TEXT", "line": "1", "name": "progress", "size": "30", "weight": "black", "color": "#8cc63f", "align": "center", "valign": "middle", "margin": {"top": "12%", "right": "1", "bottom": "40%", "left": "1"}}
+```
+
+You see that `margins` is an object with `top`, `left`, `bottom` and `right` keys, but with the "raw" values.
+
+## set-text-conf
+
+Will update the configuration of the asked text line.
+
+```bash
+path/to/streamdeckify.py set-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted text line
+- `KEY`: the name of the key where to find the wanted text line, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns nothing.
+
+Example, to update the text used to display the position in the current track:
+
+```bash
+$ path/to/streamdeckify.py set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c text '2:36'
+```
+
+To have this text automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with the real progression. Or you can avoid having the `text` configuration option and gt the path via `get-text-path` and write the text in the file. Or, even better (and the faster for your script), make this `TEXT...` file a link that point to a file inside which you write the text. `streamdeckify` watches the file pointed by the symbolic link and will updates when it changes. So you can avoid a call to `set-text-conf` and just update a file that is finally not related to `streamdeckify`.
+
+
+
+
+
+
+## get-event-path
+
+Will print the full path of the asked event.
+
+```bash
+path/to/streamdeckify.py get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
+```
+
+## get-event-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked event.
+
+```bash
+path/to/streamdeckify.py get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+
+Example:
+
+```bash
+$ path/to/streamdeckify.py get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+{"kind": "PRESS", "every": "1000", "unique": true}
+```
+
+## set-event-conf
+
+Will update the configuration of the asked event.
+
+```bash
+path/to/streamdeckify.py set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns nothing.
+
+Example, to stop allowing repetition:
+
+```bash
+$ path/to/streamdeckify.py set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
+```
+
+Passing an empty string for the `every` configuration option removes it from the file name, as we can see then by calling `get-event-path` and `get_event-conf`:
+
+```bash
+$ path/to/streamdeckify.py get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
+```
+```
+$ path/to/streamdeckify.py get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+{"kind": "PRESS", "unique": true}
+```
