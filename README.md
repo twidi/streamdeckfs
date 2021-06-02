@@ -11,10 +11,46 @@ It provides numerous features:
 - advanced key management (on press, release, long press, repeat, delay, and more)
 - references (explained later, but see this as a way to have templates, or to repeat keys on pages, or have many times the same key with a few differences)
 
-
 `streamdeckify` will look at the directory passed on the command line and read all the configuration from directories and files.
 
 And while running, it will catch any changes to them to update in real-time the StreamDeck
+
+# Examples
+
+Here are a few examples of what is possible with `streamdeckify`. Remember that `streamdeckify` only display (and compose) images and call programs by providing a powerful configuration system to let your imagination do the rest.
+
+## Example 1: first page
+
+![image](https://user-images.githubusercontent.com/193474/120529198-849c7680-c3dc-11eb-9fbd-2115dc03182d.png)
+
+- First key of first row: toggle play/pause on Spotify on press, and on long press, open a page on the StreamDeck dedicated to Spotify (see example 3). Displays the progress bar of the current playing song, or a "pause" icon on top of the Spotify logo if Spotify is not playing at the moment.
+- First keys of second and third rows: increase/decrease volume on press, and can be pressed longer to increase/decrease more.
+- First key of last row: toggle mute the sound. Displays the current volume, and becomes red when the sound is muted
+- Second key of last row: toggle mute the microphone on press, and open an overlay to increase/decrease the microphone sensitivity (see example 2). Displays the current sensitivity, and becomes red when the microphone is muted
+- Last keys of second and third rows: increase/decrease the StreamDeck brightness on press, and can be pressed longer to increase/decrease more.
+- Last key of last row: open a page dedicated to controlling lights (example not shown)
+
+## Example 2: Spotify page
+
+![image](https://user-images.githubusercontent.com/193474/120530470-d7c2f900-c3dd-11eb-9c11-d6bd7f37fed9.png)
+
+- First key of first row: same as in first page. Toggle play/pause on press, and go back to previous page on long press.
+- Other green keys: previous/next track, restart track, go backward/forward in the track
+- First keys of second, third and last row: same as in first page, to control the volume
+- Fifth key of first row: close the Spotify page (go back to previous page)
+- Fourth key of second row: progress and duration of the current song
+- 3x3 square of keys in the top right corner: cover of currently playing album
+- Last three keys of last row: some information about the current playing track
+
+## Example 3: Microphone overlay
+
+![image](https://user-images.githubusercontent.com/193474/120531215-ae569d00-c3de-11eb-9a2d-edb2fd2f83cd.png)
+
+Here only the "bright" keys are active. Think of an overlay as a modal window.
+
+- Second key of first row: close the microphone overlay (go back to previous page)
+- Second keys of second and third rows: increase/decrease sensitivity on press, and can be pressed longer to increase/decrease more.
+- Second key of last row: same as in the first page. Toggle the microphone on press, and close the overlay on long press.
 
 # Prerequisites
 
