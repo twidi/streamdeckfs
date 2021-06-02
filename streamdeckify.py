@@ -2015,7 +2015,7 @@ class KeyTextLine(keyImagePart):
                 crop['left'] = 0
                 crop['right'] = total_width 
             else:
-                if self.scroll_pixels and not self.wrap:
+                if self.scroll and not self.wrap and self.scroll_pixels:
                     self.scrollable = align = ('left' if self.scroll_pixels > 0 else 'right')
                 self._complete_image['fixed_position_left'] = margins['left']
                 if align == 'left':
@@ -2033,7 +2033,7 @@ class KeyTextLine(keyImagePart):
                 crop['top'] = 0
                 crop['bottom'] = total_height
             else:
-                if self.scroll_pixels and self.wrap:
+                if self.scroll and self.wrap and self.scroll_pixels:
                     self.scrollable = valign = ('top' if self.scroll_pixels > 0 else 'bottom')
                 self._complete_image['fixed_position_top'] = margins['top']
                 if valign == 'top':
@@ -2101,7 +2101,7 @@ class KeyTextLine(keyImagePart):
     @property
     def scroll_pixels(self):
         if not hasattr(self, '_scroll_pixels'):
-            self._scroll_pixels = self.convert_coordinate(self.scroll, 'height' if self.wrap else 'height')
+            self._scroll_pixels = self.convert_coordinate(self.scroll, 'height' if self.wrap else 'width')
         return self._scroll_pixels
 
     def start_scroller(self):
