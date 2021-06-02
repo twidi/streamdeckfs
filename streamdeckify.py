@@ -1656,21 +1656,32 @@ class KeyImageLayer(keyImagePart):
             layer_image = layer_image.rotate(self.rotate)
 
         margins = self.convert_margins()
-        thumbnail_max_width = image_size[0] - (margins['right'] + margins['left'])
-        thumbnail_max_height = image_size[1] - (margins['top'] + margins['bottom'])
-        thumbnail = layer_image.convert("RGBA")
-        thumbnail.thumbnail((thumbnail_max_width, thumbnail_max_height), Image.LANCZOS)
-        thumbnail_x = (margins['left'] + round((thumbnail_max_width - thumbnail.width) / 2))
-        thumbnail_y = (margins['top'] + round((thumbnail_max_height - thumbnail.height) / 2))
+        max_width = image_size[0] - (margins['right'] + margins['left'])
+        max_height = image_size[1] - (margins['top'] + margins['bottom'])
+        final_image = layer_image.convert("RGBA")
+        if max_width > (width := final_image.width) and max_height > (height := final_image.height):
+            # as the `thumbnail` method does not enlarge image, we need to do the work ourselves
+            ratio = width / height
+            if (max_height - height) <= (max_width - width):
+                new_height = max_height
+                new_width = round(new_height * ratio)
+            else:
+                new_width = max_width
+                new_height = round(new_width / ratio)
+            final_image = final_image.resize((new_width, new_height), Image.LANCZOS)
+        else:
+            final_image.thumbnail((max_width, max_height), Image.LANCZOS)
+        position_x = (margins['left'] + round((max_width - final_image.width) / 2))
+        position_y = (margins['top'] + round((max_height - final_image.height) / 2))
 
         if self.color:
-            alpha = thumbnail.getchannel('A')
-            thumbnail = Image.new('RGBA', thumbnail.size, color=self.color)
-            thumbnail.putalpha(alpha)
+            alpha = final_image.getchannel('A')
+            final_image = Image.new('RGBA', final_image.size, color=self.color)
+            final_image.putalpha(alpha)
 
-        self.apply_opacity(thumbnail)
+        self.apply_opacity(final_image)
 
-        return thumbnail, thumbnail_x, thumbnail_y, thumbnail
+        return final_image, position_x, position_y, final_image
 
 
 @dataclass(eq=False)
@@ -2391,11 +2402,11 @@ class Key(Entity):
                             try:
                                 if (composed := layer.compose()) is None:
                                     continue
-                                thumbnail, thumbnail_x, thumbnail_y, mask = composed
+                                rendered_layer, position_x, position_y, mask = composed
                             except Exception:
                                 logger.exception(f'[{layer}] Layer could not be rendered')
                                 continue  # we simply ignore a layer that couldn't be created
-                            final_image.paste(thumbnail, (thumbnail_x, thumbnail_y), mask)
+                            final_image.paste(rendered_layer, (position_x, position_y), mask)
                         self.compose_image_cache = final_image, PILHelper.to_native_format(self.deck.device, final_image)
             except Exception:
                 logger.exception(f'[{self}] Image could not be rendered')
