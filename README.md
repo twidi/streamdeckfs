@@ -384,18 +384,20 @@ Examples:
 
 The rectangle is represented by two points: the top-left and bottom-right corners.
 
-It must be defined like this: `draw=rectangle;coords=X1,Y1,X2,Y2;outline=LINE_COLOR;width=WIDTH;fill=FILL_COLOR`, with:
+It must be defined like this: `draw=rectangle;coords=X1,Y1,X2,Y2;outline=LINE_COLOR;width=WIDTH;fill=FILL_COLOR;radius=RADIUS`, with:
 
 - `X1,Y1`: the coordinates of the top left corner
 - `X2,Y2`: the coordinates of the bottom right corner
 - `LINE_COLOR`: the color of the line. Optional
 - `WIDTH`: the width of the line. Optional
 - `FILL_COLOR`: the color to fill the inside of the rectangle. Optional
+- `RADIUS`: radius, in pixels of the circle used to have a rounded rectangle. Optional
 
 Examples:
 
 - `IMAGE;draw=rectangle;coords=0,0,100%,100%;fill=red;width=0` will fill the whole key area with red (note that you can use `draw=fill` as described below to achieve the same effect)
 - `IMAGE;draw=rectangle;coords=10,10,40,40;outline=blue;width=5;fill=#0000FF80` will draw a thick blue rectangle in the top left area, with the inner filled in semi (via the ending `80`) transparent blue
+- `IMAGe;draw=rectangle;coords=10%,10%,90%,90%;radius=5` will draw a rounded rectangle with small rounded angles
 
 #### Kind "fill"
 
