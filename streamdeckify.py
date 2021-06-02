@@ -2408,10 +2408,6 @@ class Key(Entity):
 
         return image_data
 
-    @property
-    def is_visible(self):
-        return self.deck.is_key_visible(self.page.number, self.key)
-
     def has_content(self):
         if any(self.resolved_events.values()):
             return True
@@ -2419,13 +2415,10 @@ class Key(Entity):
             return True  #self.compose_image() is not None
         return False
 
-    def render(self, overlay_level=None):
+    def render(self):
         if not self.deck.is_running:
             return
-        if overlay_level is None:
-            visible, overlay_level = self.deck.get_key_visibility(self)
-        else:
-            visible = self.has_content()
+        visible, overlay_level = self.deck.get_key_visibility(self)
         if visible:
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
             for text_line in self.resolved_text_lines.values():
@@ -2440,20 +2433,22 @@ class Key(Entity):
             self.unrender()
 
     def unrender(self):
-        if (overlay_level := self.rendered_overlay) is None:
+        if (rendered_overlay := self.rendered_overlay) is None:
             return
+        visible, overlay_level = self.deck.get_key_visibility(self)
         for text_line in self.resolved_text_lines.values():
             if text_line:
                 text_line.stop_scroller()
-        self.deck.remove_image(self.row, self.col)
+        if visible:
+            self.deck.remove_image(self.row, self.col)
         for event in self.resolved_events.values():
             if event:
                 event.deactivate()
         self.rendered_overlay = None
         # if page is overlay, we render a key that may be below
-        below_key, below_overlay_level = self.deck.find_visible_key(self.row, self.col, min_level=overlay_level+1)
+        below_key, below_overlay_level = self.deck.find_visible_key(self.row, self.col, min_level=rendered_overlay+1)
         if below_key:
-            below_key.render(overlay_level=below_overlay_level)
+            below_key.render()
 
     def version_activated(self):
         super().version_activated()
@@ -2622,7 +2617,7 @@ class Page(Entity):
                 continue
             if not key.has_content():
                 continue
-            key.render(overlay_level)
+            key.render()
             ignore_keys.add(key.key)
         if pages_below:
             page_number, pages_below = pages_below[0], pages_below[1:]
@@ -2845,7 +2840,7 @@ class Deck(Entity):
         if not key.page.is_visible:
             return False, None
 
-        visible = False
+        visible = None
         key_level = None
 
         key_page_number = key.page.number
@@ -2859,12 +2854,16 @@ class Deck(Entity):
                     continue
                 if not (page_key := page.keys.get(key_row_col)):
                     continue
-            visible = page_key.has_content()
-            if visible or page_number == key_page_number:
+            page_key_visible = page_key.has_content()
+
+            if page_key_visible and visible is None:
+                visible = page_key
+
+            if page_number == key_page_number:
                 key_level = level
                 break
 
-        return visible, key_level
+        return visible == key, key_level
 
     def find_visible_key(self, row, col, min_level=0):
         for level, page_number in enumerate(self.visible_pages):
