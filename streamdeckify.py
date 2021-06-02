@@ -411,8 +411,8 @@ class InotifyFilesWatcher(BaseFilesWatcher):
     flag_groups = {
         'self_delete': f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
         'all': f.CREATE | f.DELETE | f.MODIFY | f.MOVED_FROM | f.MOVED_TO | f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
-        'added': f.ISDIR | f.CREATE | f.MOVED_TO,
-        'removed': f.ISDIR | f.DELETE | f.MOVED_FROM,
+        'added': f.CREATE | f.MOVED_TO,
+        'removed': f.DELETE | f.MOVED_FROM,
         'changed': f.MODIFY,
     }
 
