@@ -240,9 +240,17 @@ It must be defined like this: `crop=LEFT,TOP,RIGHT,BOTTOM`, representing the two
 - `BOTTOM`: the distance, in pixels or percents (of the original height) from the top
 
 Examples:
+In all image examples we'll use the Elgato logo (made white on transparent) that looks like this by default (and examples are photos from a real device):
 
-- `IMAGE;crop=10,10,90,90` applied on a 100x100 pixels image, will remove a border of 10 pixels on all sides
-- `IMAGE;crop=0,0,33.33%,33.33%` will only keep the top left third of the image. It can be used to display an image on a 9-keys square, each key containing the same image but with a different crop configuration.
+![image](https://user-images.githubusercontent.com/193474/120549465-ee744a80-c3f3-11eb-9b44-d9ebdfdfaaee.png)
+
+- `IMAGE;crop=10,10,90,90` applied on a 100x100 pixels image, will remove a border of 10 pixels on all sides:
+
+![image](https://user-images.githubusercontent.com/193474/120549855-66db0b80-c3f4-11eb-853e-9291655ecd92.png)
+
+- `IMAGE;crop=0,0,33.33%,33.33%` will only keep the top left third of the image (It can be used to display an image on a 9-keys square, each key containing the same image but with a different crop configuration):
+
+![image](https://user-images.githubusercontent.com/193474/120550039-a570c600-c3f4-11eb-8ff9-b32438a64e36.png)
 
 Once cropped, the part that is kept will be the source image for the other configuration options.
 
@@ -260,7 +268,10 @@ It must be defined like this: `rotate=ANGLE`, with:
 
 Examples:
 
-- `IMAGE;rotate=180` will make the image upside down
+- `IMAGE;rotate=180` will make the image upside down:
+
+![image](https://user-images.githubusercontent.com/193474/120550234-db15af00-c3f4-11eb-9825-9a8a0f288547.png)
+
 - `IMAGE;rotate=50%` same but expressed in percents
 
 Once rotated, the updated image will be the source image for the other configuration options.
@@ -280,8 +291,14 @@ It must be defined like this: `margin=TOP,RIGHT,BOTTOM,LEFT`, with:
 
 Examples:
 
-- `IMAGE;margin=10,10,10,10` makes a margin of 10 pixels on all size
-- `IMAGE;margin=0,33.33%,0,33.33%` will fit the image if the middle third of the key (margin of 33.33% on left and right, so 33.33% are available in the middle)
+- `IMAGE;margin=10,10,10,10` makes a margin of 10 pixels on all size:
+
+![image](https://user-images.githubusercontent.com/193474/120550395-19ab6980-c3f5-11eb-8ee9-805ae0ea65f7.png)
+
+- `IMAGE;margin=0,33.33%,0,33.33%` will fit the image if the middle third of the key (margin of 33.33% on left and right, so 33.33% are available in the middle):
+
+![image](https://user-images.githubusercontent.com/193474/120550547-4e1f2580-c3f5-11eb-8aaa-497d037d7f87.png)
+
 
 In addition to `margin`, it's also possible to override the individual parts. For example `margin=10,10 10,10;margin.1=20` will be equal to `margin=10,20,10,10`. For this to work, `margin` must have been defined. And indexes (the `1` in `margin.1` starts at 0: 4 parts (from `0` to `3`) can be overridden. It may not seems useful for now, but we'll see later that it can be powerful.
 
@@ -297,8 +314,14 @@ It must be defined like this: `colorize=COLOR` with:
 
 Examples:
 
-- `IMAGE;colorize=red` colorizes the image in red
-- `IMAGE;colorize=#00FFFF` colorizes the image in cyan
+- `IMAGE;colorize=red` colorizes the image in red:
+
+![image](https://user-images.githubusercontent.com/193474/120551192-077dfb00-c3f6-11eb-95fb-c5de838e362c.png)
+
+- `IMAGE;colorize=#00FFFF` colorizes the image in cyan:
+
+![image](https://user-images.githubusercontent.com/193474/120551454-562b9500-c3f6-11eb-99dc-b7846b713ced.png)
+
 
 #### Option "opacity"
 
@@ -313,7 +336,10 @@ For parts of the image already partially transparent, they will become more tran
 Examples:
 
 - `IMAGE;opacity=100` does not change the transparency at all
-- `IMAGE;opacity=50` makes the image 50% transparent
+- `IMAGE;opacity=50` makes the image 50% transparent (here with a red background):
+
+![image](https://user-images.githubusercontent.com/193474/120552009-fc779a80-c3f6-11eb-85b3-1c55fd45adc2.png)
+
 
 #### Option "file"
 
@@ -398,8 +424,14 @@ It is impossible to define the "size" of a point: it's always a single pixel.
 
 Examples:
 
-- `IMAGE;draw=points;coords=50%,50%` will draw a single white point at the center of the key
-- `IMAGE;draw=points;coords=10,10,20,20,30,30;outline=red` will draw 3 red points, at coordinates (10,10), (20,20), and (30,30)
+- `IMAGE;draw=points;coords=50%,50%` will draw a single white point at the center of the key:
+
+![image](https://user-images.githubusercontent.com/193474/120552300-5aa47d80-c3f7-11eb-9e92-bb2b70e87dfd.png)
+
+- `IMAGE;draw=points;coords=10,10,20,20,30,30;outline=yellow` will draw 3 yellow points, at coordinates (10,10), (20,20), and (30,30):
+
+![image](https://user-images.githubusercontent.com/193474/120552547-ace59e80-c3f7-11eb-9621-3ae801059242.png)
+
 
 #### Kind "line"
 
@@ -413,8 +445,14 @@ It must be defined like this: `draw=line;coords=COORDS;outline=COLOR;width=WIDTH
 
 Examples:
 
-- `IMAGE;draw=line;coords=0,0,100%,100%` will draw a white diagonal from the top left corner to the bottom right corner
-- `IMAGE;draw=line;coords=10,10,20,10,10,20,20,20;color=red;width=2` will draw a red "Z" with a thickness of 2 pixels near the top left corner
+- `IMAGE;draw=line;coords=0,0,100%,100%` will draw a white diagonal from the top left corner to the bottom right corner:
+
+![image](https://user-images.githubusercontent.com/193474/120552668-d1417b00-c3f7-11eb-8dbc-a5a71f30a1da.png)
+
+- `IMAGE;draw=line;coords=10,10,20,10,10,20,20,20;outline=red;width=2` will draw a red "Z" with a thickness of 2 pixels near the top left corner:
+
+![image](https://user-images.githubusercontent.com/193474/120553152-75c3bd00-c3f8-11eb-88b8-de755b339156.png)
+
 
 #### Kind "rectangle"
 
@@ -431,9 +469,18 @@ It must be defined like this: `draw=rectangle;coords=X1,Y1,X2,Y2;outline=LINE_CO
 
 Examples:
 
-- `IMAGE;draw=rectangle;coords=0,0,100%,100%;fill=red;width=0` will fill the whole key area with red (note that you can use `draw=fill` as described below to achieve the same effect)
-- `IMAGE;draw=rectangle;coords=10,10,40,40;outline=blue;width=5;fill=#0000FF80` will draw a thick blue rectangle in the top left area, with the inner filled in semi (via the ending `80`) transparent blue
-- `IMAGe;draw=rectangle;coords=10%,10%,90%,90%;radius=5` will draw a rounded rectangle with small rounded angles
+- `IMAGE;draw=rectangle;coords=0,0,100%,100%;fill=red;width=0` will fill the whole key area with red (note that you can use `draw=fill` as described below to achieve the same effect):
+
+![image](https://user-images.githubusercontent.com/193474/120553282-98ee6c80-c3f8-11eb-8e4e-54e526bfc677.png)
+
+- `IMAGE;draw=rectangle;coords=10,10,40,40;outline=blue;width=5;fill=#0000FF80` will draw a thick blue rectangle in the top left area, with the inner filled in semi (via the ending `80`) transparent blue:
+
+![image](https://user-images.githubusercontent.com/193474/120553434-c6d3b100-c3f8-11eb-9961-835c192e5405.png)
+
+- `IMAGE;draw=rectangle;coords=10%,10%,90%,90%;radius=20` will draw a rounded rectangle with rounded angles:
+
+![image](https://user-images.githubusercontent.com/193474/120553743-2762ee00-c3f9-11eb-942e-31d25f4397b2.png)
+
 
 #### Kind "fill"
 
@@ -454,7 +501,10 @@ It must be defined like this: `draw=polygon;coords=COORDS;outline=LINE_COLOR;fil
 
 Example:
 
-- `IMAGE;draw=polygon;coords=50%,0,100%,50%,50%,100%,0,100%;color=yellow` will draw a yellow diamond touching the middle of the four sides
+- `IMAGE;draw=polygon;coords=50%,0,100%,50%,50%,100%,0,50%;color=yellow` will draw a yellow diamond touching the middle of the four sides:
+
+![image](https://user-images.githubusercontent.com/193474/120553905-57aa8c80-c3f9-11eb-8050-a43be149e0fd.png)
+
 
 #### Kind "ellipse"
 
@@ -470,8 +520,14 @@ It must be defined like this: `draw=ellipse;coords=X1,Y1,X2,Y2;outline=LINE_COLO
 
 Examples:
 
-- `IMAGE;draw=ellipse;coords=0,0,100%,100%` will draw a circle touching the middle of the four sides
-- `IMAGE;draw=ellipse;coords=10,10,50,20;outline=blue;width=5;fill=#0000FF80` will draw a thick flat blue ellipse in the top area, with the inner filled in semi (via the ending `80`) transparent blue
+- `IMAGE;draw=ellipse;coords=0,0,100%,100%` will draw a circle touching the middle of the four sides:
+
+![image](https://user-images.githubusercontent.com/193474/120554023-888ac180-c3f9-11eb-9954-393c73c2197d.png)
+
+- `IMAGE;draw=ellipse;coords=10,10,60,40;outline=blue;width=5;fill=#0000FF80` will draw a thick flat blue ellipse in the top area, with the inner filled in semi (via the ending `80`) transparent blue:
+
+![image](https://user-images.githubusercontent.com/193474/120554134-aa844400-c3f9-11eb-817b-ac1084fc9ce1.png)
+
 
 #### Kind "arc"
 
@@ -488,7 +544,10 @@ It must be defined like this: `draw=arch;coords=X1,Y1,X2,Y2;angles=START,END;out
 
 Examples:
 
-- `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,270;width=5;outline=red` will draw a thick red arc representing a circular progress bar of 75% starting at midnight and ending a 9 o'clock
+- `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,270;width=5;outline=red` will draw a thick red arc representing a circular progress bar of 75% starting at midnight and ending a 9 o'clock:
+
+![image](https://user-images.githubusercontent.com/193474/120554343-e919fe80-c3f9-11eb-9034-1d76c53ea209.png)
+
 - `IMAGE;draw=arc;coords=10%,10%,90%,90%;angles=0,75%;width=5;outline=red` same but end angle expressed as percents
 
 #### Kind "chord"
@@ -507,7 +566,10 @@ It must be defined like this: `draw=chord;coords=X1,Y1,X2,Y2;angles=START,END;ou
 
 Examples:
 
-- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=270,90` will draw a closed semi circle on the top half
+- `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=270,90` will draw a closed semi circle on the top half:
+
+![image](https://user-images.githubusercontent.com/193474/120554476-149ce900-c3fa-11eb-992d-64fd5378543e.png)
+
 - `IMAGE;draw=chord;coords=20%,20%,80%,80%;angles=-25%,25%` same but angles expressed as percents
 
 
@@ -527,8 +589,13 @@ It must be defined like this: `draw=pieslice;coords=X1,Y1,X2,Y2;angles=START,END
 
 Examples:
 
-- `IMAGE;draw=pieslice;coords=20%,20%,80%,80%;angles=0,90` will draw a quarter circle on the top right quarter "pointing" towards the middle
-- `IMAGE;draw=pieslice;coords=-50%,-50%,50%,50%;angles=90,180` will draw a quarter circle on the top left quarter "pointing" towards the top left corner
+- `IMAGE;draw=pieslice;coords=20%,20%,80%,80%;angles=0,90` will draw a quarter circle on the top right quarter "pointing" towards the middle:
+
+![image](https://user-images.githubusercontent.com/193474/120554614-3d24e300-c3fa-11eb-91fc-f4a9cd0a5c1e.png)
+
+- `IMAGE;draw=pieslice;coords=-50%,-50%,50%,50%;angles=90,180;width=4` will draw a quarter circle on the top left quarter "pointing" towards the top left corner:
+
+![image](https://user-images.githubusercontent.com/193474/120554693-575ec100-c3fa-11eb-865c-272a41d50693.png)
 
 
 ### Texts
@@ -571,8 +638,14 @@ It must be defined like this: `size=SIZE` with:
 
 Examples:
 
-- `TEXT;text=foobar;size=5` will draw a very small text
-- `TEXT;text=foobar;size=40` will draw a very big text
+- `TEXT;text=foobar;size=10` will draw a very small text:
+
+![image](https://user-images.githubusercontent.com/193474/120554984-b45a7700-c3fa-11eb-9817-99bb917946d2.png)
+
+- `TEXT;text=foobar;size=40` will draw a very big text:
+
+![image](https://user-images.githubusercontent.com/193474/120555088-d653f980-c3fa-11eb-889c-e9f0cea62b76.png)
+
 
 #### Option "weight"
 
@@ -586,8 +659,14 @@ Default is `medium`.
 
 Examples:
 
-- `TEXT;text=foobar;weight=thin` will draw a very thin text
-- `TEXT;text=foobar;weight=black` will draw a very thick text
+- `TEXT;text=foobar;weight=thin` will draw a very thin text:
+
+![image](https://user-images.githubusercontent.com/193474/120555213-07342e80-c3fb-11eb-94fd-79b5dde01546.png)
+
+- `TEXT;text=foobar;weight=black` will draw a very thick text:
+
+![image](https://user-images.githubusercontent.com/193474/120555401-4d898d80-c3fb-11eb-8c24-6ad4ffbba4d2.png)
+
 
 #### Option "italic"
 
@@ -600,7 +679,10 @@ It must be defined like this:
 
 Examples:
 
-- `TEXT;text=foobar;italic` or `TEXT;text=foobar;italic=true` will draw a text in italic
+- `TEXT;text=foobar;italic` or `TEXT;text=foobar;italic=true` will draw a text in italic:
+
+![image](https://user-images.githubusercontent.com/193474/120555514-790c7800-c3fb-11eb-87c6-b545b5d3a1c5.png)
+
 - `TEXT;text=foobar;italic=false` or `TEXT;text=foobar` will draw a regular text (not in italic)
 
 #### Option "align"
@@ -613,7 +695,9 @@ It must be defined like this: `align=ALIGN` with:
 
 Example:
 
-- `TEXT;text=foobar;align=center` will center the text horizontally in the key
+- `TEXT;text=foobar;align=center` will center the text horizontally in the key:
+
+![image](https://user-images.githubusercontent.com/193474/120555601-96414680-c3fb-11eb-8149-783beb9dd05a.png)
 
 
 #### Option "valign"
@@ -626,7 +710,9 @@ It must be defined like this: `valign=ALIGN` with:
 
 Example:
 
-- `TEXT;text=foobar;valign=middle` will center the text vertically in the key
+- `TEXT;text=foobar;valign=middle` will center the text vertically in the key:
+
+![image](https://user-images.githubusercontent.com/193474/120555672-b4a74200-c3fb-11eb-8023-b6a9435fa529.png)
 
 
 #### Option "color"
@@ -639,7 +725,9 @@ It must be defined like this: `color=COLOR` with:
 
 Example:
 
-- `TEXT;color=red` will write text in red
+- `TEXT;text=foobar;color=red` will write text in red:
+
+![image](https://user-images.githubusercontent.com/193474/120555770-d7d1f180-c3fb-11eb-93b0-850023ec0b2e.png)
 
 #### Option "opacity"
 
@@ -651,8 +739,11 @@ It must be defined like this: `opacity=NUMBER` with:
 
 Examples:
 
-- `TEXT;opacity=100` does not change the transparency at all
-- `TEXT;opacity=50` makes the text 50% transparent
+- `TEXT;text=foobar;opacity=100` does not change the transparency at all
+- `TEXT;text=foobar;opacity=50` makes the text 50% transparent (here with a red background):
+
+![image](https://user-images.githubusercontent.com/193474/120556200-765e5280-c3fc-11eb-8711-cfa71a8e44ce.png)
+
 
 #### Option "wrap"
 
@@ -667,7 +758,10 @@ It must be defined like this:
 
 Examples:
 
-- `TEXT;text=foobar;wrap` or `TEXT;text=foobar;wrap=true` will wrap the text if too long
+- `TEXT;text=foobar baz qux;wrap` or `TEXT;text=foobar;wrap=true` will wrap the text if too long:
+
+![image](https://user-images.githubusercontent.com/193474/120556279-92fa8a80-c3fc-11eb-88d6-1b142486e13a.png)
+
 - `TEXT;text=foobar;wrap=false` or `TEXT;text=foobar` will not wrap the text
 
 #### Option "margin"
@@ -687,7 +781,10 @@ It must be defined like this: `margin=TOP,RIGHT,BOTTOM,LEFT`, with:
 
 Examples:
 
-- `TEXT;margin=0,0,80%,0` will display the text only in the top 20%. For example to display a "title"
+- `TEXT;text=foobar;margin=70%,0,0,0` will display the text only in the bottom 70%:
+
+![image](https://user-images.githubusercontent.com/193474/120556402-bf160b80-c3fc-11eb-97d1-e6910eb5af52.png)
+
 
 #### Option "scroll"
 
@@ -712,7 +809,13 @@ Note about the alignment, if the text needs to scroll because it doesn't fit:
 Examples:
 
 - `TEXT;text=this is a long text for a single line;wrap=false;scroll=20` will keep the text on one line but will scroll at a speed of 20 pixels per second
+
+https://user-images.githubusercontent.com/193474/120557135-c38ef400-c3fd-11eb-8f2a-9cf45d4e3f79.mp4
+
 - `TEXT;text=this is a very long text that even when wrapped, will not fit;wrap;scroll=20` will wrap the text and scroll it at a speed of 20 pixels per second
+
+https://user-images.githubusercontent.com/193474/120557406-26808b00-c3fe-11eb-8477-b551bb2937c6.mp4
+
 
 #### Option "file"
 
