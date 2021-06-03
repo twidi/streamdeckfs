@@ -1,3 +1,11 @@
+<!--
+Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
+
+This file is part of Streamdeckify
+(see https://github.com/twidi/streamdeckify).
+
+License: MIT, see https://opensource.org/licenses/MIT
+-->
 # SteamDeckify
 
 SteamDeckify is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
