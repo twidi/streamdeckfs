@@ -94,23 +94,11 @@ And finally you need to unplug then plug back your StreamDeck devices to ensure 
 
 ## StreamDeckify
 
-There is no install script yet, so copy the file `streamdeckify.py`  where you want and install (in a virtual environment or not) these python libraries with pip (or your favorite tool):
+To install `streamdeckify`, you can use `pip`, either in a virtual environment, or in your system python (reminder: you need python 3.9 minimum). use `pip install streamdeckify` or `pip install --user streamdeckify` depending on your case.
 
-- `streamdeck`
-- `pillow`
-- `inotify-simple`
-- `click`
-- `click-log`
-- `psutil`
+For the rest of this README, we assume that the package is correctly installed, and that a `streamdeckify` executable should now be available.
 
-Complete command-line with pip: `pip install streamdeck pillow inotify-simple click click-log psutil`
-
-In addition, you can install:
-
-- `python-prctl` (to name the threads if you want to see them in ps, top...)
-
-
-**TODO**: Note about the fonts not yet in the repository
+If you don't know how to install a python package, I redirect you to your favorite search engine where you'll find a lot more complete and accurate explanation on how to do it.
 
 # Starting
 
@@ -121,7 +109,7 @@ The first thing to do is to discover your StreamDeck devices.
 For this, use the `inspect` command:
 
 ```bash
-path/to/streamdeckify.py inspect
+streamdeckify inspect
 ```
 
 It will output some information about the connected decks (no other program must be connected to them as only one connection to the decks is possible).
@@ -133,7 +121,7 @@ The main useful thing is the serial number, as it will be the name of the direct
 You can create the directories by hand (we'll explain how later), but we provide a command to create the tree for you, `make-dirs`:
 
 ```bash
-path/to/streamdeckify.py make-dirs SERIAL BASE_DIRECTORY
+streamdeckify make-dirs SERIAL BASE_DIRECTORY
 ```
 
 `SERIAL` is the serial number you got from the `inspect` command. Note that if you have only one connected StreamDeck, you can ignore this argument as `streamdeckify` will automatically find it for you.
@@ -184,14 +172,14 @@ PS: you can have `IMAGE` without `ON_PRESS` or `ON_PRESS` without `IMAGE`.
 Now that you have your configuration directory, run:
 
 ```bash
-path/to/streamdeckify.py run SERIAL CONFIG_DIRECTORY
+streamdeckify run SERIAL CONFIG_DIRECTORY
 ```
 
 And voila!
 
 Note that, like for `make-dirs`, the `SERIAL` argument is optional if you have only one connected StreamDeck.
 
-And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (`streamdeckify` will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `path/to/streamdeckify.py run BASE_DIRECTORY`)
+And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (`streamdeckify` will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `streamdeckify run BASE_DIRECTORY`)
 
 Now that you have your StreamDeck running, try adding an image for another key (on the first page). You'll see that the deck automatically updates. And maybe you're starting to see the infinite possibilities.
 
@@ -1295,7 +1283,7 @@ With these commands you can, for a page, key, text, image, or event:
 The are all called the same way:
 
 ```bash
-path/to/streamdeckify.py COMMAND SERIAL_DIRECTORY ARGUMENTS
+streamdeckify COMMAND SERIAL_DIRECTORY ARGUMENTS
 ```
 
 For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
@@ -1305,7 +1293,7 @@ For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending 
 Will print the full path of the asked page.
 
 ```bash
-path/to/streamdeckify.py get-page-path SERIAL_DIRECTORY -p PAGE
+streamdeckify get-page-path SERIAL_DIRECTORY -p PAGE
 ```
 
 with:
@@ -1315,7 +1303,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
+$ streamdeckify get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify
 ```
 
@@ -1324,7 +1312,7 @@ $ path/to/streamdeckify.py get-page-path ~/streamdeck-data/MYDECKSERIAL -p spoti
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked page.
 
 ```bash
-path/to/streamdeckify.py get-page-conf SERIAL_DIRECTORY -p PAGE
+streamdeckify get-page-conf SERIAL_DIRECTORY -p PAGE
 ```
 
 with:
@@ -1334,7 +1322,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
+$ streamdeckify get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
 {"kind": "PAGE", "page": "60", "name": "spotify"}
 ```
 
@@ -1343,7 +1331,7 @@ $ path/to/streamdeckify.py get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spoti
 Will update the configuration of the asked page.
 
 ```bash
-path/to/streamdeckify.py get-page-conf SERIAL_DIRECTORY -p PAGE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify get-page-conf SERIAL_DIRECTORY -p PAGE -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1359,7 +1347,7 @@ This command returns nothing.
 Example, to change the name of the page and disable it:
 
 ```bash
-$ path/to/streamdeckify.py set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
+$ streamdeckify set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
 ```
 
 ## get-key-path
@@ -1367,7 +1355,7 @@ $ path/to/streamdeckify.py set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spoti
 Will print the full path of the asked key.
 
 ```bash
-path/to/streamdeckify.py get-key-path SERIAL_DIRECTORY -p PAGE -k KEY
+streamdeckify get-key-path SERIAL_DIRECTORY -p PAGE -k KEY
 ```
 
 with:
@@ -1378,7 +1366,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+$ streamdeckify get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress
 ```
 
@@ -1387,7 +1375,7 @@ $ path/to/streamdeckify.py get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotif
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked key.
 
 ```bash
-path/to/streamdeckify.py get-key-conf SERIAL_DIRECTORY -p PAGE -k KEY
+streamdeckify get-key-conf SERIAL_DIRECTORY -p PAGE -k KEY
 ```
 
 with:
@@ -1398,7 +1386,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+$ streamdeckify get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 {"kind": "KEY", "row": "2", "col": "4", "name": "progress"}
 ```
 
@@ -1407,7 +1395,7 @@ $ path/to/streamdeckify.py get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotif
 Will update the configuration of the asked key.
 
 ```bash
-path/to/streamdeckify.py set-key-conf SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify set-key-conf SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1424,7 +1412,7 @@ This command returns nothing.
 Example, to disable the key:
 
 ```bash
-$ path/to/streamdeckify.py set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
+$ streamdeckify set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
 ```
 
 ## get-image-path
@@ -1432,7 +1420,7 @@ $ path/to/streamdeckify.py set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotif
 Will print the full path of the asked image layer.
 
 ```bash
-path/to/streamdeckify.py get-image-path SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+streamdeckify get-image-path SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
 ```
 
 with:
@@ -1444,7 +1432,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckify get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0%;angles.1=33%;opacity=50
 ```
 
@@ -1455,7 +1443,7 @@ Here you see `angles` and `angles.1` because `angles.1` was set by a call to `se
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked image layer.
 
 ```bash
-path/to/streamdeckify.py get-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+streamdeckify get-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
 ```
 
 with:
@@ -1467,7 +1455,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckify get-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 {"kind": "IMAGE", "layer": "0", "name": "progress", "draw": "arc", "coords": "0,0,100%,100%", "outline": "#8cc63f", "width": "5", "angles": "0,0%", "angles.1": "29%", "opacity": "50"}
 ```
 
@@ -1478,7 +1466,7 @@ You see that `coords` is not split as a JSON array, and that `angles` and `angle
 Will update the configuration of the asked image layer.
 
 ```bash
-path/to/streamdeckify.py set-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify set-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1496,7 +1484,7 @@ This command returns nothing.
 Example, to update the end angle of the arc that we use as a circular progress bar:
 
 ```bash
-$ path/to/streamdeckify.py set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c angles.1 '31%'
+$ streamdeckify set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c angles.1 '31%'
 ```
 
 To have the progress bar automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with your real listening progress.
@@ -1506,7 +1494,7 @@ To have the progress bar automatically updates, you only need a script `ON_START
 Will print the full path of the asked text line.
 
 ```bash
-path/to/streamdeckify.py get-text-path SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckify get-text-path SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -1518,7 +1506,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckify get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;text=2:23
 ```
 
@@ -1527,7 +1515,7 @@ $ path/to/streamdeckify.py get-text-path ~/streamdeck-data/MYDECKSERIAL -p spoti
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked text line.
 
 ```bash
-path/to/streamdeckify.py get-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckify get-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -1539,7 +1527,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckify get-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 {"kind": "TEXT", "line": "1", "name": "progress", "size": "30", "weight": "black", "color": "#8cc63f", "align": "center", "valign": "middle", "margin": {"top": "12%", "right": "1", "bottom": "40%", "left": "1"}}
 ```
 
@@ -1550,7 +1538,7 @@ You see that `margins` is an object with `top`, `left`, `bottom` and `right` key
 Will update the configuration of the asked text line.
 
 ```bash
-path/to/streamdeckify.py set-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify set-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1568,7 +1556,7 @@ This command returns nothing.
 Example, to update the text used to display the position in the current track:
 
 ```bash
-$ path/to/streamdeckify.py set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c text '2:36'
+$ streamdeckify set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c text '2:36'
 ```
 
 To have this text automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with the real progression. Or you can avoid having the `text` configuration option and gt the path via `get-text-path` and write the text in the file. Or, even better (and the faster for your script), make this `TEXT...` file a link that point to a file inside which you write the text. `streamdeckify` watches the file pointed by the symbolic link and will updates when it changes. So you can avoid a call to `set-text-conf` and just update a file that is finally not related to `streamdeckify`.
@@ -1583,7 +1571,7 @@ To have this text automatically updates, you only need a script `ON_START` on a 
 Will print the full path of the asked event.
 
 ```bash
-path/to/streamdeckify.py get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+streamdeckify get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 ```
 
 with:
@@ -1595,7 +1583,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 
@@ -1604,7 +1592,7 @@ $ path/to/streamdeckify.py get-event-path ~/streamdeck-data/MYDECKSERIAL -p spot
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked event.
 
 ```bash
-path/to/streamdeckify.py get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckify get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -1616,7 +1604,7 @@ with:
 Example:
 
 ```bash
-$ path/to/streamdeckify.py get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "every": "1000", "unique": true}
 ```
 
@@ -1625,7 +1613,7 @@ $ path/to/streamdeckify.py get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spot
 Will update the configuration of the asked event.
 
 ```bash
-path/to/streamdeckify.py set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1643,16 +1631,16 @@ This command returns nothing.
 Example, to stop allowing repetition:
 
 ```bash
-$ path/to/streamdeckify.py set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
+$ streamdeckify set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
 ```
 
 Passing an empty string for the `every` configuration option removes it from the file name, as we can see then by calling `get-event-path` and `get_event-conf`:
 
 ```bash
-$ path/to/streamdeckify.py get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 ```
-$ path/to/streamdeckify.py get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "unique": true}
 ```

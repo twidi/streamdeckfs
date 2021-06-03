@@ -1,0 +1,6 @@
+recursive-include streamdeckify *.py
+recursive-include streamdeckify/assets *
+include *.py
+include MANIFEST.in
+include LICENSE
+include README.md
