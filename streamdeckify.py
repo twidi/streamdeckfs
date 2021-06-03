@@ -3045,16 +3045,20 @@ class Manager:
         return cls.manager
 
     @classmethod
-    def get_decks(cls):
+    def get_decks(cls, limit_to_serial=None):
         if not cls.decks:
             for deck in cls.get_manager().enumerate():
                 try:
                     deck.open()
                 except Exception:
-                    return cls.exit(1, f'Stream Deck "{deck.deck_type()}" (ID {deck.id()}) cannot be accessed. Maybe a program is already connected to it.')
+                    logger.warning(f'Stream Deck "{deck.deck_type()}" (ID {deck.id()}) cannot be accessed. Maybe a program is already connected to it.')
+                    continue
                 deck.reset()
-                deck.set_brightness(DEFAULT_BRIGHTNESS)
                 serial = deck.get_serial_number()
+                if limit_to_serial and limit_to_serial != serial:
+                    deck.close()
+                    continue
+                deck.set_brightness(DEFAULT_BRIGHTNESS)
                 cls.decks[serial] = deck
                 deck.info = {
                     'serial': serial,
@@ -3070,7 +3074,7 @@ class Manager:
                 }
                 deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
         if not len(cls.decks):
-            Manager.exit(1, 'No Stream Deck detected. Aborting.')
+            Manager.exit(1, 'No available Stream Deck. Aborting.')
         return cls.decks
 
     @classmethod
@@ -3078,7 +3082,7 @@ class Manager:
         if len(serial) > 1:
             return cls.exit(1, f'Invalid serial "{" ".join(serial)}".')
         serial = serial[0] if serial else None
-        decks = cls.get_decks()
+        decks = cls.get_decks(limit_to_serial=serial)
         if not serial:
             if len(decks) > 1:
                 return cls.exit(1, f'{len(decks)} Stream Decks detected, you need to specify the serial. Use the "inspect" command to list all available decks.')
@@ -3651,8 +3655,8 @@ if __name__ == '__main__':
         start = time()
         cli()
     except SystemExit as exc:
-        Manager.exit(exc.code, 'Bye.')
+        Manager.exit(exc.code)
     except Exception:
         Manager.exit(1, 'Oops...', log_exception=True)
     else:
-        Manager.exit(0, 'Bye.')
+        Manager.exit(0)
