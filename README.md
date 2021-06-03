@@ -1,6 +1,6 @@
 # SteamDeckify
 
-SteamDeckify is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux.
+SteamDeckify is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
 
 It's not a graphical interface, but if you can use a file system and create directories and files (no content needed, see later), you'll have all the necessary power.
 
@@ -54,14 +54,43 @@ Here only the "bright" keys are active. Think of an overlay as a modal window.
 
 # Prerequisites
 
-- Linux (may be compatible with some other OS)
+- Linux (compatibility with Darwin(mac) and Windows in a near future, I just don't have those OS at my disposal)
 - Python 3.9
 
 # Installation
 
 ## System
 
-**TODO**: check in the `streamdeck` lib info about system configuration
+You need to make your system ready to communicate with HID devices.
+
+You first need to install the HID api library
+
+For Ubuntu/Debian:
+
+```bash
+sudo apt install -y libhidapi-libusb0
+```
+
+For Fedora:
+
+```bash
+sudo dnf install hidapi
+```
+
+
+Then you need to make your OS recognise the StreamDeck devices:
+
+```bash
+sudo tee /etc/udev/rules.d/70-streamdeck.rules << EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0060", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0063", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="006c", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="006d", TAG+="uaccess"
+EOF
+sudo udevadm control --reload-rules
+```
+
+And finally you need to unplug then plug back your StreamDeck devices to ensure they adopt the new permissions.
 
 ## StreamDeckify
 
@@ -87,7 +116,7 @@ In addition, you can install:
 
 ## Knowing your StreamDeck(s)
 
-The first thing to do is to discover your StreamDecks.
+The first thing to do is to discover your StreamDeck devices.
 
 For this, use the `inspect` command:
 

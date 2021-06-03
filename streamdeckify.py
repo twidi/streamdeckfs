@@ -12,6 +12,7 @@ See https://github.com/twidi/streamdeckify for more information
 import logging
 import json
 import os
+import platform
 import re
 import signal
 import threading
@@ -34,8 +35,19 @@ from StreamDeck.Devices.StreamDeck import StreamDeck
 from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.ImageHelpers import PILHelper
 
+
+SUPPORTED_PLATFORMS = {
+    'Linux': True,
+    'Darwin': False,
+    'Windows': False,
+}
+PLATFORM = platform.system()
+
 try:
-    from prctl import set_name as set_thread_name
+    if PLATFORM == 'Linux':
+        from prctl import set_name as set_thread_name
+    else:
+        raise ImportError
 except ImportError:
     set_thread_name = lambda name: None
 
@@ -3248,7 +3260,8 @@ class NaturalOrderGroup(click.Group):
 
 @click.group(cls=NaturalOrderGroup)
 def cli():
-    pass
+    if not SUPPORTED_PLATFORMS.get(PLATFORM):
+        return Manager.exit(1, f'{PLATFORM} is not supported yet')
 
 
 common_options = {
