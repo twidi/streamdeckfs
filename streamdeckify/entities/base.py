@@ -416,8 +416,11 @@ class Entity:
         # nothing found
         return None
 
-    def rename(self, new_filename):
-        if (new_path := self.path.parent / new_filename) != self.path:
+    def rename(self, new_filename=None, new_path=None):
+        assert (new_filename or new_path) and not (new_filename and new_path)
+        if new_filename:
+            new_path = self.path.parent / new_filename
+        if new_path != self.path:
             self.path = self.path.replace(new_path)
             return True
         return False

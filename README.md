@@ -1288,6 +1288,7 @@ With these commands you can, for a page, key, text, image, or event:
 - get its configuration options as JSON
 - update one or many configuration options
 - copy it
+- move it
 - delete it
 - create one
 
@@ -1409,6 +1410,32 @@ Example, to create a copy of the page 20 having `foo` as name to a new page numb
 
 ```bash
 $ streamdeckify copy-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30;name=bar
+```
+
+## move-page
+
+Will move the page to a different number
+
+```
+streamdeckify move-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page to move
+- `NUMBER`: the new number of the page (`-tp` is for `--to-page`)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full new path of the moved page.
+
+Example, to move the page 20 having `foo` as name to a number 30, with `bar` as name:
+
+```bash
+$ streamdeckify move-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30;name=bar
 ```
 
@@ -1548,6 +1575,34 @@ Example, to create a copy of the key `foo` from the page 20 to 30 on row 1, col 
 
 ```bash
 $ streamdeckify copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
+```
+
+## move-key
+
+Will move a key to another page or another position
+
+```
+streamdeckify move-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key to move
+- `KEY`: the name of the key to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `TO_PAGE`: the number or the name of the page where to move the key (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
+- `ROW,COL`: the new position of the key (`-tk` if for `--to-key`). Optional: if not given, will keep the same position
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the new full path of the key.
+
+Example, to move the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
+
+```bash
+$ streamdeckify move-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
 ```
 
@@ -1709,6 +1764,35 @@ $ streamdeckify copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -t
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
 ```
 
+## move-image
+
+Will move an image layer to another key
+
+```
+streamdeckify move-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the layer to move
+- `KEY`: the name of the key where to find the layer to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the layer to move (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+- `TO_PAGE`: the number or the name of the page where to move the layer (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
+- `TO_KEY`: the name of the key where to move the layer (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the layer to move
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the new full path of the image layer.
+
+Example, to move the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
+
+```bash
+$ streamdeckify move-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
+```
+
 ## delete-image
 
 Will delete the asked image file.
@@ -1864,6 +1948,35 @@ Example, to create a copy of the text line `foo` from the key `4,8` in page 20 t
 
 ```bash
 $ streamdeckify copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
+```
+
+## move-text
+
+Will move a text line to another key
+
+```
+streamdeckify move-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the text line to move
+- `KEY`: the name of the key where to find the text line to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the text line to move (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
+- `TO_PAGE`: the number or the name of the page where to move the text line (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
+- `TO_KEY`: the name of the key where to move the text line (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the text line to move
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the new full path of the key.
+
+Example, to move the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
+
+```bash
+$ streamdeckify move-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
 ```
 
@@ -2023,6 +2136,36 @@ Example, to create a copy of the `ON_PRESS` event from the key `4,8` in the page
 
 ```bash
 $ streamdeckify copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
+```
+
+## move-event
+
+Will move an event to another key
+
+```
+streamdeckify move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the event to move
+- `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to move
+- `TO_PAGE`: the number or the name of the page where to move the event (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
+- `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move
+- `TO_EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the moved event. Optional: if not given, will use the same kind as the event to move
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the new full path of event.
+
+Example, to move the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
+
+```bash
+$ streamdeckify move-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
 ```
 

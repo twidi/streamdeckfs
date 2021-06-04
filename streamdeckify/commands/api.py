@@ -216,6 +216,15 @@ class FilterCommands:
         return path
 
     @classmethod
+    def move_entity(cls, entity, parent, main_override, names_and_values, msg_name_part):
+        main, args = cls.update_args(entity, names_and_values, msg_name_part)
+        main |= main_override
+        path = parent.path / cls.compose_filename(entity, main, args)
+        cls.check_new_path(path, entity.is_dir, msg_name_part)
+        entity.rename(path)
+        return path
+
+    @classmethod
     def create_page(cls, deck, number, names_and_values):
         from ..entities import Page
         return cls.create_entity(Page, deck, number, {'page': number}, names_and_values, None, f'{deck}, NEW PAGE {number}')
@@ -223,6 +232,10 @@ class FilterCommands:
     @classmethod
     def copy_page(cls, page, to_number, names_and_values):
         return cls.copy_entity(page, page.deck, {'page': to_number}, names_and_values, f'{page.deck}, NEW PAGE {to_number}')
+
+    @classmethod
+    def move_page(cls, page, to_number, names_and_values):
+        return cls.move_entity(page, page.deck, {'page': to_number}, names_and_values, f'{page.deck}, NEW PAGE {to_number}')
 
     @classmethod
     def create_key(cls, page, key, names_and_values):
@@ -235,6 +248,10 @@ class FilterCommands:
         return cls.copy_entity(key, to_page, {'row': to_row, 'col': to_col}, names_and_values, f'{to_page}, NEW KEY {key}')
 
     @classmethod
+    def move_key(cls, key, to_page, to_row, to_col, names_and_values):
+        return cls.move_entity(key, to_page, {'row': to_row, 'col': to_col}, names_and_values, f'{to_page}, NEW KEY {key}')
+
+    @classmethod
     def create_layer(cls, key, names_and_values, link):
         from ..entities import KeyImageLayer
         return cls.create_entity(KeyImageLayer, key, -1, {}, names_and_values, link, f'{key}, NEW LAYER')
@@ -242,6 +259,10 @@ class FilterCommands:
     @classmethod
     def copy_layer(cls, layer, to_key, names_and_values):
         return cls.copy_entity(layer, to_key, {}, names_and_values, f'{to_key}, NEW LAYER')
+
+    @classmethod
+    def move_layer(cls, layer, to_key, names_and_values):
+        return cls.move_entity(layer, to_key, {}, names_and_values, f'{to_key}, NEW LAYER')
 
     @classmethod
     def create_text_line(cls, key, names_and_values, link):
@@ -253,6 +274,10 @@ class FilterCommands:
         return cls.copy_entity(text_line, to_key, {}, names_and_values, f'{to_key}, NEW TEXT LINE')
 
     @classmethod
+    def move_text_line(cls, text_line, to_key, names_and_values):
+        return cls.move_entity(text_line, to_key, {}, names_and_values, f'{to_key}, NEW TEXT LINE')
+
+    @classmethod
     def create_event(cls, key, kind, names_and_values, link):
         from ..entities import KeyEvent
         return cls.create_entity(KeyEvent, key, kind, {'kind': kind}, names_and_values, link, f'{key}, NEW EVENT {kind}')
@@ -260,6 +285,10 @@ class FilterCommands:
     @classmethod
     def copy_event(cls, event, to_key, to_kind, names_and_values):
         return cls.copy_entity(event, to_key, {'kind': to_kind}, names_and_values, f'{to_key}, NEW EVENT {to_kind}')
+
+    @classmethod
+    def move_event(cls, event, to_key, to_kind, names_and_values):
+        return cls.move_entity(event, to_key, {'kind': to_kind}, names_and_values, f'{to_key}, NEW EVENT {to_kind}')
 
 
 FC = FilterCommands
@@ -308,6 +337,16 @@ def copy_page(directory, page_filter, to_page_number, names_and_values):
     """Copy a page and all its content"""
     page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
     print(FC.copy_page(page, to_page_number, names_and_values))
+
+
+@cli.command()
+@FC.options['page_filter']
+@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page')
+@FC.options['optional_names_and_values']
+def move_page(directory, page_filter, to_page_number, names_and_values):
+    """Move a page to a different number"""
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    print(FC.move_page(page, to_page_number, names_and_values))
 
 
 @cli.command()
@@ -379,6 +418,20 @@ def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
 
 @cli.command()
 @FC.options['key_filter']
+@FC.options['to_page']
+@click.option('-tk', '--to-key', 'to_key', type=str, required=False, help='The optional destination key position as "row,col"', callback=validate_key)
+@FC.options['optional_names_and_values']
+def move_key(directory, page_filter, key_filter, to_page_filter, to_key, names_and_values):
+    """Move a key to another page and/or a different position"""
+    deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    key = FC.find_key(FC.find_page(deck, page_filter), key_filter)
+    to_page = FC.find_page(deck, to_page_filter) if to_page_filter else key.page
+    to_row, to_col = map(int, to_key.split(',')) if to_key else key.key
+    print(FC.move_key(key, to_page, to_row, to_col, names_and_values))
+
+
+@cli.command()
+@FC.options['key_filter']
 def delete_key(directory, page_filter, key_filter):
     """Fully delete of a key directory."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
@@ -435,6 +488,24 @@ def copy_image(directory, page_filter, key_filter, layer_filter, to_page_filter,
     else:
         to_key = layer.key
     print(FC.copy_layer(layer, to_key, names_and_values))
+
+
+@cli.command()
+@FC.options['layer_filter']
+@FC.options['to_page_to_key']
+@FC.options['optional_names_and_values']
+def move_image(directory, page_filter, key_filter, layer_filter, to_page_filter, to_key_filter, names_and_values):
+    """Move a layer to another key"""
+    deck = FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    layer = FC.find_layer(FC.find_key(FC.find_page(deck, page_filter), key_filter), layer_filter)
+    to_page = FC.find_page(deck, to_page_filter) if to_page_filter else layer.page
+    if to_key_filter:
+        to_key = FC.find_key(to_page, to_key_filter)
+    elif to_page_filter:
+        to_key = FC.find_key(to_page, '%s,%s' % layer.key.key)
+    else:
+        to_key = layer.key
+    print(FC.move_layer(layer, to_key, names_and_values))
 
 
 @cli.command()
@@ -499,6 +570,24 @@ def copy_text(directory, page_filter, key_filter, text_line_filter, to_page_filt
 
 @cli.command()
 @FC.options['text_line_filter']
+@FC.options['to_page_to_key']
+@FC.options['optional_names_and_values']
+def move_text(directory, page_filter, key_filter, text_line_filter, to_page_filter, to_key_filter, names_and_values):
+    """Move a text line to another key"""
+    deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY)
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(deck, page_filter), key_filter), text_line_filter)
+    to_page = FC.find_page(deck, to_page_filter) if to_page_filter else text_line.page
+    if to_key_filter:
+        to_key = FC.find_key(to_page, to_key_filter)
+    elif to_page_filter:
+        to_key = FC.find_key(to_page, '%s,%s' % text_line.key.key)
+    else:
+        to_key = text_line.key
+    print(FC.move_text_line(text_line, to_key, names_and_values))
+
+
+@cli.command()
+@FC.options['text_line_filter']
 def delete_text(directory, page_filter, key_filter, text_line_filter):
     """Delete a text line."""
     text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
@@ -559,6 +648,27 @@ def copy_event(directory, page_filter, key_filter, event_filter, to_page_filter,
     if not to_kind:
         to_kind = event.kind
     print(FC.copy_event(event, to_key, to_kind, names_and_values))
+
+
+@cli.command()
+@FC.options['event_filter']
+@FC.options['to_page_to_key']
+@click.option('-te', '--to-event', 'to_kind', type=click.Choice(['press', 'longpress', 'release', 'start']), required=False, help='The optional kind of the new event')
+@FC.options['optional_names_and_values']
+def move_event(directory, page_filter, key_filter, event_filter, to_page_filter, to_key_filter, to_kind, names_and_values):
+    """Move an event to another key"""
+    deck = FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    event = FC.find_event(FC.find_key(FC.find_page(deck, page_filter), key_filter), event_filter)
+    to_page = FC.find_page(deck, to_page_filter) if to_page_filter else event.page
+    if to_key_filter:
+        to_key = FC.find_key(to_page, to_key_filter)
+    elif to_page_filter:
+        to_key = FC.find_key(to_page, '%s,%s' % event.key.key)
+    else:
+        to_key = event.key
+    if not to_kind:
+        to_kind = event.kind
+    print(FC.move_event(event, to_key, to_kind, names_and_values))
 
 
 @cli.command()
