@@ -416,23 +416,6 @@ class Entity:
         # nothing found
         return None
 
-    def rename(self, new_filename=None, new_path=None):
-        assert (new_filename or new_path) and not (new_filename and new_path)
-        if new_filename:
-            new_path = self.path.parent / new_filename
-        if new_path != self.path:
-            self.path = self.path.replace(new_path)
-            return True
-        return False
-
-    def delete_on_disk(self):
-        if not self.path.exists():
-            return
-        if self.is_dir and not self.path.is_symlink():
-            shutil.rmtree(self.path)
-        else:
-            self.path.unlink()
-
     @staticmethod
     def replace_special_chars(value, args):
         return value.replace(args.get('slash', DEFAULT_SLASH_REPL), '/').replace(args.get('semicolon', DEFAULT_SEMICOLON_REPL), ';')

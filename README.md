@@ -1354,7 +1354,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
 
-This command returns nothing.
+This command returns the updated path of the page. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to change the name of the page and disable it:
 
@@ -1378,7 +1378,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full path of the newly created page.
+This command returns the full path of the newly created page. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create page number 20 with `foo` as name:
 
@@ -1404,7 +1404,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options. It is recommended to set a name that is different than the source page.
 
-This command returns the full path of the newly created page.
+This command returns the full path of the newly created page. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a copy of the page 20 having `foo` as name to a new page numbered 30, with `bar` as name:
 
@@ -1430,7 +1430,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full new path of the moved page.
+This command returns the full new path of the moved page. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to move the page 20 having `foo` as name to a number 30, with `bar` as name:
 
@@ -1451,7 +1451,7 @@ with:
 
 - `PAGE`: the number or name of the page to delete
 
-This command returns nothing.
+This command returns the path of the deleted page directory. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example:
 
@@ -1516,7 +1516,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
 
-This command returns nothing.
+This command returns the updated path of the key. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to disable the key:
 
@@ -1541,7 +1541,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full path of the newly created key.
+This command returns the full path of the newly created key. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a key in the first row and column, with `foo` as name:
 
@@ -1569,7 +1569,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same page, it is recommended to set a name that is different than the source key.
 
-This command returns the full path of the newly created key.
+This command returns the full path of the newly created key. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a copy of the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
 
@@ -1597,7 +1597,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the new full path of the key.
+This command returns the new full path of the key. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to move the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
 
@@ -1619,7 +1619,7 @@ with:
 - `PAGE`: the number or name of the page where to find the key to delete
 - `KEY`: the name of the key or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 
-This command returns nothing.
+This command returns the path of the deleted key directory. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example:
 
@@ -1691,7 +1691,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
 
-This command returns nothing.
+This command returns the updated path of the image layer. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to update the end angle of the arc that we use as a circular progress bar:
 
@@ -1719,7 +1719,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full path of the newly created image layer.
+This command returns the full path of the newly created image layer. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create an image layer drawing a red square
 
@@ -1755,7 +1755,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a layer and name that are different than the source layer.
 
-This command returns the full path of the newly created image layer.
+This command returns the full path of the newly created image layer. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a copy of the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
 
@@ -1784,7 +1784,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the new full path of the image layer.
+This command returns the new full path of the image layer. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to move the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
 
@@ -1807,7 +1807,7 @@ with:
 - `KEY`: the name of the key where to find the layer to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `LAYER`: the number or name of the layer to delete (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
 
-This command returns nothing.
+This command returns the path of the deleted image layer file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example:
 
@@ -1877,7 +1877,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
 
-This command returns nothing.
+This command returns the updated path of the text line. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to update the text used to display the position in the current track:
 
@@ -1906,7 +1906,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full path of the newly created text line.
+This command returns the full path of the newly created text line. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a centered text "foo":
 
@@ -1942,7 +1942,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a line and name that are different than the source line.
 
-This command returns the full path of the newly created text line.
+This command returns the full path of the newly created text line. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a copy of the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
 
@@ -1971,7 +1971,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the new full path of the key.
+This command returns the new full path of the key. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to move the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
 
@@ -1994,7 +1994,7 @@ with:
 - `KEY`: the name of the key where to find the text line to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `LINE`: the number or name of the text line to delete (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
 
-This command returns nothing.
+This command returns the path of the deleted text line file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example:
 
@@ -2062,7 +2062,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
 
-This command returns nothing.
+This command returns the updated path of the event. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to stop allowing repetition:
 
@@ -2100,7 +2100,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the full path of the newly created event.
+This command returns the full path of the newly created event. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create an event launching the gnome-calculator when the key is pressed:
 
@@ -2130,7 +2130,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a kind and name that are different than the source event.
 
-This command returns the full path of the newly created event.
+This command returns the full path of the newly created event. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to create a copy of the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
 
@@ -2160,7 +2160,7 @@ with:
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
 
-This command returns the new full path of event.
+This command returns the new full path of event. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example, to move the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
 
@@ -2183,7 +2183,7 @@ with:
 - `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to delete
 
-This command returns nothing.
+This command returns the path of the deleted event file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
 Example:
 

@@ -18,8 +18,9 @@ from .base import cli, common_options, validate_positive_integer
 @click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True))
 @click.option('-p', '--pages', type=int, default=1, callback=validate_positive_integer, help="Number of pages to generate. Default to 1.")
 @click.option('-y', '--yes', is_flag=True, help='Automatically answer yes to confirmation demand')
+@click.option('--dry-run', is_flag=True, help='Only show the directories that would have been created without creating them')
 @common_options['verbosity']
-def make_dirs(deck, directory, pages, yes):
+def make_dirs(deck, directory, pages, yes, dry_run):
     """Create keys directories for a Stream Deck.
 
     Arguments:
@@ -34,7 +35,7 @@ def make_dirs(deck, directory, pages, yes):
         return Manager.exit(1, f'"{directory}" exists but is not a directory.')
 
     if not yes:
-        if not click.confirm(f'Create directories for Stream Deck "{serial}" in directory "{directory}" ({pages} page(s))?', default=True):
+        if not click.confirm(f'Create {"(not really, dry-run mode is active) " if dry_run else ""}directories for Stream Deck "{serial}" in directory "{directory}" ({pages} page(s))?', default=True):
             click.echo('Aborting.')
             return
 
@@ -45,8 +46,8 @@ def make_dirs(deck, directory, pages, yes):
             click.echo("Already exists.")
             return False
         try:
-            pass
-            directory.mkdir(parents=True)
+            if not dry_run:
+                directory.mkdir(parents=True)
         except Exception:
             return Manager.exit(1, f'"{directory}" could not be created', log_exception=True)
         click.echo("Created.")
@@ -56,7 +57,7 @@ def make_dirs(deck, directory, pages, yes):
     click.echo('Subdirectories:')
 
     for page in range(1, pages + 1):
-        page_dir = directory / Page.Page.dir_template.format(page=page)
+        page_dir = directory / Page.dir_template.format(page=page)
         create_dir(page_dir, f'Directory for content of page {page}', directory, "\t")
         for row in range(1, deck.info['rows'] + 1):
             for col in range(1, deck.info['cols'] + 1):
