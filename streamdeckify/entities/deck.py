@@ -199,46 +199,40 @@ class Deck(Entity):
         number = page.number
         return self.current_page_number == number or number in self.visible_pages
 
+    def get_page_key(self, page_number, key_row_col):
+        if not (page := self.pages.get(page_number)):
+            return None
+        return page.keys.get(key_row_col)
+
     def get_key_visibility(self, key):
+        # returns visible, key level(if visible), key below(if visible)
         if not key.page.is_visible:
-            return False, None
+            return False, None, None
 
-        visible = None
+        visible_key_below = False
         key_level = None
-
         key_page_number = key.page.number
         key_row_col = key.key
 
         for level, page_number in enumerate(self.visible_pages):
             if page_number == key_page_number:
-                page_key = key
-            else:
-                if not (page := self.pages.get(page_number)):
-                    continue
-                if not (page_key := page.keys.get(key_row_col)):
-                    continue
-            page_key_visible = page_key.has_content()
-
-            if page_key_visible and visible is None:
-                visible = page_key
-
-            if page_number == key_page_number:
                 key_level = level
-                break
+            else:
+                page_key = self.get_page_key(page_number, key_row_col)
+                if not page_key:
+                    continue
+                if key_level is None:
+                    # we are still above the key
+                    if page_key.has_content():
+                        # a key above ours is visible, so ours is not
+                        return False, None, None
+                else:
+                    # we are below the key
+                    if page_key.has_content():
+                        visible_key_below = page_key
+                        break
 
-        return visible == key, key_level
-
-    def find_visible_key(self, row, col, min_level=0):
-        for level, page_number in enumerate(self.visible_pages):
-            if level < min_level:
-                continue
-            if not (page := self.pages.get(page_number)):
-                continue
-            if not (key := page.keys.get((row, col))):
-                continue
-            if key.has_content():
-                return key, level
-        return None, None
+        return True, key_level, visible_key_below
 
     @property
     def current_page(self):

@@ -322,8 +322,8 @@ class Key(Entity):
     def render(self):
         if not self.deck.is_running:
             return
-        visible, overlay_level = self.deck.get_key_visibility(self)
-        if visible:
+        visible, overlay_level, key_below = self.deck.get_key_visibility(self)
+        if visible and self.has_content():
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
             for text_line in self.resolved_text_lines.values():
                 if text_line:
@@ -337,9 +337,9 @@ class Key(Entity):
             self.unrender()
 
     def unrender(self):
-        if (rendered_overlay := self.rendered_overlay) is None:
+        if self.rendered_overlay is None:
             return
-        visible, overlay_level = self.deck.get_key_visibility(self)
+        visible, overlay_level, key_below = self.deck.get_key_visibility(self)
         for text_line in self.resolved_text_lines.values():
             if text_line:
                 text_line.stop_scroller()
@@ -349,10 +349,8 @@ class Key(Entity):
             if event:
                 event.deactivate()
         self.rendered_overlay = None
-        # if page is overlay, we render a key that may be below
-        below_key, below_overlay_level = self.deck.find_visible_key(self.row, self.col, min_level=rendered_overlay + 1)
-        if below_key:
-            below_key.render()
+        if key_below:
+            key_below.render()
 
     def version_activated(self):
         super().version_activated()
