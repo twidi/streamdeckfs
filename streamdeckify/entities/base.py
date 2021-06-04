@@ -12,6 +12,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from time import time
 
 from peak.util.proxies import ObjectWrapper
 
@@ -51,7 +52,7 @@ class Entity:
     main_filename_part = None
     name_filename_part = lambda args: f'name={args["name"]}' if args.get('name') else None
     disabled_filename_part = lambda args: 'disabled' if args.get('disabled', False) in (True, 'true', None) else None
-    filename_parts = [main_filename_part, disabled_filename_part]
+    filename_parts = [name_filename_part, disabled_filename_part]
 
     parent_attr = None
     identifier_attr = None
@@ -252,16 +253,21 @@ class Entity:
         return final_args
 
     @classmethod
+    def get_create_base_args(cls, path, parent, identifier, args=None, path_modified_at=None):
+        if args is None:
+            args = {}
+        return {
+            'path': path,
+            'path_modified_at': path_modified_at or time(),
+            'name': args.get('name') or '*unnamed*',
+            'disabled': args.get('disabled', False),
+            cls.parent_attr: parent,
+            cls.identifier_attr: identifier,
+        }
+
+    @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
-        attrs = dict(
-            path=path,
-            path_modified_at=path_modified_at,
-            name=args['name'],
-            disabled=args['disabled'],
-        )
-        attrs[cls.parent_attr] = parent
-        attrs[cls.identifier_attr] = identifier
-        return cls(**attrs)
+        return cls(**cls.get_create_base_args(path, parent, identifier, args, path_modified_at))
 
     @property
     def identifier(self):

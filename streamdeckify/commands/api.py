@@ -7,6 +7,7 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import json
+import re
 from copy import deepcopy
 
 import click
@@ -39,12 +40,13 @@ class FilterCommands:
     options = {
         'directory': click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True, exists=True)),
         'page': click.option('-p', '--page', 'page_filter', type=str, required=True, help='A page number or a name'),
-        'key': click.option('-k', '--key', 'key_filter', type=str, required=True, help='A key as `(row,col)` or a name'),
-        'layer': click.option('-l', '--layer', 'layer_filter', type=str, required=False, help='A layer number (do not pass it to use the default image)'),  # if not given we'll use ``-1``
-        'text_line': click.option('-l', '--line', 'text_line_filter', type=str, required=False, help='A text line (do not pass it to use the default text)'),  # if not given we'll use ``-1``
-        'event': click.option('-e', '--event', 'event_filter', type=str, required=True, help='An event name (press/longpress/release/start)'),
-        'names': click.option('-c', '--conf', 'names', type=str, multiple=True, required=False, help='Names to get the values from the configuration "---conf name1 --conf name2..."'),
-        'names_and_values': click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=True, help='Pair of names and values to set for the configuration "---conf name1 value1 --conf name2 value2..."'),
+        'key': click.option('-k', '--key', 'key_filter', type=str, required=True, help='A key as "row,col" or a name'),
+        'layer': click.option('-l', '--layer', 'layer_filter', type=str, required=False, help='A layer number (do not pass it to use the default image) or name'),  # if not given we'll use ``-1``
+        'text_line': click.option('-l', '--line', 'text_line_filter', type=str, required=False, help='A text line (do not pass it to use the default text) or name'),  # if not given we'll use ``-1``
+        'event': click.option('-e', '--event', 'event_filter', type=str, required=True, help='An event kind (press/longpress/release/start) or name'),
+        'names': click.option('-c', '--conf', 'names', type=str, multiple=True, required=False, help='Names to get the values from the configuration "-c name1 -c name2..."'),
+        'names_and_values': click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=True, help='Pair of names and values to set for the configuration "-c name1 value1 -c name2 value2..."'),
+        'optional_names_and_values': click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=False, help='Pair of names and values to set for the configuration "-c name1 value1 -c name2 value2..."'),
         'verbosity': click_log.simple_verbosity_option(logger, default='WARNING', help='Either CRITICAL, ERROR, WARNING, INFO or DEBUG', show_default=True),
     }
 
@@ -139,26 +141,78 @@ class FilterCommands:
         return obj.compose_filename(main, args)
 
     @classmethod
+    def validate_names_and_values(cls, obj, main_args, names_and_values, msg_name_part):
+        args = {}
+        removed_args = set()
+        base_filename = cls.compose_filename(obj, main_args, {})
+        for (name, value) in names_and_values:
+            if ';' in name:
+                Manager.exit(1, f'[{msg_name_part}] Configuration name `{name}` is not valid')
+            if ';' in value:
+                Manager.exit(1, f'[{msg_name_part}] Configuration value for `{name}` is not valid')
+            if name in main_args:
+                Manager.exit(1, f'[{msg_name_part}] Configuration name `{name}` cannot be changed')
+
+            if not value:
+                removed_args.add(name)
+            else:
+                try:
+                    args[name] = obj.raw_parse_filename(base_filename + f';{name}={value}', obj.path.parent)[1][name]
+                except KeyError:
+                    Manager.exit(1, f'[{msg_name_part}] Configuration `{name} {value}` is not valid')
+        return args, removed_args
+
+    @classmethod
     def get_update_args_filename(cls, obj, names_and_values):
         main, args = cls.get_args(obj, resolve=False)
         final_args = deepcopy(args)
-        for (name, value) in names_and_values:
-            if ';' in name:
-                Manager.exit(1, f'[{obj}] Configuration name `{name}` is not valid')
-            if ';' in value:
-                Manager.exit(1, f'[{obj}] Configuration value for `{name}` is not valid')
-            if name in main:
-                Manager.exit(1, f'[{obj}] Configuration name `{name}` cannot be changed')
-
-            if not value:
-                final_args.pop(name, None)
-            else:
-                try:
-                    final_args[name] = obj.raw_parse_filename(cls.compose_filename(obj, main, {}) + f';{name}={value}', obj.path.parent)[1][name]
-                except KeyError:
-                    Manager.exit(1, f'[{obj}] Configuration `{name} {value}` is not valid')
-
+        updated_args, removed_args = cls.validate_names_and_values(obj, main, names_and_values, obj)
+        final_args |= updated_args
+        for key in removed_args:
+            final_args.pop(key, None)
         return cls.compose_filename(obj, main, final_args)
+
+    @classmethod
+    def create_entity(cls, entity_class, parent, identifier, main_args, names_and_values, link, msg_name_part):
+        entity_filename = entity_class.compose_filename(main_args, {})
+        entity = entity_class(**entity_class.get_create_base_args(parent.path / entity_filename, parent, identifier))
+        args = cls.validate_names_and_values(entity, main_args, names_and_values, msg_name_part)[0]
+        path = parent.path / entity.compose_filename(main_args, args)
+        if path.exists():
+            Manager.exit(1, f'[{msg_name_part}] Cannot create {"directory" if entity_class.is_dir else "file"} "{path}" because it already exists')
+        if entity_class.is_dir:
+            path.mkdir()
+        elif link:
+            path.symlink_to(link)
+        else:
+            path.touch()
+        return path
+
+    @classmethod
+    def create_page(cls, deck, number, names_and_values):
+        from ..entities import Page
+        return cls.create_entity(Page, deck, number, {'page': number}, names_and_values, None, f'{deck}, NEW PAGE {number}')
+
+    @classmethod
+    def create_key(cls, page, key, names_and_values):
+        from ..entities import Key
+        row, col = map(int, key.split(','))
+        return cls.create_entity(Key, page, key, {'row': row, 'col': col}, names_and_values, None, f'{page}, NEW KEY {key}')
+
+    @classmethod
+    def create_layer(cls, key, names_and_values, link):
+        from ..entities import KeyImageLayer
+        return cls.create_entity(KeyImageLayer, key, -1, {}, names_and_values, link, f'{key}, NEW LAYER')
+
+    @classmethod
+    def create_text_line(cls, key, names_and_values, link):
+        from ..entities import KeyTextLine
+        return cls.create_entity(KeyTextLine, key, -1, {}, names_and_values, link, f'{key}, NEW TEXT LINE')
+
+    @classmethod
+    def create_event(cls, key, kind, names_and_values, link):
+        from ..entities import KeyEvent
+        return cls.create_entity(KeyEvent, key, kind, {'kind': kind}, names_and_values, link, f'{key}, NEW EVENT {kind}')
 
 
 FC = FilterCommands
@@ -190,6 +244,16 @@ def set_page_conf(directory, page_filter, names_and_values):
 
 
 @cli.command()
+@FC.options['directory']
+@click.option('-p', '--page', type=int, required=True, help='The page number')
+@FC.options['optional_names_and_values']
+def create_page(directory, page, names_and_values):
+    """Create a new image layer with configuration"""
+    deck = FC.get_deck(directory, page_filter=FILTER_DENY, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    print(FC.create_page(deck, page, names_and_values))
+
+
+@cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
@@ -211,6 +275,25 @@ def set_key_conf(directory, page_filter, key_filter, names_and_values):
     """Set the value of some entries of a key configuration."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     key.rename(FC.get_update_args_filename(key, names_and_values))
+
+
+def validate_key(ctx, param, value):
+    if validate_key.re.match(value):
+        return value
+    raise click.BadParameter('Should be in the format "row,col"')
+
+
+validate_key.re = re.compile(r'^\d+,\d+$')
+
+
+@cli.command()
+@FC.options['page_filter']
+@click.option('-k', '--key', type=str, required=True, help='The key position as "row,col"', callback=validate_key)
+@FC.options['optional_names_and_values']
+def create_key(directory, page_filter, key, names_and_values):
+    """Create a new image layer with configuration"""
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    print(FC.create_key(page, key, names_and_values))
 
 
 @cli.command()
@@ -238,6 +321,16 @@ def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_v
 
 
 @cli.command()
+@FC.options['key_filter']
+@FC.options['optional_names_and_values']
+@click.option('--link', type=click.Path(file_okay=True, dir_okay=False, resolve_path=True, exists=True), help='Create a link to this file instead of an empty file')
+def create_image(directory, page_filter, key_filter, names_and_values, link):
+    """Create a new image layer with configuration"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    print(FC.create_layer(key, names_and_values, link))
+
+
+@cli.command()
 @FC.options['text_line_filter']
 def get_text_path(directory, page_filter, key_filter, text_line_filter):
     """Get the path of an image/layer."""
@@ -262,6 +355,16 @@ def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_an
 
 
 @cli.command()
+@FC.options['key_filter']
+@FC.options['optional_names_and_values']
+@click.option('--link', type=click.Path(file_okay=True, dir_okay=False, resolve_path=True, exists=True), help='Create a link to this file instead of an empty file')
+def create_text(directory, page_filter, key_filter, names_and_values, link):
+    """Create a new text line with configuration"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    print(FC.create_text_line(key, names_and_values, link))
+
+
+@cli.command()
 @FC.options['event_filter']
 def get_event_path(directory, page_filter, key_filter, event_filter):
     """Get the path of an event."""
@@ -283,3 +386,14 @@ def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_v
     """Set the value of some entries of an event configuration."""
     event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
     event.rename(FC.get_update_args_filename(event, names_and_values))
+
+
+@cli.command()
+@FC.options['key_filter']
+@click.option('-e', '--event', 'event_kind', type=click.Choice(['press', 'longpress', 'release', 'start']), required=True, help='The kind of event to create')
+@FC.options['optional_names_and_values']
+@click.option('--link', type=click.Path(file_okay=True, dir_okay=False, resolve_path=True, exists=True), help='Create a link to this file instead of an empty file')
+def create_event(directory, page_filter, key_filter, event_kind, names_and_values, link):
+    """Create a new event with configuration"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    print(FC.create_event(key, event_kind, names_and_values, link))

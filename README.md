@@ -1274,19 +1274,20 @@ And if you want to change the color of the close key, you add in your directory 
 This key represents a key rendered with a title on top, a small line as a separator, and a text in the central area that is wrapped and will scroll if it does not fit. The key itself is not meant to be used as a reference because each part must be configured, so you define your key directory as usual, and inside, you add three empty files `IMAGE;ref=ref:titled-text:separator;outline=COLOR` (with `COLOR` being the color you want for the separator), `TEXT;ref=ref:titled-text:title;text=TITLE` (with `TITLE` being the text you want for the title) and `TEXT;ref=ref:titled-text:content;text=TEXT` (with `TEXT` being the text you want in the central area, or you can set `file=__self__` instead of `text=...` and put the text in the file itself)
 
 
-# Programmatic access
+# API
 
 As everything is done in file names (except sometimes for texts/images), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
 
 But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
 
-`streamdeckify` provides a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful)
+`streamdeckify` provides an API as a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful). You can even create everything from this API.
 
 With these commands you can, for a page, key, text, image, or event:
 
 - get its path
 - get its configuration options as JSON
 - update one or many configuration options
+- create one
 
 The are all called the same way:
 
@@ -1358,6 +1359,31 @@ Example, to change the name of the page and disable it:
 $ streamdeckify set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
 ```
 
+## create-page
+
+Will create a new page.
+
+```
+streamdeckify create-page SERIAL_DIRECTORY -p NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `NUMBER`: the number of the page to create
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created page.
+
+Example, to create page number 20 with `foo` as name:
+
+```bash
+$ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20;name=foo
+```
+
 ## get-key-path
 
 Will print the full path of the asked key.
@@ -1421,6 +1447,33 @@ Example, to disable the key:
 
 ```bash
 $ streamdeckify set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
+```
+
+## create-key
+
+Will create a new key.
+
+```
+streamdeckify create-key SERIAL_DIRECTORY -p PAGE -k ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to create the wanted key
+- `ROW`: the row of the new key
+- `COL`: the column of the new key
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created key.
+
+Example, to create a key in the first row and column, with `foo` as name:
+
+```bash
+$ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
 ```
 
 ## get-image-path
@@ -1497,6 +1550,40 @@ $ streamdeckify set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k prog
 
 To have the progress bar automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with your real listening progress.
 
+## create-image
+
+Will create a new image layer.
+
+```
+streamdeckify create-image SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to create the wanted image
+- `KEY`: the name of the key where to create the wanted image, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+- `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created image layer.
+
+Example, to create an image layer drawing a red square
+
+```bash
+$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 -c draw rectangle -c coords '20%,20%,80%,80%' -c width 0 -c fill red
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo;draw=rectangle;coords=20%,20%,80%,80%;fill=red;width=0
+```
+
+Or to use an existing image:
+
+```bash
+$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/image
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo
+```
+
 ## get-text-path
 
 Will print the full path of the asked text line.
@@ -1570,9 +1657,39 @@ $ streamdeckify set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progr
 To have this text automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with the real progression. Or you can avoid having the `text` configuration option and gt the path via `get-text-path` and write the text in the file. Or, even better (and the faster for your script), make this `TEXT...` file a link that point to a file inside which you write the text. `streamdeckify` watches the file pointed by the symbolic link and will updates when it changes. So you can avoid a call to `set-text-conf` and just update a file that is finally not related to `streamdeckify`.
 
 
+## create-text
 
+Will create a new text line.
 
+```
+streamdeckify create-text SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+```
 
+with:
+
+- `PAGE`: the number or name of the page where to create the wanted text
+- `KEY`: the name of the key where to create the wanted text, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+- `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created text line.
+
+Example, to create a centered text "foo":
+
+```bash
+$ streamdeckify create-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c line 1 -c text foo -c align center -c valign middle
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo;text=foo;align=center;valign=middle
+```
+
+Or to use an existing text file:
+
+```bash
+$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/text-file
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo
+```
 
 ## get-event-path
 
@@ -1651,4 +1768,32 @@ $ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 ```
 $ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "unique": true}
+```
+
+## create-event
+
+Will create a new event.
+
+```
+streamdeckify create-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to create the wanted event
+- `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the event to create
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+- `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created event.
+
+Example, to create an event launching the gnome-calculator when the key is pressed:
+
+```bash
+$ streamdeckify create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/ON_PRESS
 ```
