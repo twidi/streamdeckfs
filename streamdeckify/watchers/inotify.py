@@ -33,7 +33,11 @@ class InotifyFilesWatcher(BaseFilesWatcher):
         return watch_id
 
     def _remove_watch(self, watch_id):
-        self.inotify.rm_watch(watch_id)
+        try:
+            self.inotify.rm_watch(watch_id)
+        except OSError:
+            # the watch is already removed from the kernel, maybe because the directory was deleted
+            pass
         self.mapping.pop(watch_id, None)
 
     def stop(self):
