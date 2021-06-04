@@ -44,21 +44,28 @@ def make_dirs(deck, directory, pages, yes, dry_run):
         click.echo(f"{print_prefix}{directory_repr}   ({desc})... ", nl=False)
         if directory.exists():
             click.echo("Already exists.")
-            return False
+            return False, directory
+        try:
+            real_directory = next(directory.parent.glob(f'{directory.name};*'))
+        except StopIteration:
+            pass
+        else:
+            click.echo(f"Already exists (as {real_directory.name})")
+            return False, real_directory
         try:
             if not dry_run:
                 directory.mkdir(parents=True)
         except Exception:
             return Manager.exit(1, f'"{directory}" could not be created', log_exception=True)
         click.echo("Created.")
-        return True
+        return True, directory
 
-    create_dir(directory, f'Main directory for Stream Deck "{serial}"')
+    directory = create_dir(directory, f'Main directory for Stream Deck "{serial}"')[1]
     click.echo('Subdirectories:')
 
     for page in range(1, pages + 1):
         page_dir = directory / Page.dir_template.format(page=page)
-        create_dir(page_dir, f'Directory for content of page {page}', directory, "\t")
+        page_dir = create_dir(page_dir, f'Directory for content of page {page}', directory, "\t")[1]
         for row in range(1, deck.info['rows'] + 1):
             for col in range(1, deck.info['cols'] + 1):
                 key_dir = page_dir / Key.dir_template.format(row=row, col=col)
