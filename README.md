@@ -1287,6 +1287,7 @@ With these commands you can, for a page, key, text, image, or event:
 - get its path
 - get its configuration options as JSON
 - update one or many configuration options
+- copy it
 - delete it
 - create one
 
@@ -1371,7 +1372,7 @@ streamdeckify create-page SERIAL_DIRECTORY -p NUMBER -c OPTION1 VALUE1 -c OPTION
 with:
 
 - `NUMBER`: the number of the page to create
-- `OPTION`: one option to update
+- `OPTION`: one option to set
 - `VALUE`: the value for the option
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
@@ -1383,6 +1384,32 @@ Example, to create page number 20 with `foo` as name:
 ```bash
 $ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20;name=foo
+```
+
+## copy-page
+
+Will make a full copy of a page (including its keys and all images, texts, events)
+
+```
+streamdeckify copy-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page to copy
+- `NUMBER`: the number of the new page (`-tp` is for `--to-page`)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. It is recommended to set a name that is different than the source page.
+
+This command returns the full path of the newly created page.
+
+Example, to create a copy of the page 20 having `foo` as name to a new page numbered 30, with `bar` as name:
+
+```bash
+$ streamdeckify copy-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30;name=bar
 ```
 
 ## delete-page
@@ -1481,9 +1508,8 @@ streamdeckify create-key SERIAL_DIRECTORY -p PAGE -k ROW,COL -c OPTION1 VALUE1 -
 with:
 
 - `PAGE`: the number or name of the page where to create the wanted key
-- `ROW`: the row of the new key
-- `COL`: the column of the new key
-- `OPTION`: one option to update
+- `ROW,COL`: the position of the new key
+- `OPTION`: one option to set
 - `VALUE`: the value for the option
 
 You can have many `-c OPTION VALUE` parts to set many configuration options.
@@ -1495,6 +1521,34 @@ Example, to create a key in the first row and column, with `foo` as name:
 ```bash
 $ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
+```
+
+## copy-key
+
+Will make a full copy of a key (including all its texts, images, events), in the same page or another.
+
+```
+streamdeckify copy-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key to copy
+- `KEY`: the name of the key to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `TO_PAGE`: the number or the name of the page where to copy the key (`-tp` is for `--to-page`). Optional: if not given, will use the page of the key to copy
+- `ROW,COL`: the position of the new key (`-tk` if for `--to-key`). Optional: if not given, will keep the position of the key to copy
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same page, it is recommended to set a name that is different than the source key.
+
+This command returns the full path of the newly created key.
+
+Example, to create a copy of the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
+
+```bash
+$ streamdeckify copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
 ```
 
 ## delete-key
@@ -1604,7 +1658,7 @@ with:
 
 - `PAGE`: the number or name of the page where to create the wanted image
 - `KEY`: the name of the key where to create the wanted image, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `OPTION`: one option to update
+- `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
 
@@ -1624,6 +1678,35 @@ Or to use an existing image:
 ```bash
 $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/image
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo
+```
+
+## copy-image
+
+Will make a copy of an image layer, in the same key or another.
+
+```
+streamdeckify copy-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the layer to copy
+- `KEY`: the name of the key where to find the layer to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the layer to copy (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+- `TO_PAGE`: the number or the name of the page where to copy the layer (`-tp` is for `--to-page`). Optional: if not given, will use the page of the layer to copy
+- `TO_KEY`: the name of the key where to copy the layer (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the layer to copy
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a layer and name that are different than the source layer.
+
+This command returns the full path of the newly created image layer.
+
+Example, to create a copy of the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
+
+```bash
+$ streamdeckify copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
 ```
 
 ## delete-image
@@ -1681,7 +1764,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted text line
 - `KEY`: the name of the key where to find the wanted text line, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line
+- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
 
 Example:
 
@@ -1704,7 +1787,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted text line
 - `KEY`: the name of the key where to find the wanted text line, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line
+- `LINE`: the number or name of the wanted text line (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -1733,7 +1816,7 @@ with:
 
 - `PAGE`: the number or name of the page where to create the wanted text
 - `KEY`: the name of the key where to create the wanted text, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `OPTION`: one option to update
+- `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
 
@@ -1753,6 +1836,35 @@ Or to use an existing text file:
 ```bash
 $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/text-file
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo
+```
+
+## copy-text
+
+Will make a copy of a text line, in the same key or another.
+
+```
+streamdeckify copy-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the text line to copy
+- `KEY`: the name of the key where to find the text line to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the text line to copy (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
+- `TO_PAGE`: the number or the name of the page where to copy the text line (`-tp` is for `--to-page`). Optional: if not given, will use the page of the text line to copy
+- `TO_KEY`: the name of the key where to copy the text line (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the text line to copy
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a line and name that are different than the source line.
+
+This command returns the full path of the newly created text line.
+
+Example, to create a copy of the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
+
+```bash
+$ streamdeckify copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
 ```
 
 ## delete-text
@@ -1869,7 +1981,7 @@ with:
 - `PAGE`: the number or name of the page where to create the wanted event
 - `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the event to create
-- `OPTION`: one option to update
+- `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
 
@@ -1882,6 +1994,36 @@ Example, to create an event launching the gnome-calculator when the key is press
 ```bash
 $ streamdeckify create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/ON_PRESS
+```
+
+## copy-event
+
+Will make a copy of an event, in the same key or another.
+
+```
+streamdeckify copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the event to copy
+- `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to copy
+- `TO_PAGE`: the number or the name of the page where to copy the event (`-tp` is for `--to-page`). Optional: if not given, will use the page of the event to copy
+- `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy
+- `TO_EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the new event. Optional: if not given, will use the same kind as the event to copy
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a kind and name that are different than the source event.
+
+This command returns the full path of the newly created event.
+
+Example, to create a copy of the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
+
+```bash
+$ streamdeckify copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
 ```
 
 ## delete-event
