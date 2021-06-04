@@ -15,7 +15,7 @@ from .base import cli, common_options
 def validate_brightness_level(ctx, param, value):
     if 0 <= value <= 100:
         return value
-    raise click.BadParameter('Should be between 0 and 100 (inclusive)')
+    raise click.BadParameter(f'{value} must be between 0 and 100 (inclusive)')
 
 
 @cli.command()

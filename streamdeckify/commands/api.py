@@ -16,7 +16,7 @@ import click_log
 
 from ..common import logger, Manager
 from ..entities import Deck, FILTER_DENY
-from .base import cli
+from .base import cli, validate_positive_integer
 
 __all__ = [
     'get_page_path',
@@ -346,7 +346,7 @@ def set_page_conf(directory, page_filter, names_and_values, dry_run):
 
 @cli.command()
 @FC.options['directory']
-@click.option('-p', '--page', type=int, required=True, help='The page number')
+@click.option('-p', '--page', type=int, required=True, help='The page number', callback=validate_positive_integer)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def create_page(directory, page, names_and_values, dry_run):
@@ -357,7 +357,7 @@ def create_page(directory, page, names_and_values, dry_run):
 
 @cli.command()
 @FC.options['page_filter']
-@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page')
+@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page', callback=validate_positive_integer)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run):
@@ -368,7 +368,7 @@ def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run)
 
 @cli.command()
 @FC.options['page_filter']
-@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page')
+@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page', callback=validate_positive_integer)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def move_page(directory, page_filter, to_page_number, names_and_values, dry_run):
@@ -416,7 +416,7 @@ def validate_key(ctx, param, value):
         return value
     if validate_key.re.match(value):
         return value
-    raise click.BadParameter('Should be in the format "row,col"')
+    raise click.BadParameter(f'{value} is not in the format "row,col"')
 
 
 validate_key.re = re.compile(r'^\d+,\d+$')

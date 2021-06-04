@@ -33,6 +33,8 @@ common_options = {
 
 
 def validate_positive_integer(ctx, param, value):
+    if not param.required and value is None:
+        return None
     if value <= 0:
-        raise click.BadParameter("Should be a positive integer")
+        raise click.BadParameter(f"{value} is not a positive integer.")
     return value
