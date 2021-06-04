@@ -17,7 +17,10 @@ class NaturalOrderGroup(click.Group):
         return self.commands.keys()
 
 
-@click.group(cls=NaturalOrderGroup)
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+
+@click.group(cls=NaturalOrderGroup, context_settings=CONTEXT_SETTINGS)
 def cli():
     if not SUPPORTED_PLATFORMS.get(PLATFORM):
         return Manager.exit(1, f'{PLATFORM} is not supported yet')
