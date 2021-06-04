@@ -7,6 +7,7 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import re
+import shutil
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
@@ -420,6 +421,14 @@ class Entity:
             self.path = self.path.replace(new_path)
             return True
         return False
+
+    def delete_on_disk(self):
+        if not self.path.exists():
+            return
+        if self.is_dir and not self.path.is_symlink():
+            shutil.rmtree(self.path)
+        else:
+            self.path.unlink()
 
     @staticmethod
     def replace_special_chars(value, args):

@@ -1287,6 +1287,7 @@ With these commands you can, for a page, key, text, image, or event:
 - get its path
 - get its configuration options as JSON
 - update one or many configuration options
+- delete it
 - create one
 
 The are all called the same way:
@@ -1384,6 +1385,26 @@ $ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20;name=foo
 ```
 
+## delete-page
+
+Will delete the asked page directory.
+
+```bash
+streamdeckify delete-page SERIAL_DIRECTORY -p PAGE
+```
+
+with:
+
+- `PAGE`: the number or name of the page to delete
+
+This command returns nothing.
+
+Example:
+
+```bash
+$ streamdeckify delete-page ~/streamdeck-data/MYDECKSERIAL -p spotify
+```
+
 ## get-key-path
 
 Will print the full path of the asked key.
@@ -1474,6 +1495,27 @@ Example, to create a key in the first row and column, with `foo` as name:
 ```bash
 $ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
+```
+
+## delete-key
+
+Will delete the asked key directory.
+
+```bash
+streamdeckify delete-key SERIAL_DIRECTORY -p PAGE -k KEY
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key to delete
+- `KEY`: the name of the key or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+
+This command returns nothing.
+
+Example:
+
+```bash
+$ streamdeckify delete-key ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 ```
 
 ## get-image-path
@@ -1584,6 +1626,28 @@ $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo
 ```
 
+## delete-image
+
+Will delete the asked image file.
+
+```bash
+streamdeckify delete-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the layer to delete
+- `KEY`: the name of the key where to find the layer to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LAYER`: the number or name of the layer to delete (the whole `-l LAYER` part can be ommited if you want to target the default `IMAGE...` file, the one without layer)
+
+This command returns nothing.
+
+Example:
+
+```bash
+$ streamdeckify delete-image ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+```
+
 ## get-text-path
 
 Will print the full path of the asked text line.
@@ -1691,6 +1755,28 @@ $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo
 ```
 
+## delete-text
+
+Will delete the asked text file.
+
+```bash
+streamdeckify delete-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the text line to delete
+- `KEY`: the name of the key where to find the text line to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `LINE`: the number or name of the text line to delete (the whole `-l LINE` part can be ommited if you want to target the default `TEXT...` file, the one without line)
+
+This command returns nothing.
+
+Example:
+
+```bash
+$ streamdeckify delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+```
+
 ## get-event-path
 
 Will print the full path of the asked event.
@@ -1717,7 +1803,7 @@ $ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked event.
 
 ```bash
-streamdeckify get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckify get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 ```
 
 with:
@@ -1738,7 +1824,7 @@ $ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 Will update the configuration of the asked event.
 
 ```bash
-streamdeckify set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckify set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1796,4 +1882,26 @@ Example, to create an event launching the gnome-calculator when the key is press
 ```bash
 $ streamdeckify create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/ON_PRESS
+```
+
+## delete-event
+
+Will delete the asked event file.
+
+```bash
+streamdeckify delete-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the event to delete
+- `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to delete
+
+This command returns nothing.
+
+Example:
+
+```bash
+$ streamdeckify delete-event ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -e press
 ```

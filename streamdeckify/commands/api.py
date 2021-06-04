@@ -254,6 +254,14 @@ def create_page(directory, page, names_and_values):
 
 
 @cli.command()
+@FC.options['page_filter']
+def delete_page(directory, page_filter):
+    """Fully delete a page directory."""
+    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    page.delete_on_disk()
+
+
+@cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
@@ -297,9 +305,17 @@ def create_key(directory, page_filter, key, names_and_values):
 
 
 @cli.command()
+@FC.options['key_filter']
+def delete_key(directory, page_filter, key_filter):
+    """Fully delete of a key directory."""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    key.delete_on_disk()
+
+
+@cli.command()
 @FC.options['layer_filter']
 def get_image_path(directory, page_filter, key_filter, layer_filter):
-    """Get the path of an image/layer."""
+    """Get the path of an image layer."""
     layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(layer.path)
 
@@ -307,7 +323,7 @@ def get_image_path(directory, page_filter, key_filter, layer_filter):
 @cli.command()
 @FC.options['layer_filter_with_names']
 def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
-    """Get the configuration of an image/layer, in json."""
+    """Get the configuration of an image layer, in json."""
     layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
     print(FC.get_args_as_json(layer, names or None))
 
@@ -331,9 +347,17 @@ def create_image(directory, page_filter, key_filter, names_and_values, link):
 
 
 @cli.command()
+@FC.options['layer_filter']
+def delete_image(directory, page_filter, key_filter, layer_filter):
+    """Delete an image layer."""
+    layer = FC.find_layer(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), layer_filter)
+    layer.delete_on_disk()
+
+
+@cli.command()
 @FC.options['text_line_filter']
 def get_text_path(directory, page_filter, key_filter, text_line_filter):
-    """Get the path of an image/layer."""
+    """Get the path of an image layer."""
     text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     print(text_line.path)
 
@@ -341,7 +365,7 @@ def get_text_path(directory, page_filter, key_filter, text_line_filter):
 @cli.command()
 @FC.options['text_line_filter_with_names']
 def get_text_conf(directory, page_filter, key_filter, text_line_filter, names):
-    """Get the configuration of an image/layer, in json."""
+    """Get the configuration of an image layer, in json."""
     text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     print(FC.get_args_as_json(text_line, names or None))
 
@@ -362,6 +386,14 @@ def create_text(directory, page_filter, key_filter, names_and_values, link):
     """Create a new text line with configuration"""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     print(FC.create_text_line(key, names_and_values, link))
+
+
+@cli.command()
+@FC.options['text_line_filter']
+def delete_text(directory, page_filter, key_filter, text_line_filter):
+    """Delete a text line."""
+    text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
+    text_line.delete_on_disk()
 
 
 @cli.command()
@@ -397,3 +429,11 @@ def create_event(directory, page_filter, key_filter, event_kind, names_and_value
     """Create a new event with configuration"""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     print(FC.create_event(key, event_kind, names_and_values, link))
+
+
+@cli.command()
+@FC.options['event_filter']
+def delete_event(directory, page_filter, key_filter, event_filter):
+    """Delete an event."""
+    event = FC.find_event(FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter), event_filter)
+    event.delete_on_disk()
