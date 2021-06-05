@@ -10,13 +10,13 @@ import click
 
 from ..common import Manager
 from ..entities import Key, Page
-from .base import cli, common_options, validate_positive_integer
+from .base import cli, common_options, validate_positive_integer, validate_positive_integer_or_zero
 
 
 @cli.command()
 @common_options['optional_deck']
 @click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True))
-@click.option('-p', '--pages', type=int, default=1, callback=validate_positive_integer, help="Number of pages to generate. Default to 1.")
+@click.option('-p', '--pages', type=int, default=0, callback=validate_positive_integer_or_zero, help="Number of pages to generate. Default to 0 to only create the main directory.")
 @click.option('-y', '--yes', is_flag=True, help='Automatically answer yes to confirmation demand')
 @click.option('--dry-run', is_flag=True, help='Only show the directories that would have been created without creating them')
 @common_options['verbosity']
@@ -61,12 +61,16 @@ def make_dirs(deck, directory, pages, yes, dry_run):
         return True, directory
 
     directory = create_dir(directory, f'Main directory for Stream Deck "{serial}"')[1]
-    click.echo('Subdirectories:')
+    if not dry_run:
+        Manager.write_deck_model(directory, deck.info['class'])
 
-    for page in range(1, pages + 1):
-        page_dir = directory / Page.dir_template.format(page=page)
-        page_dir = create_dir(page_dir, f'Directory for content of page {page}', directory, "\t")[1]
-        for row in range(1, deck.info['rows'] + 1):
-            for col in range(1, deck.info['cols'] + 1):
-                key_dir = page_dir / Key.dir_template.format(row=row, col=col)
-                create_dir(key_dir, f'Directory for key {col} on row {row} on page {page}', page_dir, "\t\t")
+    if pages:
+        click.echo('Subdirectories:')
+
+        for page in range(1, pages + 1):
+            page_dir = directory / Page.dir_template.format(page=page)
+            page_dir = create_dir(page_dir, f'Directory for content of page {page}', directory, "\t")[1]
+            for row in range(1, deck.info['rows'] + 1):
+                for col in range(1, deck.info['cols'] + 1):
+                    key_dir = page_dir / Key.dir_template.format(row=row, col=col)
+                    create_dir(key_dir, f'Directory for key {col} on row {row} on page {page}', page_dir, "\t\t")

@@ -138,7 +138,7 @@ streamdeckify make-dirs SERIAL BASE_DIRECTORY
 
 Before creating (or updating) the tree, you'll be asked to confirm (unless you pass `--yes` on the command line).
 
-Only one page will be created unless you pass `--page XX`, `XX` being the number of pages to create.
+No pages will be created unless you pass `--page XX`, `XX` being the number of pages to create.
 
 Once confirmed, `streamdeckify` will create all missing directories.
 
@@ -1281,6 +1281,8 @@ As everything is done in file names (except sometimes for texts/images), it's ea
 But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
 
 `streamdeckify` provides an API as a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful). You can even create everything from this API.
+
+Note that before being able to use the API commands listed below, you must have run successfully at least once the `make-dirs` or `run` commands. This is needed to store information about the StreamDeck, because the API does not connect to it (it only touches files).
 
 With these commands you can, for a page, key, text, image, or event:
 

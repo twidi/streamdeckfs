@@ -18,6 +18,10 @@ from time import sleep, time
 
 import click_log
 from inotify_simple import flags as file_flags  # noqa: F401
+from StreamDeck.Devices.StreamDeckMini import StreamDeckMini
+from StreamDeck.Devices.StreamDeckOriginal import StreamDeckOriginal
+from StreamDeck.Devices.StreamDeckOriginalV2 import StreamDeckOriginalV2
+from StreamDeck.Devices.StreamDeckXL import StreamDeckXL
 from StreamDeck.DeviceManager import DeviceManager
 
 from .threads import Repeater, set_thread_name
@@ -41,6 +45,27 @@ DEFAULT_BRIGHTNESS = 30
 RENDER_IMAGE_DELAY = 0.02
 
 
+class FakeDevice:
+    def __del__(self):
+        pass
+
+
+class FakeStreamDeckMini(FakeDevice, StreamDeckMini):
+    pass
+
+
+class FakeStreamDeckOriginal(FakeDevice, StreamDeckOriginal):
+    pass
+
+
+class FakeStreamDeckOriginalV2(FakeDevice, StreamDeckOriginalV2):
+    pass
+
+
+class FakeStreamDeckXL(FakeDevice, StreamDeckXL):
+    pass
+
+
 class Manager:
     decks = {}
     manager = None
@@ -48,6 +73,7 @@ class Manager:
     files_watcher_thread = None
     processes = {}
     processes_checker_thread = None
+    exited = False
 
     @classmethod
     def get_manager(cls):
@@ -55,27 +81,64 @@ class Manager:
             cls.manager = DeviceManager()
         return cls.manager
 
+    @staticmethod
+    def get_device_class(device_type):
+        return {
+            'Stream Deck Mini': StreamDeckMini,
+            'Stream Deck Original': StreamDeckOriginal,
+            'Stream Deck Original (V2)': StreamDeckOriginalV2,
+            'Stream Deck XL': StreamDeckXL,
+            'StreamDeckMini': StreamDeckMini,
+            'StreamDeckOriginal': StreamDeckOriginal,
+            'StreamDeckOriginalV2': StreamDeckOriginalV2,
+            'StreamDeckXL': StreamDeckXL,
+        }[device_type]
+
+    @staticmethod
+    def get_fake_device(device_class):
+        return {
+            StreamDeckMini: FakeStreamDeckMini,
+            StreamDeckOriginal: FakeStreamDeckOriginal,
+            StreamDeckOriginalV2: FakeStreamDeckOriginalV2,
+            StreamDeckXL: FakeStreamDeckXL,
+        }[device_class](None)
+
     @classmethod
-    def get_decks(cls, limit_to_serial=None):
+    def get_decks(cls, limit_to_serial=None, need_open=True):
         if not cls.decks:
+            some_closed = False
             for deck in cls.get_manager().enumerate():
+                device_type = deck.deck_type()
+                try:
+                    device_class = cls.get_device_class(device_type)
+                except KeyError:
+                    logger.warning(f'Stream Deck "{device_type}" (ID {deck.id()}) is not a type we can manage.')
+                    continue
                 try:
                     deck.open()
                 except Exception:
-                    logger.warning(f'Stream Deck "{deck.deck_type()}" (ID {deck.id()}) cannot be accessed. Maybe a program is already connected to it.')
-                    continue
-                deck.reset()
-                serial = deck.get_serial_number()
-                if limit_to_serial and limit_to_serial != serial:
-                    deck.close()
-                    continue
-                deck.set_brightness(DEFAULT_BRIGHTNESS)
+                    logger.warning(f'Stream Deck "{device_type}" (ID {deck.id()}) cannot be accessed. Maybe a program is already connected to it.')
+                    if need_open:
+                        continue
+                    connected = False
+                    serial = f'UNKNOW-ID={deck.id()}'
+                else:
+                    connected = True
+                    deck.reset()
+                    serial = deck.get_serial_number()
+                    if limit_to_serial and limit_to_serial != serial:
+                        deck.close()
+                        some_closed = True
+                        continue
+                    deck.set_brightness(DEFAULT_BRIGHTNESS)
                 cls.decks[serial] = deck
                 deck.info = {
-                    'serial': serial,
+                    'connected': connected,
+                    'serial': serial if connected else 'Unknown',
                     'id': deck.id(),
-                    'type': deck.deck_type(),
-                    'firmware': deck.get_firmware_version(),
+                    'type': device_type,
+                    'class': device_class,
+                    'firmware': deck.get_firmware_version() if connected else 'Unknown',
                     'nb_keys': deck.key_count(),
                     'rows': (layout := deck.key_layout())[0],
                     'cols': layout[1],
@@ -83,7 +146,11 @@ class Manager:
                     'key_width': image_format['size'][0],
                     'key_height': image_format['size'][1],
                 }
-                deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
+                if connected:
+                    deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
+                if not len(cls.decks) and some_closed:
+                    # this is done in exit when we have something in `cls.decks` but here we have not
+                    sleep(0.01)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
         if not len(cls.decks):
             Manager.exit(1, 'No available Stream Deck. Aborting.')
         return cls.decks
@@ -102,6 +169,11 @@ class Manager:
             return cls.exit(1, f'No Stream Deck found with the serial "{serial}". Use the "inspect" command to list all available decks.')
         return decks[serial]
 
+    def write_deck_model(directory, device_class):
+        model_path = directory / '.model'
+        model_path.write_text(f'{device_class.__name__}')
+
+    @staticmethod
     def render_deck_images(deck, queue):
         set_thread_name('ImgRenderer')
         delay = RENDER_IMAGE_DELAY
@@ -194,6 +266,8 @@ class Manager:
 
     @classmethod
     def exit(cls, status=0, msg=None, msg_level=None, log_exception=False):
+        if cls.exited:
+            return
         if msg is not None:
             if msg_level is None:
                 msg_level = 'info' if status == 0 else 'critical'
@@ -211,8 +285,9 @@ class Manager:
                     pass
                 cls.decks.pop(serial)
 
-            sleep(0.01)  # needed to avoid error!!
+            sleep(0.01)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
 
+        cls.exited = True
         exit(status)
 
     @staticmethod

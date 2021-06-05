@@ -90,7 +90,7 @@ class Key(Entity):
     @classmethod
     def parse_filename(cls, name, parent):
         ref_conf, ref, main, args = super().parse_filename(name, parent)
-        if main is not None and parent.deck.device:
+        if main is not None:
             if main['row'] < 1 or main['row'] > parent.deck.nb_rows or main['col'] < 1 or main['col'] > parent.deck.nb_cols:
                 return None, None, None, None
         return ref_conf, ref, main, args

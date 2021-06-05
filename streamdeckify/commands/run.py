@@ -35,6 +35,7 @@ def run(deck, directory, page, scroll):
     Manager.start_files_watcher()
 
     deck = Deck(path=directory, path_modified_at=directory.lstat().st_ctime, name=serial, disabled=False, device=device, scroll_activated=scroll)
+    Manager.write_deck_model(directory, device.info['class'])
     deck.on_create()
     deck.run(page)
     if not deck.current_page_number:

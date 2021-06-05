@@ -25,11 +25,22 @@ class Deck(Entity):
 
     def __post_init__(self):
         super().__post_init__()
-        self.serial = self.device.info['serial'] if self.device else None
-        self.nb_cols = self.device.info['cols'] if self.device else None
-        self.nb_rows = self.device.info['rows'] if self.device else None
-        self.key_width = self.device.info['key_width'] if self.device else None
-        self.key_height = self.device.info['key_height'] if self.device else None
+        if self.device:
+            self.serial = self.device.info['serial']
+            self.nb_cols = self.device.info['cols']
+            self.nb_rows = self.device.info['rows']
+            self.key_width = self.device.info['key_width']
+            self.key_height = self.device.info['key_height']
+        else:
+            self.serial = None
+            try:
+                fake_device = Manager.get_fake_device(Manager.get_device_class((self.path / '.model').read_text().split(':')[0]))
+                self.nb_rows, self.nb_cols = fake_device.key_layout()
+                self.key_width, self.key_height = fake_device.key_image_format()['size']
+            except Exception:
+                from traceback import print_exc
+                print_exc()
+                Manager.exit(1, 'Cannot guess model, please run the "make-dirs" command.')
         self.brightness = DEFAULT_BRIGHTNESS
         self.pages = versions_dict_factory()
         self.current_page_number = None
