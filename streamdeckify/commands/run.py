@@ -38,8 +38,8 @@ def run(deck, directory, page, scroll):
     Manager.write_deck_model(directory, device.info['class'])
     deck.on_create()
     deck.run(page)
-    if not deck.current_page_number:
-        return Manager.exit(1, f'Unable to find page "{page}"' if page is not None else "Unable to find a page")
+    if page and not deck.current_page_number:
+        return Manager.exit(1, f'Unable to find page "{page}"')
 
     def end(signum, frame):
         logger.info(f'Ending ({signal.strsignal(signum)})...')

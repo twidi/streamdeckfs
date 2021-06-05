@@ -152,6 +152,8 @@ class Page(Entity):
         if self.disabled:
             return
         self.render()
+        if self.deck.is_running and not self.deck.current_page_number:
+            self.deck.go_to_page(self.number, None)
 
     def version_deactivated(self):
         is_current_page_number = self.deck.current_page_number == self.number

@@ -119,6 +119,9 @@ class Deck(Entity):
             if not transparent:
                 break
         self.visible_pages = stack
+        if not self.visible_pages:
+            self.current_page_number = None
+            self.current_page_is_transparent = False
 
     def append_to_history(self, page, transparent=False):
         transparent = bool(transparent)
