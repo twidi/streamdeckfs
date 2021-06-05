@@ -1069,6 +1069,8 @@ Examples:
 - `ON_PRESS;command=browse https:||elgato.com;slash=|` will open your default browser on the `https://elgato.com` web page. Note that the `/` in `https://` are replaced by `|` as defined by the `slash` configuration option.
 - `ON_PRESS;command=browse https:\\\\elgato.com` same but using the default value of the `slash` configuration option when not passed.
 
+If you don't want to deal with special characters, you can use `command=__inside__` and write the command inside the event file. The whole content of the file will be passed as a command to execute.
+
 ### Option "slash"
 
 When using the `command` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.

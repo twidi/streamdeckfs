@@ -18,6 +18,8 @@ from .key import KeyFile
 
 LONGPRESS_DURATION_MIN = 300  # in ms
 
+RUN_MODES = ('path', 'command', 'inside')
+
 
 @dataclass(eq=False)
 class KeyEvent(KeyFile):
@@ -122,11 +124,11 @@ class KeyEvent(KeyFile):
         elif args.get('brightness'):
             final_args['mode'] = 'brightness'
         elif args.get('command'):
-            final_args['mode'] = 'command'
+            final_args['mode'] = 'inside' if args['command'] == '__inside__' else 'command'
         else:
             final_args['mode'] = 'path'
 
-        if final_args['mode'] in ('path', 'command'):
+        if final_args['mode'] in RUN_MODES:
             if final_args['mode'] == 'command':
                 final_args['command'] = cls.replace_special_chars(args['command'], args)
             final_args['detach'] = args.get('detach', False)
@@ -162,12 +164,12 @@ class KeyEvent(KeyFile):
         elif event.mode == 'page':
             event.page_ref = args['page_ref']
             event.overlay = args.get('overlay', False)
-        elif event.mode in ('path', 'command'):
+        elif event.mode in RUN_MODES:
             event.detach = args['detach']
             event.unique = args['unique']
             event.to_stop = event.kind == 'start' and not event.detach
             if event.mode == 'command':
-                event.command = args['command']
+                event.command = args['command'].strip()
         if event.kind in ('press', 'start'):
             if args.get('repeat-every'):
                 event.repeat_every = args['repeat-every']
@@ -264,16 +266,21 @@ class KeyEvent(KeyFile):
                 self.deck.set_brightness(*self.brightness_level)
             elif self.mode == 'page':
                 self.deck.go_to_page(self.page_ref, self.overlay)
-            elif self.mode in ('path', 'command'):
+            elif self.mode in RUN_MODES:
                 if self.unique and not self.ended_running.is_set():
                     logger.warning(f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]')
                     return True
                 if self.mode == 'path':
                     command = self.resolved_path
                     shell = False
-                else:
+                elif self.mode == 'inside':
+                    command = self.resolved_path.read_text().strip()
+                    shell = True
+                elif self.mode == 'command':
                     command = self.command
                     shell = True
+                else:
+                    raise ValueError('Invalid mode')
                 if (pid := Manager.start_process(command, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running)):
                     self.pids.append(pid)
         except Exception:
@@ -324,7 +331,7 @@ class KeyEvent(KeyFile):
 
     @property
     def is_stoppable(self):
-        return self.kind == 'start' and self.to_stop and self.mode in ('path', 'command') and self.pids
+        return self.kind == 'start' and self.to_stop and self.mode in RUN_MODES and self.pids
 
     def activate(self, page=None):
         if page is None:
@@ -335,7 +342,7 @@ class KeyEvent(KeyFile):
             return
         self.activated = True
         self.ended_running.set()
-        if self.kind == 'start' and self.mode in ('path', 'command'):
+        if self.kind == 'start' and self.mode in RUN_MODES:
             self.wait_run_and_repeat()
 
     def deactivate(self):
