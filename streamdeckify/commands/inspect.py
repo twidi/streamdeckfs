@@ -33,4 +33,4 @@ Get information about all connected Stream Decks.
         click.echo(f"\t - Key Images: {info['key_width']}x{info['key_height']} pixels, {info['format']} format")
 
         if deck.info['connected']:
-            deck.close()
+            Manager.close_deck(deck)

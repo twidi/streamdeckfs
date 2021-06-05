@@ -106,7 +106,6 @@ class Manager:
     @classmethod
     def get_decks(cls, limit_to_serial=None, need_open=True):
         if not cls.decks:
-            some_closed = False
             for deck in cls.get_manager().enumerate():
                 device_type = deck.deck_type()
                 try:
@@ -127,8 +126,7 @@ class Manager:
                     deck.reset()
                     serial = deck.get_serial_number()
                     if limit_to_serial and limit_to_serial != serial:
-                        deck.close()
-                        some_closed = True
+                        cls.close_deck(deck)
                         continue
                     deck.set_brightness(DEFAULT_BRIGHTNESS)
                 cls.decks[serial] = deck
@@ -148,12 +146,19 @@ class Manager:
                 }
                 if connected:
                     deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
-                if not len(cls.decks) and some_closed:
-                    # this is done in exit when we have something in `cls.decks` but here we have not
-                    sleep(0.01)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
         if not len(cls.decks):
             Manager.exit(1, 'No available Stream Deck. Aborting.')
         return cls.decks
+
+    @classmethod
+    def close_deck(cls, deck):
+        if deck.connected():
+            try:
+                deck.reset()
+                deck.close()
+            except Exception:
+                pass
+        sleep(0.05)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
 
     @classmethod
     def get_deck(cls, serial):
@@ -278,14 +283,8 @@ class Manager:
 
         if cls.decks:
             for serial, deck in list(cls.decks.items()):
-                try:
-                    deck.reset()
-                    deck.close()
-                except Exception:
-                    pass
+                Manager.close_deck(deck)
                 cls.decks.pop(serial)
-
-            sleep(0.01)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
 
         cls.exited = True
         exit(status)

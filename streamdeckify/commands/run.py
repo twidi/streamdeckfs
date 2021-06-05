@@ -59,8 +59,7 @@ def run(deck, directory, page, scroll):
 
     deck.unrender()
 
-    deck.device.reset()
-    deck.device.close()
+    Manager.close_deck(deck)
 
     main_thread = threading.currentThread()
     for t in threading.enumerate():
