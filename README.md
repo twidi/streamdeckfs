@@ -385,6 +385,8 @@ Examples:
 
 The key will be updated when the referenced image changes.
 
+If you don't want to deal with special characters, you can use `file=__inside__` and write the path of the image in the first line of the file.
+
 #### Option "slash"
 
 When using the `file` option, it's impossible to use slashes in the filename, so you can replace it with any character or suite of characters you defined with the `slash` option. If not defined, the default value of `\\` is used.
@@ -862,6 +864,8 @@ Examples:
 - `TEXT;file=\\home\\myself\\texts\\intro.txt` same but using the default value of the `slash` configuration option when not passed.
 
 The key will be updated when the referenced image changes.
+
+If you don't want to deal with special characters, you can use `file=__inside__` and write the path of the text file in the first line of the file.
 
 #### Option "slash"
 

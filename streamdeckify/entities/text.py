@@ -176,7 +176,7 @@ class KeyTextLine(keyImagePart):
                     pass
                 if not self.text and self.reference:
                     self.text = self.reference.resolved_text
-            elif self.mode == 'file':
+            elif self.mode in ('file', 'inside'):
                 if (path := self.get_file_path()):
                     try:
                         self.text = path.read_text()

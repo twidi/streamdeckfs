@@ -49,20 +49,27 @@ class keyImagePart(KeyFile):
         final_args = super().convert_args(args)
         final_args['mode'] = 'content'
         if 'file' in args:
-            final_args['mode'] = 'file'
-            try:
-                final_args['file'] = Path(cls.replace_special_chars(args['file'], args))
+            if args['file'] == '__inside__':
+                final_args['mode'] = 'inside'
+            else:
+                final_args['mode'] = 'file'
                 try:
-                    final_args['file'] = final_args['file'].expanduser()
+                    final_args['file'] = Path(cls.replace_special_chars(args['file'], args))
+                    try:
+                        final_args['file'] = final_args['file'].expanduser()
+                    except Exception:
+                        pass
                 except Exception:
-                    pass
-            except Exception:
-                final_args['file'] = None
+                    final_args['file'] = None
         return final_args
 
     def check_file_exists(self):
-        if self.deck.is_running and self.mode == 'file' and self.file and not self.file.exists():
-            logger.warning(f'[{self}] File "{self.file} does not exist')
+        if not self.deck.is_running:
+            return
+        if self.mode == 'file' and self.file and not self.file.exists():
+            logger.warning(f'[{self}] File "{self.file}" does not exist')
+        elif self.mode == 'inside' and (path := self.get_inside_path()) and not path.exists():
+            logger.warning(f'[{self}] File "{path}" does not exist')
 
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
@@ -74,6 +81,8 @@ class keyImagePart(KeyFile):
         return obj
 
     def start_watching_directory(self, directory):
+        if self.watched_directory and self.watched_directory != directory:
+            self.stop_watching_directory()
         if not self.watched_directory:
             self.watched_directory = directory
             Manager.add_watch(directory, self)
@@ -87,16 +96,34 @@ class keyImagePart(KeyFile):
         if not self.watched_directory and self.path.is_symlink():
             self.start_watching_directory(self.path.resolve().parent)
 
+    def get_inside_path(self):
+        if self.mode != 'inside':
+            return None
+        with self.resolved_path.open() as f:
+            path = Path(f.readline().strip())
+        if path:
+            try:
+                path = path.expanduser()
+            except Exception:
+                pass
+        return path
+
     def get_file_path(self):
-        if not self.file:
+        if self.mode == 'inside':
+            path = self.get_inside_path()
+        elif self.file:
+            path = self.file
+
+        if not path:
+            self.stop_watching_directory()
             return None
 
-        self.start_watching_directory(self.file.parent)
+        self.start_watching_directory(path.parent)
 
-        if not self.file.exists() or self.file.is_dir():
+        if not path.exists() or path.is_dir():
             return None
 
-        return self.file
+        return path
 
     def on_file_change(self, directory, name, flags, modified_at=None):
         path = directory / name
@@ -330,7 +357,7 @@ class KeyImageLayer(keyImagePart):
         if self.mode == 'content':
             self.track_symlink_dir()
             return self.resolved_path
-        if self.mode == 'file':
+        if self.mode in ('file', 'inside'):
             return self.get_file_path()
 
     def _compose(self):
