@@ -1372,7 +1372,16 @@ streamdeckify create-page SERIAL_DIRECTORY -p NUMBER -c OPTION1 VALUE1 -c OPTION
 
 with:
 
-- `NUMBER`: the number of the page to create
+- `NUMBER`: the number of the page to create, or an expression to find an available page number. This argument is optional: not passing it (or passing it with an empty string) is like passing the "0+" expression, i.e., using the first available page number. Possible expressions are:
+    - `NUMBER+`: to get the first page available after `NUMBER`
+    - `NUMBER+NUMBER`: to get the first page available between those two numbers (exclusive)
+    - `?` to get a random availble page number
+    - `NUMBER?` to get a random available page number greater than `NUMBER`
+    - `?NUMBER` to get a random available page number lower than `NUMBER`
+    - `NUMBER?NUMBER` to get a random available page number between those two numbers ()
+
+    If no available page can be found matching the expression, an error will be raised. Note: available page numbers will only be searched between 0 and 100000.
+
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 
@@ -1387,6 +1396,13 @@ $ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20;name=foo
 ```
 
+Or to create it in an available page between 49 and 60 (both exclusive):
+
+```bash
+$ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p '49?60' -c name foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_53;name=foo
+```
+
 ## copy-page
 
 Will make a full copy of a page (including its keys and all images, texts, events)
@@ -1398,7 +1414,16 @@ streamdeckify copy-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c
 with:
 
 - `PAGE`: the number or name of the page to copy
-- `NUMBER`: the number of the new page (`-tp` is for `--to-page`)
+- `NUMBER`: the number of the new page (`-tp` is for `--to-page`), or an expression to find an available page number. This argument is optional: not passing it (or passing it with an empty string) is like passing the "0+" expression, i.e., using the first available page number. Possible expressions are:
+    - `NUMBER+`: to get the first page available after `NUMBER`
+    - `NUMBER+NUMBER`: to get the first page available between those two numbers (exclusive)
+    - `?` to get a random availble page number
+    - `NUMBER?` to get a random available page number greater than `NUMBER`
+    - `?NUMBER` to get a random available page number lower than `NUMBER`
+    - `NUMBER?NUMBER` to get a random available page number between those two numbers ()
+
+    If no available page can be found matching the expression, an error will be raised. Note: available page numbers will only be searched between 0 and 100000.
+
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -1424,7 +1449,15 @@ streamdeckify move-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c
 with:
 
 - `PAGE`: the number or name of the page to move
-- `NUMBER`: the new number of the page (`-tp` is for `--to-page`)
+- `NUMBER`: the number of the new page (`-tp` is for `--to-page`), or an expression to find an available page number. This argument is optional: not passing it (or passing it with an empty string) is like passing the "0+" expression, i.e., using the first available page number. Possible expressions are:
+    - `NUMBER+`: to get the first page available after `NUMBER`
+    - `NUMBER+NUMBER`: to get the first page available between those two numbers (exclusive)
+    - `?` to get a random availble page number
+    - `NUMBER?` to get a random available page number greater than `NUMBER`
+    - `?NUMBER` to get a random available page number lower than `NUMBER`
+    - `NUMBER?NUMBER` to get a random available page number between those two numbers ()
+
+    If no available page can be found matching the expression, an error will be raised. Note: available page numbers will only be searched between 0 and 100000.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 

@@ -10,6 +10,7 @@ import json
 import re
 import shutil
 from copy import deepcopy
+from random import randint
 
 import click
 import click_log
@@ -249,6 +250,71 @@ class FilterCommands:
         return path
 
     @classmethod
+    def validate_number_expression(cls, ctx, param, value):
+        if not value:
+            return 'first', None, None, value
+        try:
+            value = int(value)
+            try:
+                validate_positive_integer(ctx, param, value)
+            except click.BadParameter:
+                raise
+            else:
+                return 'exact', int(value), None, value
+        except ValueError:
+            pass
+        for r in cls.validate_number_expression_regexs.values():
+            if (match := r.match(value)):
+                parts = match.groupdict()
+                return (
+                    'random' if 'random' in parts else 'first',
+                    int(parts['low']) if 'low' in parts else None,
+                    int(parts['high']) if 'high' in parts else None,
+                    value
+                )
+        raise click.BadParameter(f'{value} is not a positive integer or one of these expression: "", "NUMBER+", "NUMBER+NUMBER", "?", "NUMBER?", "?NUMBER" or "NUMBER?NUMBER"')
+
+    validate_number_expression_regexs = {
+        'first_after': re.compile(r'^(?P<low>\d+)(?P<first>\+)$'),
+        'first_between': re.compile(r'^(?P<low>\d+)(?P<first>\+)(?P<high>\d+)$'),
+        'random': re.compile(r'^(?P<random>\?)$'),
+        'ramdom_after': re.compile(r'^(?P<low>\d+)(?P<random>\?)$'),
+        'random_between': re.compile(r'^(?P<low>\d+)(?P<random>\?)(?P<high>\d+)$'),
+        'ramdom_before': re.compile(r'^(?P<random>\?)(?P<high>\d+)$'),
+    }
+
+    @staticmethod
+    def get_one_number(used, mode, low, high, min_low, max_high):
+        if low is None:
+            low = min_low
+        if high is None:
+            high = max_high
+        if mode == 'exact':
+            # no constraints when using exact mode
+            return low
+        if low < min_low or high > max_high:
+            return None
+        if mode == 'first':
+            for number in sorted(used):
+                if number > low:
+                    return number if number < high else None
+        elif mode == 'random':
+            inc_low, inc_high = low + 1, high - 1
+            used = set(number for number in used if number > low and number < high)
+            # ensure we have at least one possible before launching our while loop
+            if len(used) < high - low - 1:
+                while True:
+                    if (number := randint(inc_low, inc_high)) not in used:
+                        return number
+        return None
+
+    @classmethod
+    def get_one_page(cls, deck, mode, low, high, original):
+        if (number := cls.get_one_number((number for number, page in deck.pages.items() if page and not page.disabled), mode, low, high, 0, 100000)):
+            return number
+        Manager.exit(1, f'Cannot find an available page matching "{original}"')
+
+    @classmethod
     def create_page(cls, deck, number, names_and_values, dry_run=False):
         from ..entities import Page
         return cls.create_entity(Page, deck, number, {'page': number}, names_and_values, None, f'{deck}, NEW PAGE {number}', dry_run=dry_run)
@@ -344,37 +410,50 @@ def set_page_conf(directory, page_filter, names_and_values, dry_run):
     print(FC.rename_entity(page, FC.get_update_args_filename(page, names_and_values), dry_run=dry_run)[1])
 
 
+PAGE_NUMBER_EXPRESSION_HELP = """\
+Expression can be an empty string (same as not passing this option) to use the next available page in order,
+or "NUMBER+" for the first page available after this number,
+or "NUMBER+NUMBER" for the first page available between the two numbers (exclusive),
+or "?" for a random available page,
+or "NUMBER? for a random available page after this number,
+or "?NUMBER" for a random available page before this number,
+or "NUMBER?NUMBER" for a random available page between the two numbers (exclusive).
+If no available page match the request, a error will be raised."""
+
+
 @cli.command()
 @FC.options['directory']
-@click.option('-p', '--page', type=int, required=True, help='The page number', callback=validate_positive_integer)
+@click.option('-p', '--page', type=str, required=False, help="The page number or an expression to find one available." + PAGE_NUMBER_EXPRESSION_HELP, callback=FC.validate_number_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def create_page(directory, page, names_and_values, dry_run):
     """Create a new image layer with configuration"""
-    deck = FC.get_deck(directory, page_filter=FILTER_DENY, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
-    print(FC.create_page(deck, page, names_and_values, dry_run=dry_run))
+    deck = FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    print(FC.create_page(deck, FC.get_one_page(deck, *page), names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options['page_filter']
-@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page', callback=validate_positive_integer)
+@click.option('-tp', '--to-page', 'to_page_number', type=str, required=False, help="The page number of the new page or an expression to find one available." + PAGE_NUMBER_EXPRESSION_HELP, callback=FC.validate_number_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run):
     """Copy a page and all its content"""
-    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
-    print(FC.copy_page(page, to_page_number, names_and_values, dry_run=dry_run))
+    deck = FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    page = FC.find_page(deck, page_filter)
+    print(FC.copy_page(page, FC.get_one_page(deck, *to_page_number), names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options['page_filter']
-@click.option('-tp', '--to-page', 'to_page_number', type=int, required=True, help='The page number of the new page', callback=validate_positive_integer)
+@click.option('-tp', '--to-page', 'to_page_number', type=str, required=False, help="The page number of the new page or an expression to find one available." + PAGE_NUMBER_EXPRESSION_HELP, callback=FC.validate_number_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def move_page(directory, page_filter, to_page_number, names_and_values, dry_run):
     """Move a page to a different number"""
-    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
-    print(FC.move_page(page, to_page_number, names_and_values, dry_run=dry_run))
+    deck = FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    page = FC.find_page(deck, page_filter)
+    print(FC.move_page(page, FC.get_one_page(deck, *to_page_number), names_and_values, dry_run=dry_run))
 
 
 @cli.command()
