@@ -10,7 +10,7 @@ import click
 
 from ..common import Manager
 from ..entities import Key, Page
-from .base import cli, common_options, validate_positive_integer, validate_positive_integer_or_zero
+from .base import cli, common_options, validate_positive_integer_or_zero
 
 
 @cli.command()

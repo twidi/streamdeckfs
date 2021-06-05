@@ -376,6 +376,8 @@ Note that the `IMAGE...` file can be empty when this option is set, as its conte
 
 It must be defined like this: `file=PATH` with:
 
+- `PATH`: the path of the image file to render. It can starts with `~`.
+
 Examples:
 
 - `IMAGE;file=|home|myself|Images|logo.png;slash=|` will use the image at `/home/myself/Images/logo.png`. Note that the `/`  are replaced by `|` as defined by the `slash` configuration option.
@@ -851,6 +853,8 @@ You have to respect the known limitations of the file name (max length and no sl
 Note that the `TEXT...` file can be empty when this option is set, as its content will be ignored. And you cannot set both `file` and `text` options.
 
 It must be defined like this: `file=PATH` with:
+
+- `PATH`: the path of the text file to read. It can starts with `~`.
 
 Examples:
 

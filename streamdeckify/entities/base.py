@@ -7,7 +7,6 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import re
-import shutil
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass

@@ -52,6 +52,10 @@ class keyImagePart(KeyFile):
             final_args['mode'] = 'file'
             try:
                 final_args['file'] = Path(cls.replace_special_chars(args['file'], args))
+                try:
+                    final_args['file'] = final_args['file'].expanduser()
+                except Exception:
+                    pass
             except Exception:
                 final_args['file'] = None
         return final_args
