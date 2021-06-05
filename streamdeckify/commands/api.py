@@ -315,6 +315,39 @@ class FilterCommands:
         Manager.exit(1, f'Cannot find an available page matching "{original}"')
 
     @classmethod
+    def validate_key_expression(cls, ctx, param, value):
+        if not value:
+            return None
+        if value in ('?', '+'):
+            return value
+        if cls.validate_key_regex.match(value):
+            return tuple(map(int, value.split(',')))
+
+        raise click.BadParameter(f'{value} is not in the format "row,col", or one of "+" or "?"')
+
+    validate_key_regex = re.compile(r'^\d+,\d+$')
+
+    @classmethod
+    def get_one_key(cls, page, key):
+        if not key:
+            return None
+        if isinstance(key, str):
+            used_keys = set(row_col for row_col, page_key in page.keys.items() if page_key and not page_key.disabled)
+            if len(used_keys) < page.deck.nb_cols * page.deck.nb_rows:
+                if key == '+':  # get first available key
+                    for row in range(1, page.deck.nb_rows + 1):
+                        for col in range(1, page.deck.nb_cols + 1):
+                            if (key := (row, col)) not in used_keys:
+                                return key
+                if key == '?':  # get random key
+                    while True:
+                        if (key := (randint(1, page.deck.nb_rows), randint(1, page.deck.nb_cols))) not in used_keys:
+                            return key
+        else:
+            return key
+        Manager.exit(1, f'Cannot find an available key matching "{key}"')
+
+    @classmethod
     def create_page(cls, deck, number, names_and_values, dry_run=False):
         from ..entities import Page
         return cls.create_entity(Page, deck, number, {'page': number}, names_and_values, None, f'{deck}, NEW PAGE {number}', dry_run=dry_run)
@@ -328,10 +361,9 @@ class FilterCommands:
         return cls.move_entity(page, page.deck, {'page': to_number}, names_and_values, f'{page.deck}, NEW PAGE {to_number}', dry_run=dry_run)
 
     @classmethod
-    def create_key(cls, page, key, names_and_values, dry_run=False):
+    def create_key(cls, page, to_row, to_col, names_and_values, dry_run=False):
         from ..entities import Key
-        row, col = map(int, key.split(','))
-        return cls.create_entity(Key, page, key, {'row': row, 'col': col}, names_and_values, None, f'{page}, NEW KEY {key}', dry_run=dry_run)
+        return cls.create_entity(Key, page, (to_row, to_col), {'row': to_row, 'col': to_col}, names_and_values, None, f'{page}, NEW KEY', dry_run=dry_run)
 
     @classmethod
     def copy_key(cls, key, to_page, to_row, to_col, names_and_values, dry_run=False):
@@ -490,32 +522,27 @@ def set_key_conf(directory, page_filter, key_filter, names_and_values, dry_run):
     print(FC.rename_entity(key, FC.get_update_args_filename(key, names_and_values), dry_run=dry_run)[1])
 
 
-def validate_key(ctx, param, value):
-    if not param.required and value is None:
-        return value
-    if validate_key.re.match(value):
-        return value
-    raise click.BadParameter(f'{value} is not in the format "row,col"')
-
-
-validate_key.re = re.compile(r'^\d+,\d+$')
+KEY_EXPRESSION_HELP = """\
+Expression can be '+' to use the next available key in order (row by row), or "?" for a random available key.
+If no available key match the request, a error will be raised."""
 
 
 @cli.command()
 @FC.options['page_filter']
-@click.option('-k', '--key', type=str, required=True, help='The key position as "row,col"', callback=validate_key)
+@click.option('-k', '--key', type=str, required=True, help='The key position as "row,col" or an expression to find an available key.' + KEY_EXPRESSION_HELP, callback=FC.validate_key_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def create_key(directory, page_filter, key, names_and_values, dry_run):
     """Create a new image layer with configuration"""
-    page = FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
-    print(FC.create_key(page, key, names_and_values, dry_run=dry_run))
+    page = FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    to_row, to_col = FC.get_one_key(page, key or '+')
+    print(FC.create_key(page, to_row, to_col, names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options['key_filter']
 @FC.options['to_page']
-@click.option('-tk', '--to-key', 'to_key', type=str, required=False, help='The optional destination key position as "row,col"', callback=validate_key)
+@click.option('-tk', '--to-key', 'to_key', type=str, required=False, help='The optional destination key position as "row,col" or an expression to find an available key.' + KEY_EXPRESSION_HELP, callback=FC.validate_key_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_and_values, dry_run):
@@ -523,14 +550,14 @@ def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
     deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
     key = FC.find_key(FC.find_page(deck, page_filter), key_filter)
     to_page = FC.find_page(deck, to_page_filter) if to_page_filter else key.page
-    to_row, to_col = map(int, to_key.split(',')) if to_key else key.key
+    to_row, to_col = FC.get_one_key(to_page, to_key) or key.key
     print(FC.copy_key(key, to_page, to_row, to_col, names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options['key_filter']
 @FC.options['to_page']
-@click.option('-tk', '--to-key', 'to_key', type=str, required=False, help='The optional destination key position as "row,col"', callback=validate_key)
+@click.option('-tk', '--to-key', 'to_key', type=str, required=False, help='The optional destination key position as "row,col" or an expression to find an available key.' + KEY_EXPRESSION_HELP, callback=FC.validate_key_expression)
 @FC.options['optional_names_and_values']
 @FC.options['dry_run']
 def move_key(directory, page_filter, key_filter, to_page_filter, to_key, names_and_values, dry_run):
@@ -538,7 +565,7 @@ def move_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
     deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
     key = FC.find_key(FC.find_page(deck, page_filter), key_filter)
     to_page = FC.find_page(deck, to_page_filter) if to_page_filter else key.page
-    to_row, to_col = map(int, to_key.split(',')) if to_key else key.key
+    to_row, to_col = FC.get_one_key(to_page, to_key) or key.key
     print(FC.move_key(key, to_page, to_row, to_col, names_and_values, dry_run=dry_run))
 
 

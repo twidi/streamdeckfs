@@ -1570,7 +1570,11 @@ streamdeckify create-key SERIAL_DIRECTORY -p PAGE -k ROW,COL -c OPTION1 VALUE1 -
 with:
 
 - `PAGE`: the number or name of the page where to create the wanted key
-- `ROW,COL`: the position of the new key
+- `ROW,COL`: the position of the new key, or an expression to find an available key. This argument is optional: not passing it (or passing it with an empty string) is like passing the "+" expression. Possible expressions are:
+    - `+`: to get the first available key (row by row)
+    - `?` to get a random availble key
+
+    If no available key can be found matching the expression, an error will be raised.
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 
@@ -1583,6 +1587,13 @@ Example, to create a key in the first row and column, with `foo` as name:
 ```bash
 $ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
+```
+
+Or to create it in an available random available key:
+
+```bash
+$ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k '?' -c name foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_3_COL_2;name=foo
 ```
 
 ## copy-key
@@ -1598,7 +1609,11 @@ with:
 - `PAGE`: the number or name of the page where to find the key to copy
 - `KEY`: the name of the key to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `TO_PAGE`: the number or the name of the page where to copy the key (`-tp` is for `--to-page`). Optional: if not given, will use the page of the key to copy
-- `ROW,COL`: the position of the new key (`-tk` if for `--to-key`). Optional: if not given, will keep the position of the key to copy
+- `ROW,COL`: the position of the new key (`-tk` if for `--to-key`) or an expression to find an available key. This argument is ptional: if not given, will keep the position of the key to copy. Possible expressions are:
+    - `+`: to get the first available key (row by row)
+    - `?` to get a random availble key
+
+    If no available key can be found matching the expression, an error will be raised.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -1626,7 +1641,11 @@ with:
 - `PAGE`: the number or name of the page where to find the key to move
 - `KEY`: the name of the key to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
 - `TO_PAGE`: the number or the name of the page where to move the key (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
-- `ROW,COL`: the new position of the key (`-tk` if for `--to-key`). Optional: if not given, will keep the same position
+- `ROW,COL`: the new position of the key (`-tk` if for `--to-key`) or an expression to find an available key. This argument is ptional: if not given, will keep the same position. Possible expressions are:
+    - `+`: to get the first available key (row by row)
+    - `?` to get a random availble key
+
+    If no available key can be found matching the expression, an error will be raised.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
