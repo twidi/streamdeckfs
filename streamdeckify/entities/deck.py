@@ -53,7 +53,6 @@ class Deck(Entity):
         self.visible_pages = []
         self.pressed_key = None
         self.is_running = False
-        self.end_event = threading.Event()
         self.directory_removed = False
 
     @property
@@ -105,12 +104,7 @@ class Deck(Entity):
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     def on_directory_removed(self, directory):
-        if self.end_event.is_set():
-            return
         self.directory_removed = True
-        logger.critical(f'[{self}] Deck configuration directory "{directory}" was removed. Stopping it.')
-        self.unrender()
-        self.end_event.set()
 
     def update_visible_pages_stack(self):
         # first page in `visible_pages` is the current one, then the one below, etc...
@@ -304,7 +298,7 @@ class Deck(Entity):
                 page.unrender()
         if self.render_images_thread is not None:
             self.render_images_queue.put(None)
-            self.render_images_thread.join()
+            self.render_images_thread.join(0.5)
             self.render_images_thread = self.render_images_queue = None
 
     def set_image(self, row, col, image):

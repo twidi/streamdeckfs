@@ -23,6 +23,7 @@ from StreamDeck.Devices.StreamDeckOriginal import StreamDeckOriginal
 from StreamDeck.Devices.StreamDeckOriginalV2 import StreamDeckOriginalV2
 from StreamDeck.Devices.StreamDeckXL import StreamDeckXL
 from StreamDeck.DeviceManager import DeviceManager
+from StreamDeck.Transport.Transport import TransportError
 
 from .threads import Repeater, set_thread_name
 
@@ -67,7 +68,8 @@ class FakeStreamDeckXL(FakeDevice, StreamDeckXL):
 
 
 class Manager:
-    decks = {}
+    open_decks = {}
+    seen_ids = set()
     manager = None
     files_watcher = None
     files_watcher_thread = None
@@ -105,60 +107,90 @@ class Manager:
 
     @classmethod
     def get_decks(cls, limit_to_serials=None, need_open=True, exit_if_none=True):
-        if not cls.decks:
-            for deck in cls.get_manager().enumerate():
-                device_type = deck.deck_type()
-                try:
-                    device_class = cls.get_device_class(device_type)
-                except KeyError:
-                    logger.warning(f'Stream Deck "{device_type}" (ID {deck.id()}) is not a type we can manage.')
+        decks = {}
+        for deck in cls.get_manager().enumerate():
+            device_type = deck.deck_type()
+            device_id = deck.id()
+            already_seen = device_id in cls.seen_ids
+            cls.seen_ids.add(device_id)
+            try:
+                device_class = cls.get_device_class(device_type)
+            except KeyError:
+                if not already_seen:
+                    logger.warning(f'Stream Deck "{device_type}" (ID {device_id}) is not a type we can manage.')
+                continue
+            serial = cls.open_deck(deck)
+            if not serial:
+                if not already_seen:
+                    logger.warning(f'Stream Deck "{device_type}" (ID {device_id}) cannot be accessed. Maybe a program is already connected to it.')
+                if need_open:
                     continue
-                try:
-                    deck.open()
-                except Exception:
-                    logger.warning(f'Stream Deck "{device_type}" (ID {deck.id()}) cannot be accessed. Maybe a program is already connected to it.')
-                    if need_open:
-                        continue
-                    connected = False
-                    serial = f'UNKNOW-ID={deck.id()}'
-                else:
-                    connected = True
-                    deck.reset()
-                    serial = deck.get_serial_number()
-                    if limit_to_serials and serial not in limit_to_serials:
-                        cls.close_deck(deck)
-                        continue
-                    deck.set_brightness(DEFAULT_BRIGHTNESS)
-                cls.decks[serial] = deck
-                deck.info = {
-                    'connected': connected,
-                    'serial': serial if connected else 'Unknown',
-                    'id': deck.id(),
-                    'type': device_type,
-                    'class': device_class,
-                    'firmware': deck.get_firmware_version() if connected else 'Unknown',
-                    'nb_keys': deck.key_count(),
-                    'rows': (layout := deck.key_layout())[0],
-                    'cols': layout[1],
-                    'format': (image_format := deck.key_image_format())['format'],
-                    'key_width': image_format['size'][0],
-                    'key_height': image_format['size'][1],
-                }
-                if connected:
-                    deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
-        if exit_if_none and not len(cls.decks):
-            Manager.exit(1, 'No available Stream Deck. Aborting.')
-        return cls.decks
+                connected = False
+                serial = f'UNKNOW-ID={device_id}'
+            else:
+                connected = True
+                deck.reset()
+                if limit_to_serials and serial not in limit_to_serials:
+                    deck.info = {'serial': serial}
+                    cls.close_deck(deck)
+                    continue
+                deck.set_brightness(DEFAULT_BRIGHTNESS)
+            decks[serial] = deck
+            deck.info = {
+                'connected': connected,
+                'serial': serial if connected else 'Unknown',
+                'id': device_id,
+                'type': device_type,
+                'class': device_class,
+                'firmware': deck.get_firmware_version() if connected else 'Unknown',
+                'nb_keys': deck.key_count(),
+                'rows': (layout := deck.key_layout())[0],
+                'cols': layout[1],
+                'format': (image_format := deck.key_image_format())['format'],
+                'key_width': image_format['size'][0],
+                'key_height': image_format['size'][1],
+            }
+            if connected:
+                deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
+        return decks
+
+    @classmethod
+    def open_deck(cls, device):
+        try:
+            device.open()
+        except Exception:
+            return
+        serial = device.get_serial_number()
+        logger.debug(f'[DECK {serial}] Connection opened')
+        cls.open_decks[serial] = device
+        return serial
 
     @classmethod
     def close_deck(cls, deck):
         if deck.connected():
             try:
                 deck.reset()
+            except Exception:
+                pass
+            try:
                 deck.close()
             except Exception:
                 pass
+        try:
+            serial = deck.info['serial']
+        except AttributeError:
+            pass
+        else:
+            if serial:
+                cls.open_decks.pop(serial, None)
+        logger.debug(f'[DECK {serial or deck.id()}] Connection closed')
         sleep(0.05)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
+
+    @classmethod
+    def close_opened_decks(cls):
+        if cls.open_decks:
+            for serial, deck in list(cls.open_decks.items()):
+                cls.close_deck(deck)
 
     @classmethod
     def get_deck(cls, serial):
@@ -207,7 +239,11 @@ class Manager:
             if ready:
                 with deck:
                     for index, (ts, image) in ready:
-                        deck.set_key_image(index, image)
+                        try:
+                            deck.set_key_image(index, image)
+                        except TransportError:
+                            queue.put(None)
+                            break
                 ordered = get_ordered()
 
             return ordered[0] if ordered else (None, None)
@@ -266,7 +302,7 @@ class Manager:
         if not cls.files_watcher:
             return
         cls.files_watcher.stop()
-        cls.files_watcher_thread.join()
+        cls.files_watcher_thread.join(0.5)
         cls.files_watcher = cls.files_watcher_thread = None
 
     @classmethod
@@ -280,11 +316,7 @@ class Manager:
 
         cls.end_files_watcher()
         cls.end_processes_checker()
-
-        if cls.decks:
-            for serial, deck in list(cls.decks.items()):
-                Manager.close_deck(deck)
-                cls.decks.pop(serial)
+        cls.close_opened_decks()
 
         cls.exited = True
         exit(status)
@@ -318,7 +350,7 @@ class Manager:
         if not cls.processes_checker_thread:
             return
         cls.processes_checker_thread.stop()
-        cls.processes_checker_thread.join()
+        cls.processes_checker_thread.join(0.5)
         cls.processes_checker_thread = None
 
     @classmethod

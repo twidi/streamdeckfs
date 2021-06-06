@@ -201,6 +201,7 @@ You can also run many instances of the program, one for each deck (so you can ea
 - for each deck, run without passing any serials and passing the serial config directory `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
 - for each deck, run with passing its serial and passing the global or the serial config directory, i.e., `BASE_DIRECTORY` or `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
 
+Note that `streamdeckify` can be launched before the StreamDecks being plugged or their configuration directory being ready. It will patiently wait for everything to be ok for a StreamDeck to be rendered. And if theses directory become unavailable later, or if the StreamDecks are unplugged, it will stop rendering them and wait for them to be ready again.
 
 # Configuration
 
