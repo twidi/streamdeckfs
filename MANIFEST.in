@@ -1,5 +1,5 @@
-recursive-include streamdeckify *.py
-recursive-include streamdeckify/assets *
+recursive-include streamdeckfs *.py
+recursive-include streamdeckfs/assets *
 include *.py
 include MANIFEST.in
 include LICENSE

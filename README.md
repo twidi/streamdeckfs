@@ -1,14 +1,14 @@
 <!--
 Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
 
-This file is part of Streamdeckify
-(see https://github.com/twidi/streamdeckify).
+This file is part of StreamDeckFS
+(see https://github.com/twidi/streamdeckfs).
 
 License: MIT, see https://opensource.org/licenses/MIT
 -->
-# SteamDeckify
+# StreamDeckFS
 
-SteamDeckify is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
+StreamDeckFS is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
 
 It's not a graphical interface, but if you can use a file system and create directories and files (no content needed, see later), you'll have all the necessary power.
 
@@ -19,13 +19,13 @@ It provides numerous features:
 - advanced key management (on press, release, long press, repeat, delay, and more)
 - references (explained later, but see this as a way to have templates, or to repeat keys on pages, or have many times the same key with a few differences)
 
-`streamdeckify` will look at the directory passed on the command line and read all the configuration from directories and files.
+`streamdeckfs` will look at the directory passed on the command line and read all the configuration from directories and files.
 
 And while running, it will catch any changes to them to update in real-time the StreamDeck
 
 # Examples
 
-Here are a few examples of what is possible with `streamdeckify`. Remember that `streamdeckify` only display (and compose) images and call programs by providing a powerful configuration system to let your imagination do the rest.
+Here are a few examples of what is possible with `streamdeckfs`. Remember that `streamdeckfs` only display (and compose) images and call programs by providing a powerful configuration system to let your imagination do the rest.
 
 ## Example 1: first page
 
@@ -100,13 +100,15 @@ sudo udevadm control --reload-rules
 
 And finally you need to unplug then plug back your StreamDeck devices to ensure they adopt the new permissions.
 
-## StreamDeckify
+## StreamDeckFS
 
-To install `streamdeckify`, you can use `pip`, either in a virtual environment, or in your system python (reminder: you need python 3.9 minimum). use `pip install streamdeckify` or `pip install --user streamdeckify` depending on your case.
+To install `streamdeckfs`, you can use `pip`, either in a virtual environment, or in your system python (reminder: you need python 3.9 minimum). use `pip install streamdeckfs` or `pip install --user streamdeckfs` depending on your case.
 
-For the rest of this README, we assume that the package is correctly installed, and that a `streamdeckify` executable should now be available.
+For the rest of this README, we assume that the package is correctly installed, and that a `streamdeckfs` executable should now be available.
 
 If you don't know how to install a python package, I redirect you to your favorite search engine where you'll find a lot more complete and accurate explanation on how to do it.
+
+Note: in addition to `streamdeckfs`, a shorter version, `sdfs`, is available.
 
 # Starting
 
@@ -117,7 +119,7 @@ The first thing to do is to discover your StreamDeck devices.
 For this, use the `inspect` command:
 
 ```bash
-streamdeckify inspect
+streamdeckfs inspect
 ```
 
 It will output some information about the connected decks (no other program must be connected to them as only one connection to the decks is possible).
@@ -129,10 +131,10 @@ The main useful thing is the serial number, as it will be the name of the direct
 You can create the directories by hand (we'll explain how later), but we provide a command to create the tree for you, `make-dirs`:
 
 ```bash
-streamdeckify make-dirs SERIAL BASE_DIRECTORY
+streamdeckfs make-dirs SERIAL BASE_DIRECTORY
 ```
 
-`SERIAL` is the serial number you got from the `inspect` command. Note that if you have only one connected StreamDeck, you can ignore this argument as `streamdeckify` will automatically find it for you.
+`SERIAL` is the serial number you got from the `inspect` command. Note that if you have only one connected StreamDeck, you can ignore this argument as `streamdeckfs` will automatically find it for you.
 
 `BASE_DIRECTORY` is the directory that will contain the configuration directory of this StreamDeck. So it will create (if it does not exist yet) a directory named `YOUR_SERIAL_NUMBER` in `BASE_DIRECTORY`.
 
@@ -140,7 +142,7 @@ Before creating (or updating) the tree, you'll be asked to confirm (unless you p
 
 No pages will be created unless you pass `--page XX`, `XX` being the number of pages to create.
 
-Once confirmed, `streamdeckify` will create all missing directories.
+Once confirmed, `streamdeckfs` will create all missing directories.
 
 The resulting tree will look like this, for example for a deck with 3 rows of 5 keys:
 
@@ -175,19 +177,19 @@ That's it; you now know how to configure your StreamDeck in the simplest way pos
 
 PS: you can have `IMAGE` without `ON_PRESS` or `ON_PRESS` without `IMAGE`.
 
-## Running streamdeckify
+## Running streamdeckfs
 
 Now that you have your configuration directory, run:
 
 ```bash
-streamdeckify run SERIAL CONFIG_DIRECTORY
+streamdeckfs run SERIAL CONFIG_DIRECTORY
 ```
 
 And voila!
 
 Note that, like for `make-dirs`, the `SERIAL` argument is optional if you have only one connected StreamDeck.
 
-And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (`streamdeckify` will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `streamdeckify run BASE_DIRECTORY`)
+And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/YOUR_SERIAL_NUMBER`, or the directory used in `make-dirs` i.e., `BASE_DIRECTORY` (`streamdeckfs` will then complete it. It's helpful if you have only one deck connected and don't want to have to remember the serial number, so in this case, the command can be only `streamdeckfs run BASE_DIRECTORY`)
 
 Now that you have your StreamDeck running, try adding an image for another key (on the first page). You'll see that the deck automatically updates. And maybe you're starting to see the infinite possibilities.
 
@@ -201,7 +203,7 @@ You can also run many instances of the program, one for each deck (so you can ea
 - for each deck, run without passing any serials and passing the serial config directory `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
 - for each deck, run with passing its serial and passing the global or the serial config directory, i.e., `BASE_DIRECTORY` or `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
 
-Note that `streamdeckify` can be launched before the StreamDecks being plugged or their configuration directory being ready. It will patiently wait for everything to be ok for a StreamDeck to be rendered. And if theses directory become unavailable later, or if the StreamDecks are unplugged, it will stop rendering them and wait for them to be ready again.
+Note that `streamdeckfs` can be launched before the StreamDecks being plugged or their configuration directory being ready. It will patiently wait for everything to be ok for a StreamDeck to be rendered. And if theses directory become unavailable later, or if the StreamDecks are unplugged, it will stop rendering them and wait for them to be ready again.
 
 # Configuration
 
@@ -238,7 +240,7 @@ It's the name of the page, key, image, event, or text. It can be whatever you wa
 
 ### `disabled`
 
-To make `streamdeckify` ignore a page, image, text, event..., you can use the `disabled` option, which is a flag, meaning that simply adding `;disabled` is enough to have it disabled, but you can also set a boolean value `;disabled=true` or `;disabled=false`.
+To make `streamdeckfs` ignore a page, image, text, event..., you can use the `disabled` option, which is a flag, meaning that simply adding `;disabled` is enough to have it disabled, but you can also set a boolean value `;disabled=true` or `;disabled=false`.
 
 ## Configuring appearance (images, drawings, texts)
 
@@ -908,7 +910,7 @@ Examples:
 
 ## Configuring events (press, long-press, release, start)
 
-`streamdeckify` handles four different events from your StreamDeck that are listed below. But first, let see how events are defined.
+`streamdeckfs` handles four different events from your StreamDeck that are listed below. But first, let see how events are defined.
 
 An event for a key is a file in a `KEY...` directory that starts with `ON_`, followed by the event's name uppercased: `ON_PRESS`, `ON_RELEASE`, `ON_LONGPRESS`, `ON_START`
 
@@ -928,9 +930,9 @@ Now let see the different events, then how they can be configured:
 
 #### Event "ON_START"
 
-When a key is displayed, the `ON_START` command is executed. And if it still runs when the key stops to be displayed (when `streamdeckify` ends or when you change page), the command will be terminated. It can be used, for example, to start a script that will periodically fetch some information and update a key, like the temperature of your CPU, the title of the current Spotify song, etc.
+When a key is displayed, the `ON_START` command is executed. And if it still runs when the key stops to be displayed (when `streamdeckfs` ends or when you change page), the command will be terminated. It can be used, for example, to start a script that will periodically fetch some information and update a key, like the temperature of your CPU, the title of the current Spotify song, etc.
 
-If the command must still run when the key stops to be displayed, it can be "detached" (and in this case, it will not even be stopped when `streamdeckify` ends)
+If the command must still run when the key stops to be displayed, it can be "detached" (and in this case, it will not even be stopped when `streamdeckfs` ends)
 
 #### Event "ON_PRESS"
 
@@ -1034,14 +1036,14 @@ Example:
 
 ### Option "detach"
 
-By default, all commands executed by a StreamDeck event are "tied" to the `streamdeckify` process. And they are stopped, if still running, when the key stops being displayed for `ON_START` events, or, for others, when `streamdeckify` ends.
+By default, all commands executed by a StreamDeck event are "tied" to the `streamdeckfs` process. And they are stopped, if still running, when the key stops being displayed for `ON_START` events, or, for others, when `streamdeckfs` ends.
 
-It's common to want to run an external program that should stay open even if the `streamdeckify` ends. The `detach` flag is here for that.
+It's common to want to run an external program that should stay open even if the `streamdeckfs` ends. The `detach` flag is here for that.
 
 It must be defined like this:
 
-- `detach` or `detach=true` to detach the program from the `streamdeckify` process
-- `detach=false` to not detach the program (when key stops being displayed or when `streamdeckify` ends)
+- `detach` or `detach=true` to detach the program from the `streamdeckfs` process
+- `detach=false` to not detach the program (when key stops being displayed or when `streamdeckfs` ends)
 
 Examples:
 
@@ -1194,7 +1196,7 @@ OR, you can have it only defined on the first key using it, say it's `KEY_ROW_1_
 
 So you can easily change how this background should look in one place, affecting all keys referencing this background. All configuration options are inherited. In this example the image defined by `IMAGE;ref=:toggle:background` will inherit the `name`, `layer`, `draw`, `coords`, `width` and `fill`. But these can be overridden. If you want to change the color but still have a rectangle, you can use `IMAGE;ref=toggle:background;fill=red`, and you'll have a red rectangle as the background.
 
-Last important thing about references: you can have references of references (of references, etc.). Just be careful to avoid cyclic references, as it's not checked, and `streamdeckify` may crash.
+Last important thing about references: you can have references of references (of references, etc.). Just be careful to avoid cyclic references, as it's not checked, and `streamdeckfs` may crash.
 
 ## References configuration
 
@@ -1301,7 +1303,7 @@ As everything is done in file names (except sometimes for texts/images), it's ea
 
 But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
 
-`streamdeckify` provides an API as a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful). You can even create everything from this API.
+`streamdeckfs` provides an API as a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful). You can even create everything from this API.
 
 Note that before being able to use the API commands listed below, you must have run successfully at least once the `make-dirs` or `run` commands. This is needed to store information about the StreamDeck, because the API does not connect to it (it only touches files).
 
@@ -1319,7 +1321,7 @@ With these commands you can, for a page, key, text, image, or event:
 The are all called the same way:
 
 ```bash
-streamdeckify COMMAND SERIAL_DIRECTORY ARGUMENTS
+streamdeckfs COMMAND SERIAL_DIRECTORY ARGUMENTS
 ```
 
 For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
@@ -1329,13 +1331,13 @@ For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending 
 Will print some information about the StreamDeck as JSON. Only work if `make-dirs` or `run` was already called once for the StreamDeck/directory.
 
 ```bash
-streamdeckify get-deck-conf SERIAL_DIRECTORY
+streamdeckfs get-deck-conf SERIAL_DIRECTORY
 ```
 
 Example:
 
 ```bash
-$ streamdeckify get-deck-info ~/streamdeck-data/MYDECKSERIAL
+$ streamdeckfs get-deck-info ~/streamdeck-data/MYDECKSERIAL
 {'model': 'StreamDeckXL', 'nb_rows': 4, 'nb_cols': 8, 'key_width': 96, 'key_height': 96}
 ```
 
@@ -1344,7 +1346,7 @@ $ streamdeckify get-deck-info ~/streamdeck-data/MYDECKSERIAL
 Will print the pages of the deck.
 
 ```bsash
-streamdeckify list-pages SERIAL_DIRECTORY DISABLED
+streamdeckfs list-pages SERIAL_DIRECTORY DISABLED
 ```
 
 with:
@@ -1358,7 +1360,7 @@ Pages are listed one per output line, with for each the same result as if `get-p
 Will print the full path of the asked page.
 
 ```bash
-streamdeckify get-page-path SERIAL_DIRECTORY -p PAGE
+streamdeckfs get-page-path SERIAL_DIRECTORY -p PAGE
 ```
 
 with:
@@ -1368,7 +1370,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
+$ streamdeckfs get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify
 ```
 
@@ -1377,7 +1379,7 @@ $ streamdeckify get-page-path ~/streamdeck-data/MYDECKSERIAL -p spotify
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked page.
 
 ```bash
-streamdeckify get-page-conf SERIAL_DIRECTORY -p PAGE
+streamdeckfs get-page-conf SERIAL_DIRECTORY -p PAGE
 ```
 
 with:
@@ -1387,7 +1389,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
+$ streamdeckfs get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
 {"kind": "PAGE", "page": "60", "name": "spotify"}
 ```
 
@@ -1396,7 +1398,7 @@ $ streamdeckify get-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify
 Will update the configuration of the asked page.
 
 ```bash
-streamdeckify get-page-conf SERIAL_DIRECTORY -p PAGE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs get-page-conf SERIAL_DIRECTORY -p PAGE -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1412,7 +1414,7 @@ This command returns the updated path of the page. Use `--dry-run` to get this p
 Example, to change the name of the page and disable it:
 
 ```bash
-$ streamdeckify set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
+$ streamdeckfs set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name spotify2 -c disabled true
 ```
 
 ## create-page
@@ -1420,7 +1422,7 @@ $ streamdeckify set-page-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -c name 
 Will create a new page.
 
 ```
-streamdeckify create-page SERIAL_DIRECTORY -p NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs create-page SERIAL_DIRECTORY -p NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1445,14 +1447,14 @@ This command returns the full path of the newly created page. Use `--dry-run` to
 Example, to create page number 20 with `foo` as name:
 
 ```bash
-$ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
+$ streamdeckfs create-page ~/streamdeck-data/MYDECKSERIAL -p 20 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20;name=foo
 ```
 
 Or to create it in an available page between 49 and 60 (both exclusive):
 
 ```bash
-$ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p '49?60' -c name foo
+$ streamdeckfs create-page ~/streamdeck-data/MYDECKSERIAL -p '49?60' -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_53;name=foo
 ```
 
@@ -1461,7 +1463,7 @@ $ streamdeckify create-page ~/streamdeck-data/MYDECKSERIAL -p '49?60' -c name fo
 Will make a full copy of a page (including its keys and all images, texts, events)
 
 ```
-streamdeckify copy-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs copy-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1487,7 +1489,7 @@ This command returns the full path of the newly created page. Use `--dry-run` to
 Example, to create a copy of the page 20 having `foo` as name to a new page numbered 30, with `bar` as name:
 
 ```bash
-$ streamdeckify copy-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
+$ streamdeckfs copy-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30;name=bar
 ```
 
@@ -1496,7 +1498,7 @@ $ streamdeckify copy-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name ba
 Will move the page to a different number
 
 ```
-streamdeckify move-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs move-page SERIAL_DIRECTORY -p PAGE -tp NUMBER -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1521,7 +1523,7 @@ This command returns the full new path of the moved page. Use `--dry-run` to get
 Example, to move the page 20 having `foo` as name to a number 30, with `bar` as name:
 
 ```bash
-$ streamdeckify move-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
+$ streamdeckfs move-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30;name=bar
 ```
 
@@ -1530,7 +1532,7 @@ $ streamdeckify move-page ~/streamdeck-data/MYDECKSERIAL -p 20 -tp 30 -c name ba
 Will delete the asked page directory.
 
 ```bash
-streamdeckify delete-page SERIAL_DIRECTORY -p PAGE
+streamdeckfs delete-page SERIAL_DIRECTORY -p PAGE
 ```
 
 with:
@@ -1542,7 +1544,7 @@ This command returns the path of the deleted page directory. Use `--dry-run` to 
 Example:
 
 ```bash
-$ streamdeckify delete-page ~/streamdeck-data/MYDECKSERIAL -p spotify
+$ streamdeckfs delete-page ~/streamdeck-data/MYDECKSERIAL -p spotify
 ```
 
 ## list-keys
@@ -1550,7 +1552,7 @@ $ streamdeckify delete-page ~/streamdeck-data/MYDECKSERIAL -p spotify
 Will print the keys of a page.
 
 ```bsash
-streamdeckify list-keys SERIAL_DIRECTORY -p PAGE DISABLED
+streamdeckfs list-keys SERIAL_DIRECTORY -p PAGE DISABLED
 ```
 
 with:
@@ -1565,7 +1567,7 @@ Keys are listed one per output line, with for each the same result as if `get-ke
 Will print the full path of the asked key.
 
 ```bash
-streamdeckify get-key-path SERIAL_DIRECTORY -p PAGE -k KEY
+streamdeckfs get-key-path SERIAL_DIRECTORY -p PAGE -k KEY
 ```
 
 with:
@@ -1576,7 +1578,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+$ streamdeckfs get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress
 ```
 
@@ -1585,7 +1587,7 @@ $ streamdeckify get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progre
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked key.
 
 ```bash
-streamdeckify get-key-conf SERIAL_DIRECTORY -p PAGE -k KEY
+streamdeckfs get-key-conf SERIAL_DIRECTORY -p PAGE -k KEY
 ```
 
 with:
@@ -1596,7 +1598,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+$ streamdeckfs get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 {"kind": "KEY", "row": "2", "col": "4", "name": "progress"}
 ```
 
@@ -1605,7 +1607,7 @@ $ streamdeckify get-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progre
 Will update the configuration of the asked key.
 
 ```bash
-streamdeckify set-key-conf SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs set-key-conf SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1622,7 +1624,7 @@ This command returns the updated path of the key. Use `--dry-run` to get this pa
 Example, to disable the key:
 
 ```bash
-$ streamdeckify set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
+$ streamdeckfs set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -c disabled true
 ```
 
 ## create-key
@@ -1630,7 +1632,7 @@ $ streamdeckify set-key-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progre
 Will create a new key.
 
 ```
-streamdeckify create-key SERIAL_DIRECTORY -p PAGE -k ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs create-key SERIAL_DIRECTORY -p PAGE -k ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1651,14 +1653,14 @@ This command returns the full path of the newly created key. Use `--dry-run` to 
 Example, to create a key in the first row and column, with `foo` as name:
 
 ```bash
-$ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
+$ streamdeckfs create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
 ```
 
 Or to create it in an available random available key:
 
 ```bash
-$ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k '?' -c name foo
+$ streamdeckfs create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k '?' -c name foo
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_3_COL_2;name=foo
 ```
 
@@ -1667,7 +1669,7 @@ $ streamdeckify create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k '?' -c name f
 Will make a full copy of a key (including all its texts, images, events), in the same page or another.
 
 ```
-streamdeckify copy-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs copy-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1690,7 +1692,7 @@ This command returns the full path of the newly created key. Use `--dry-run` to 
 Example, to create a copy of the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
 
 ```bash
-$ streamdeckify copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
+$ streamdeckfs copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
 ```
 
@@ -1699,7 +1701,7 @@ $ streamdeckify copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 
 Will move a key to another page or another position
 
 ```
-streamdeckify move-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs move-key SERIAL_DIRECTORY -p PAGE -k KEY -tp TO_PAGE -tk ROW,COL -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1722,7 +1724,7 @@ This command returns the new full path of the key. Use `--dry-run` to get this p
 Example, to move the key `foo` from the page 20 to 30 on row 1, col 1, with `bar` as name:
 
 ```bash
-$ streamdeckify move-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
+$ streamdeckfs move-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
 ```
 
@@ -1731,7 +1733,7 @@ $ streamdeckify move-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 
 Will delete the asked key directory.
 
 ```bash
-streamdeckify delete-key SERIAL_DIRECTORY -p PAGE -k KEY
+streamdeckfs delete-key SERIAL_DIRECTORY -p PAGE -k KEY
 ```
 
 with:
@@ -1744,7 +1746,7 @@ This command returns the path of the deleted key directory. Use `--dry-run` to g
 Example:
 
 ```bash
-$ streamdeckify delete-key ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
+$ streamdeckfs delete-key ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 ```
 
 ## list-images
@@ -1752,7 +1754,7 @@ $ streamdeckify delete-key ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 Will print the image layers of a key.
 
 ```bsash
-streamdeckify list-images SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+streamdeckfs list-images SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
 ```
 
 with:
@@ -1768,7 +1770,7 @@ Image layers are listed one per output line, with for each the same result as if
 Will print the full path of the asked image layer.
 
 ```bash
-streamdeckify get-image-path SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+streamdeckfs get-image-path SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
 ```
 
 with:
@@ -1780,7 +1782,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0%;angles.1=33%;opacity=50
 ```
 
@@ -1791,7 +1793,7 @@ Here you see `angles` and `angles.1` because `angles.1` was set by a call to `se
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked image layer.
 
 ```bash
-streamdeckify get-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+streamdeckfs get-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
 ```
 
 with:
@@ -1803,7 +1805,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs get-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 {"kind": "IMAGE", "layer": "0", "name": "progress", "draw": "arc", "coords": "0,0,100%,100%", "outline": "#8cc63f", "width": "5", "angles": "0,0%", "angles.1": "29%", "opacity": "50"}
 ```
 
@@ -1814,7 +1816,7 @@ You see that `coords` is not split as a JSON array, and that `angles` and `angle
 Will update the configuration of the asked image layer.
 
 ```bash
-streamdeckify set-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs set-image-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1832,7 +1834,7 @@ This command returns the updated path of the image layer. Use `--dry-run` to get
 Example, to update the end angle of the arc that we use as a circular progress bar:
 
 ```bash
-$ streamdeckify set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c angles.1 '31%'
+$ streamdeckfs set-image-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c angles.1 '31%'
 ```
 
 To have the progress bar automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with your real listening progress.
@@ -1842,7 +1844,7 @@ To have the progress bar automatically updates, you only need a script `ON_START
 Will create a new image layer.
 
 ```
-streamdeckify create-image SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+streamdeckfs create-image SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
 ```
 
 with:
@@ -1860,14 +1862,14 @@ This command returns the full path of the newly created image layer. Use `--dry-
 Example, to create an image layer drawing a red square
 
 ```bash
-$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 -c draw rectangle -c coords '20%,20%,80%,80%' -c width 0 -c fill red
+$ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 -c draw rectangle -c coords '20%,20%,80%,80%' -c width 0 -c fill red
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo;draw=rectangle;coords=20%,20%,80%,80%;fill=red;width=0
 ```
 
 Or to use an existing image:
 
 ```bash
-$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/image
+$ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/image
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo
 ```
 
@@ -1876,7 +1878,7 @@ $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name
 Will make a copy of an image layer, in the same key or another.
 
 ```
-streamdeckify copy-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs copy-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1896,7 +1898,7 @@ This command returns the full path of the newly created image layer. Use `--dry-
 Example, to create a copy of the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
 
 ```bash
-$ streamdeckify copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
+$ streamdeckfs copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
 ```
 
@@ -1905,7 +1907,7 @@ $ streamdeckify copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -t
 Will move an image layer to another key
 
 ```
-streamdeckify move-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs move-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -1925,7 +1927,7 @@ This command returns the new full path of the image layer. Use `--dry-run` to ge
 Example, to move the layer `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd layer with `bar` as name:
 
 ```bash
-$ streamdeckify move-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
+$ streamdeckfs move-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
 ```
 
@@ -1934,7 +1936,7 @@ $ streamdeckify move-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -t
 Will delete the asked image file.
 
 ```bash
-streamdeckify delete-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
+streamdeckfs delete-image SERIAL_DIRECTORY -p PAGE -k KEY -l LAYER
 ```
 
 with:
@@ -1948,7 +1950,7 @@ This command returns the path of the deleted image layer file. Use `--dry-run` t
 Example:
 
 ```bash
-$ streamdeckify delete-image ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs delete-image ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 ```
 
 ## list-images
@@ -1956,7 +1958,7 @@ $ streamdeckify delete-image ~/streamdeck-data/MYDECKSERIAL -p spotify -k progre
 Will print the text lines of a key.
 
 ```bsash
-streamdeckify list-texts SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+streamdeckfs list-texts SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
 ```
 
 with:
@@ -1972,7 +1974,7 @@ Text lines are listed one per output line, with for each the same result as if `
 Will print the full path of the asked text line.
 
 ```bash
-streamdeckify get-text-path SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckfs get-text-path SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -1984,7 +1986,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;text=2:23
 ```
 
@@ -1993,7 +1995,7 @@ $ streamdeckify get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progr
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked text line.
 
 ```bash
-streamdeckify get-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckfs get-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -2005,7 +2007,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs get-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 {"kind": "TEXT", "line": "1", "name": "progress", "size": "30", "weight": "black", "color": "#8cc63f", "align": "center", "valign": "middle", "margin": {"top": "12%", "right": "1", "bottom": "40%", "left": "1"}}
 ```
 
@@ -2016,7 +2018,7 @@ You see that `margins` is an object with `top`, `left`, `bottom` and `right` key
 Will update the configuration of the asked text line.
 
 ```bash
-streamdeckify set-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs set-text-conf SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2034,10 +2036,10 @@ This command returns the updated path of the text line. Use `--dry-run` to get t
 Example, to update the text used to display the position in the current track:
 
 ```bash
-$ streamdeckify set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c text '2:36'
+$ streamdeckfs set-text-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress -c text '2:36'
 ```
 
-To have this text automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with the real progression. Or you can avoid having the `text` configuration option and gt the path via `get-text-path` and write the text in the file. Or, even better (and the faster for your script), make this `TEXT...` file a link that point to a file inside which you write the text. `streamdeckify` watches the file pointed by the symbolic link and will updates when it changes. So you can avoid a call to `set-text-conf` and just update a file that is finally not related to `streamdeckify`.
+To have this text automatically updates, you only need a script `ON_START` on a key that will regularly fetch the spotify API and call the above command with the real progression. Or you can avoid having the `text` configuration option and gt the path via `get-text-path` and write the text in the file. Or, even better (and the faster for your script), make this `TEXT...` file a link that point to a file inside which you write the text. `streamdeckfs` watches the file pointed by the symbolic link and will updates when it changes. So you can avoid a call to `set-text-conf` and just update a file that is finally not related to `streamdeckfs`.
 
 
 ## create-text
@@ -2045,7 +2047,7 @@ To have this text automatically updates, you only need a script `ON_START` on a 
 Will create a new text line.
 
 ```
-streamdeckify create-text SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+streamdeckfs create-text SERIAL_DIRECTORY -p PAGE -k KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
 ```
 
 with:
@@ -2063,14 +2065,14 @@ This command returns the full path of the newly created text line. Use `--dry-ru
 Example, to create a centered text "foo":
 
 ```bash
-$ streamdeckify create-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c line 1 -c text foo -c align center -c valign middle
+$ streamdeckfs create-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c line 1 -c text foo -c align center -c valign middle
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo;text=foo;align=center;valign=middle
 ```
 
 Or to use an existing text file:
 
 ```bash
-$ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/text-file
+$ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/text-file
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo
 ```
 
@@ -2079,7 +2081,7 @@ $ streamdeckify create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name
 Will make a copy of a text line, in the same key or another.
 
 ```
-streamdeckify copy-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs copy-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2099,7 +2101,7 @@ This command returns the full path of the newly created text line. Use `--dry-ru
 Example, to create a copy of the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
 
 ```bash
-$ streamdeckify copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
+$ streamdeckfs copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
 ```
 
@@ -2108,7 +2110,7 @@ $ streamdeckify copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp
 Will move a text line to another key
 
 ```
-streamdeckify move-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs move-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE -tp TO_PAGE -tk TO_KEY -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2128,7 +2130,7 @@ This command returns the new full path of the key. Use `--dry-run` to get this p
 Example, to move the text line `foo` from the key `4,8` in page 20 to the key `1,1` in page 30, as the 2nd line with `bar` as name:
 
 ```bash
-$ streamdeckify move-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
+$ streamdeckfs move-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
 ```
 
@@ -2137,7 +2139,7 @@ $ streamdeckify move-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp
 Will delete the asked text file.
 
 ```bash
-streamdeckify delete-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
+streamdeckfs delete-text SERIAL_DIRECTORY -p PAGE -k KEY -l LINE
 ```
 
 with:
@@ -2151,7 +2153,7 @@ This command returns the path of the deleted text line file. Use `--dry-run` to 
 Example:
 
 ```bash
-$ streamdeckify delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
+$ streamdeckfs delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 ```
 
 ## list-events
@@ -2159,7 +2161,7 @@ $ streamdeckify delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progres
 Will print the events of a key.
 
 ```bsash
-streamdeckify list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+streamdeckfs list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
 ```
 
 with:
@@ -2175,7 +2177,7 @@ Events are listed one per output line, with for each the same result as if `get-
 Will print the full path of the asked event.
 
 ```bash
-streamdeckify get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+streamdeckfs get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 ```
 
 with:
@@ -2187,7 +2189,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 
@@ -2196,7 +2198,7 @@ $ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 Will print a JSON representation of the full configuration (including options inherited from references) of the asked event.
 
 ```bash
-streamdeckify get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+streamdeckfs get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 ```
 
 with:
@@ -2208,7 +2210,7 @@ with:
 Example:
 
 ```bash
-$ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckfs get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "every": "1000", "unique": true}
 ```
 
@@ -2217,7 +2219,7 @@ $ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 Will update the configuration of the asked event.
 
 ```bash
-streamdeckify set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2235,17 +2237,17 @@ This command returns the updated path of the event. Use `--dry-run` to get this 
 Example, to stop allowing repetition:
 
 ```bash
-$ streamdeckify set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
+$ streamdeckfs set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
 ```
 
 Passing an empty string for the `every` configuration option removes it from the file name, as we can see then by calling `get-event-path` and `get_event-conf`:
 
 ```bash
-$ streamdeckify get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 ```
-$ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
+$ streamdeckfs get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "unique": true}
 ```
 
@@ -2254,7 +2256,7 @@ $ streamdeckify get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek
 Will create a new event.
 
 ```
-streamdeckify create-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+streamdeckfs create-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
 ```
 
 with:
@@ -2273,7 +2275,7 @@ This command returns the full path of the newly created event. Use `--dry-run` t
 Example, to create an event launching the gnome-calculator when the key is pressed:
 
 ```bash
-$ streamdeckify create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
+$ streamdeckfs create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/ON_PRESS
 ```
 
@@ -2282,7 +2284,7 @@ $ streamdeckify create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link 
 Will make a copy of an event, in the same key or another.
 
 ```
-streamdeckify copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2303,7 +2305,7 @@ This command returns the full path of the newly created event. Use `--dry-run` t
 Example, to create a copy of the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
 
 ```bash
-$ streamdeckify copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
+$ streamdeckfs copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
 ```
 
@@ -2312,7 +2314,7 @@ $ streamdeckify copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press 
 Will move an event to another key
 
 ```
-streamdeckify move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
+streamdeckfs move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
 ```
 
 with:
@@ -2333,7 +2335,7 @@ This command returns the new full path of event. Use `--dry-run` to get this pat
 Example, to move the `ON_PRESS` event from the key `4,8` in the page 20 to the key `1,1` in the page 30,:
 
 ```bash
-$ streamdeckify move-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
+$ streamdeckfs move-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
 /home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
 ```
 
@@ -2342,7 +2344,7 @@ $ streamdeckify move-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press 
 Will delete the asked event file.
 
 ```bash
-streamdeckify delete-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
+streamdeckfs delete-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 ```
 
 with:
@@ -2356,5 +2358,5 @@ This command returns the path of the deleted event file. Use `--dry-run` to get 
 Example:
 
 ```bash
-$ streamdeckify delete-event ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -e press
+$ streamdeckfs delete-event ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -e press
 ```

@@ -1,8 +1,8 @@
 #
 # Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
 #
-# This file is part of Streamdeckify
-# (see https://github.com/twidi/streamdeckify).
+# This file is part of StreamDeckFS
+# (see https://github.com/twidi/streamdeckfs).
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
