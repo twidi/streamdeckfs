@@ -60,6 +60,11 @@ Here only the "bright" keys are active. Think of an overlay as a modal window.
 - Second keys of second and third rows: increase/decrease sensitivity on press, and can be pressed longer to increase/decrease more.
 - Second key of last row: same as in the first page. Toggle the microphone on press, and close the overlay on long press.
 
+# Why?
+
+As a linux user I couldn't use the official application and I quickly felt very limited by the one available on linux, [streamdeck-ui](https://timothycrosley.github.io/streamdeck-ui/), because I had many things in my head that couldn't be done. And I'm not a Linux GUI developer so I preferred to do my own tool. I, however, yse the same [underlying Python library to interface the Stream Deck](https://python-elgato-streamdeck.readthedocs.io). And [SnakeDeck](https://github.com/jpetazzo/snakedeck) was written, by an extreme coincidence, at the same time as StreamDeckFS, without either of us knowing it.
+
+
 # Prerequisites
 
 - Linux (compatibility with Darwin(mac) and Windows in a near future, I just don't have those OS at my disposal)
