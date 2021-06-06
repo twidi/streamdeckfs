@@ -206,9 +206,24 @@ class Manager:
             return cls.exit(1, f'No Stream Deck found with the serial "{serial}". Use the "inspect" command to list all available decks.')
         return decks[serial]
 
-    def write_deck_model(directory, device_class):
+    @classmethod
+    def write_deck_model(cls, directory, device_class):
         model_path = directory / '.model'
         model_path.write_text(f'{device_class.__name__}')
+
+    @classmethod
+    def get_info_from_model_file(cls, directory):
+        device_class = (Path(directory) / '.model').read_text().split(':')[0]
+        fake_device = cls.get_fake_device(cls.get_device_class(device_class))
+        nb_rows, nb_cols = fake_device.key_layout()
+        key_width, key_height = fake_device.key_image_format()['size']
+        return {
+            'model': device_class,
+            'nb_rows': nb_rows,
+            'nb_cols': nb_cols,
+            'key_width': key_width,
+            'key_height': key_height,
+        }
 
     @staticmethod
     def render_deck_images(deck, queue):

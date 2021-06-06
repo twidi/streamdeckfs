@@ -1324,6 +1324,21 @@ streamdeckify COMMAND SERIAL_DIRECTORY ARGUMENTS
 
 For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
 
+## get-deck-info
+
+Will print some information about the StreamDeck as JSON. Only work if `make-dirs` or `run` was already called once for the StreamDeck/directory.
+
+```bash
+streamdeckify get-deck-conf SERIAL_DIRECTORY
+```
+
+Example:
+
+```bash
+$ streamdeckify get-deck-info ~/streamdeck-data/MYDECKSERIAL
+{'model': 'StreamDeckXL', 'nb_rows': 4, 'nb_cols': 8, 'key_width': 96, 'key_height': 96}
+```
+
 ## list-pages
 
 Will print the pages of the deck.

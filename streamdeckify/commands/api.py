@@ -436,6 +436,16 @@ FC.combine_options()
 
 @cli.command()
 @FC.options['directory']
+def get_deck_info(directory):
+    """Get some information about the deck"""
+    try:
+        print(Manager.get_info_from_model_file(directory))
+    except Exception:
+        Manager.exit(1, f'Unable to read information from directory "{directory}')
+
+
+@cli.command()
+@FC.options['directory']
 @FC.options['disabled_flag']
 def list_pages(directory, with_disabled):
     """List the page of the deck"""

@@ -34,9 +34,11 @@ class Deck(Entity):
         else:
             self.serial = None
             try:
-                fake_device = Manager.get_fake_device(Manager.get_device_class((self.path / '.model').read_text().split(':')[0]))
-                self.nb_rows, self.nb_cols = fake_device.key_layout()
-                self.key_width, self.key_height = fake_device.key_image_format()['size']
+                info = Manager.get_info_from_model_file(self.path)
+                self.nb_rows = info['nb_rows']
+                self.nb_cols = info['nb_cols']
+                self.key_width = info['key_width']
+                self.key_height = info['key_height']
             except Exception:
                 from traceback import print_exc
                 print_exc()
