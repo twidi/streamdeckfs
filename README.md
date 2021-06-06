@@ -1307,6 +1307,7 @@ Note that before being able to use the API commands listed below, you must have 
 
 With these commands you can, for a page, key, text, image, or event:
 
+- list them
 - get its path
 - get its configuration options as JSON
 - update one or many configuration options
@@ -1322,6 +1323,20 @@ streamdeckify COMMAND SERIAL_DIRECTORY ARGUMENTS
 ```
 
 For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
+
+## list-pages
+
+Will print the pages of the deck.
+
+```bsash
+streamdeckify list-pages SERIAL_DIRECTORY DISABLED
+```
+
+with:
+
+- `DISABLED`: either `--without-disabled` (the default, to only list the pages that can be rendered) or `--with-disabled` (to list all the pages)
+
+Pages are listed one per output line, with for each the same result as if `get-page-conf` were called. See `get-page-conf` for output examples.
 
 ## get-page-path
 
@@ -1515,6 +1530,21 @@ Example:
 $ streamdeckify delete-page ~/streamdeck-data/MYDECKSERIAL -p spotify
 ```
 
+## list-keys
+
+Will print the keys of a page.
+
+```bsash
+streamdeckify list-keys SERIAL_DIRECTORY -p PAGE DISABLED
+```
+
+with:
+
+- `PAGE`: the number or name of the page for which to list the keys
+- `DISABLED`: either `--without-disabled` (the default, to only list the keys that can be rendered) or `--with-disabled` (to list all the keys)
+
+Keys are listed one per output line, with for each the same result as if `get-key-conf` were called. See `get-key-conf` for output examples.
+
 ## get-key-path
 
 Will print the full path of the asked key.
@@ -1701,6 +1731,22 @@ Example:
 ```bash
 $ streamdeckify delete-key ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 ```
+
+## list-images
+
+Will print the image layers of a key.
+
+```bsash
+streamdeckify list-images SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key for which to list the image layers
+- `KEY`: the name of the key for which to list the image layers, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `DISABLED`: either `--without-disabled` (the default, to only list the image layers that can be rendered) or `--with-disabled` (to list all the image layers)
+
+Image layers are listed one per output line, with for each the same result as if `get-image-conf` were called. See `get-image-conf` for output examples.
 
 ## get-image-path
 
@@ -1890,6 +1936,22 @@ Example:
 $ streamdeckify delete-image ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 ```
 
+## list-images
+
+Will print the text lines of a key.
+
+```bsash
+streamdeckify list-texts SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key for which to list the text lines
+- `KEY`: the name of the key for which to list the text lines, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `DISABLED`: either `--without-disabled` (the default, to only list the text lines that can be rendered) or `--with-disabled` (to list all the text lines)
+
+Text lines are listed one per output line, with for each the same result as if `get-text-conf` were called. See `get-text-conf` for output examples.
+
 ## get-text-path
 
 Will print the full path of the asked text line.
@@ -2076,6 +2138,22 @@ Example:
 ```bash
 $ streamdeckify delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
 ```
+
+## list-events
+
+Will print the events of a key.
+
+```bsash
+streamdeckify list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the key for which to list the events
+- `KEY`: the name of the key for which to list the events, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `DISABLED`: either `--without-disabled` (the default, to only list the events that can be rendered) or `--with-disabled` (to list all the events)
+
+Events are listed one per output line, with for each the same result as if `get-event-conf` were called. See `get-event-conf` for output examples.
 
 ## get-event-path
 

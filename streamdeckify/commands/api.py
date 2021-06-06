@@ -53,7 +53,8 @@ class FilterCommands:
         'optional_names_and_values': click.option('-c', '--conf', 'names_and_values', type=(str, str), multiple=True, required=False, help='Pair of names and values to set for the configuration "-c name1 value1 -c name2 value2..."'),
         'verbosity': click_log.simple_verbosity_option(logger, default='WARNING', help='Either CRITICAL, ERROR, WARNING, INFO or DEBUG', show_default=True),
         'link': click.option('--link', type=click.Path(file_okay=True, dir_okay=False, resolve_path=True, exists=True), help='Create a link to this file instead of an empty file'),
-        'dry_run': click.option('--dry-run', is_flag=True, help='Only validate arguments and return what would have been returned by the command but without touching anything')
+        'dry_run': click.option('--dry-run', is_flag=True, help='Only validate arguments and return what would have been returned by the command but without touching anything'),
+        'disabled_flag': click.option('--with-disabled/--without-disabled', 'with_disabled', default=False, help='Include disabled ones or not'),
     }
 
     @classmethod
@@ -412,9 +413,34 @@ class FilterCommands:
     def move_event(cls, event, to_key, to_kind, names_and_values, dry_run=False):
         return cls.move_entity(event, to_key, {'kind': to_kind}, names_and_values, f'{to_key}, NEW EVENT {to_kind}', dry_run=dry_run)
 
+    @classmethod
+    def iter_content(cls, entity, content, with_disabled):
+        for identifier, obj in sorted([(identifier, obj) for identifier, obj in content.items()]):
+            if not obj and not with_disabled:
+                continue
+            if with_disabled:
+                for version in obj.all_versions:
+                    yield version
+            else:
+                yield obj
+
+    @classmethod
+    def list_content(cls, entity, content, with_disabled):
+        for obj in cls.iter_content(entity, content, with_disabled):
+            print(FC.get_args_as_json(obj))
+
 
 FC = FilterCommands
 FC.combine_options()
+
+
+@cli.command()
+@FC.options['directory']
+@FC.options['disabled_flag']
+def list_pages(directory, with_disabled):
+    """List the page of the deck"""
+    deck = FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
+    FC.list_content(deck, deck.pages, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -498,6 +524,15 @@ def delete_page(directory, page_filter, dry_run):
 
 
 @cli.command()
+@FC.options['page_filter']
+@FC.options['disabled_flag']
+def list_keys(directory, page_filter, with_disabled):
+    """List the keys of a page"""
+    page = FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    FC.list_content(page, page.keys, with_disabled=with_disabled)
+
+
+@cli.command()
 @FC.options['key_filter']
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
@@ -576,6 +611,15 @@ def delete_key(directory, page_filter, key_filter, dry_run):
     """Fully delete of a key directory."""
     key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
     print(FC.delete_entity(key, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options['key_filter']
+@FC.options['disabled_flag']
+def list_images(directory, page_filter, key_filter, with_disabled):
+    """List the image layers of a key"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    FC.list_content(key, key.layers, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -662,6 +706,15 @@ def delete_image(directory, page_filter, key_filter, layer_filter, dry_run):
 
 
 @cli.command()
+@FC.options['key_filter']
+@FC.options['disabled_flag']
+def list_texts(directory, page_filter, key_filter, with_disabled):
+    """List the text lines of a key"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter)
+    FC.list_content(key, key.text_lines, with_disabled=with_disabled)
+
+
+@cli.command()
 @FC.options['text_line_filter']
 def get_text_path(directory, page_filter, key_filter, text_line_filter):
     """Get the path of an image layer."""
@@ -742,6 +795,15 @@ def delete_text(directory, page_filter, key_filter, text_line_filter, dry_run):
     """Delete a text line."""
     text_line = FC.find_text_line(FC.find_key(FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter), key_filter), text_line_filter)
     print(FC.delete_entity(text_line, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options['key_filter']
+@FC.options['disabled_flag']
+def list_events(directory, page_filter, key_filter, with_disabled):
+    """List the events of a key"""
+    key = FC.find_key(FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter), key_filter)
+    FC.list_content(key, key.events, with_disabled=with_disabled)
 
 
 @cli.command()
