@@ -27,7 +27,8 @@ def cli():
 
 
 common_options = {
-    'optional_deck': click.argument('deck', nargs=-1, required=False),
+    'optional_serial': click.argument('serial', nargs=-1, required=False),
+    'optional_serials': click.argument('serials', nargs=-1, required=False),
     'verbosity': click_log.simple_verbosity_option(logger, help='Either CRITICAL, ERROR, WARNING, INFO or DEBUG', show_default=True),
 }
 

@@ -443,7 +443,7 @@ class KeyTextLine(keyImagePart):
             return
         self.scrolled = 0
         self.scrolled_at = time() + self.SCROLL_WAIT
-        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1 / abs(self.scroll_pixels)), wait_first=self.SCROLL_WAIT, name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line else ""}')
+        self.scroll_thread = Repeater(self.do_scroll, max(RENDER_IMAGE_DELAY, 1 / abs(self.scroll_pixels)), wait_first=self.SCROLL_WAIT, name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line and self.line != -1 else ""}')
         self.scroll_thread.start()
 
     def stop_scroller(self, *args, **kwargs):

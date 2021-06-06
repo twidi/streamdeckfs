@@ -104,7 +104,7 @@ class Manager:
         }[device_class](None)
 
     @classmethod
-    def get_decks(cls, limit_to_serial=None, need_open=True):
+    def get_decks(cls, limit_to_serials=None, need_open=True, exit_if_none=True):
         if not cls.decks:
             for deck in cls.get_manager().enumerate():
                 device_type = deck.deck_type()
@@ -125,7 +125,7 @@ class Manager:
                     connected = True
                     deck.reset()
                     serial = deck.get_serial_number()
-                    if limit_to_serial and limit_to_serial != serial:
+                    if limit_to_serials and serial not in limit_to_serials:
                         cls.close_deck(deck)
                         continue
                     deck.set_brightness(DEFAULT_BRIGHTNESS)
@@ -146,7 +146,7 @@ class Manager:
                 }
                 if connected:
                     deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
-        if not len(cls.decks):
+        if exit_if_none and not len(cls.decks):
             Manager.exit(1, 'No available Stream Deck. Aborting.')
         return cls.decks
 
@@ -165,7 +165,7 @@ class Manager:
         if len(serial) > 1:
             return cls.exit(1, f'Invalid serial "{" ".join(serial)}".')
         serial = serial[0] if serial else None
-        decks = cls.get_decks(limit_to_serial=serial)
+        decks = cls.get_decks(limit_to_serials=[serial] if serial else None)
         if not serial:
             if len(decks) > 1:
                 return cls.exit(1, f'{len(decks)} Stream Decks detected, you need to specify the serial. Use the "inspect" command to list all available decks.')

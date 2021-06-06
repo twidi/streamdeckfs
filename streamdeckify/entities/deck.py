@@ -54,7 +54,7 @@ class Deck(Entity):
         self.pressed_key = None
         self.is_running = False
         self.end_event = threading.Event()
-        self.end_reason = None
+        self.directory_removed = False
 
     @property
     def str(self):
@@ -79,11 +79,11 @@ class Deck(Entity):
         self.read_directory()
         Manager.add_watch(self.path, self)
 
-    def run(self, open_page=None):
+    def run(self):
         from .page import FIRST
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(FIRST if open_page is None else open_page, False)
+        self.go_to_page(FIRST)
 
     def read_directory(self):
         if self.filters.get('page') != FILTER_DENY:
@@ -105,8 +105,11 @@ class Deck(Entity):
                     return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
 
     def on_directory_removed(self, directory):
+        if self.end_event.is_set():
+            return
+        self.directory_removed = True
+        logger.critical(f'[{self}] Deck configuration directory "{directory}" was removed. Stopping it.')
         self.unrender()
-        self.end_reason = (1, f'[{self}] Deck configuration directory "{directory}" was removed')
         self.end_event.set()
 
     def update_visible_pages_stack(self):
@@ -145,7 +148,7 @@ class Deck(Entity):
                 break
         return page, transparent
 
-    def go_to_page(self, page_ref, transparent):
+    def go_to_page(self, page_ref, transparent=False):
         from .page import FIRST, PREVIOUS, BACK, NEXT
         transparent = bool(transparent)
 

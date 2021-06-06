@@ -191,6 +191,16 @@ And `CONFIG_DIRECTORY` can be either the exact directory, i.e., `BASE_DIRECTORY/
 
 Now that you have your StreamDeck running, try adding an image for another key (on the first page). You'll see that the deck automatically updates. And maybe you're starting to see the infinite possibilities.
 
+If you have many StreamDecks, each with its config directory (for example if 2 decks `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1` and `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_2`, you have many options:
+
+- run without passing any serials and passing `BASE_DIRECTORY`: it will run for all decks that have a config directory in `BASE_DIRECTORY`
+- run with passing one or many serials and passing `BASE_DIRECTORY`: it will run for all wanted decks that have a config directory in `BASE_DIRECTORY`
+- run without passing any serials and passing the serial config directory `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`: it will run for this deck only
+
+You can also run many instances of the program, one for each deck (so you can easily stop one). There is two ways to do this:
+- for each deck, run without passing any serials and passing the serial config directory `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
+- for each deck, run with passing its serial and passing the global or the serial config directory, i.e., `BASE_DIRECTORY` or `BASE_DIRECTORY/YOUR_SERIAL_NUMBER_1`
+
 
 # Configuration
 

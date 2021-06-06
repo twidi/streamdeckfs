@@ -14,21 +14,21 @@ from .base import cli, common_options, validate_positive_integer_or_zero
 
 
 @cli.command()
-@common_options['optional_deck']
+@common_options['optional_serial']
 @click.argument('directory', type=click.Path(file_okay=False, dir_okay=True, resolve_path=True))
 @click.option('-p', '--pages', type=int, default=0, callback=validate_positive_integer_or_zero, help="Number of pages to generate. Default to 0 to only create the main directory.")
 @click.option('-y', '--yes', is_flag=True, help='Automatically answer yes to confirmation demand')
 @click.option('--dry-run', is_flag=True, help='Only show the directories that would have been created without creating them')
 @common_options['verbosity']
-def make_dirs(deck, directory, pages, yes, dry_run):
+def make_dirs(serial, directory, pages, yes, dry_run):
     """Create keys directories for a Stream Deck.
 
     Arguments:
 
-    DECK: Serial number of the Stream Deck to handle. Optional if only one Stream Deck.\n
+    SERIAL: Serial number of the Stream Deck to handle. Optional if only one Stream Deck connected.\n
     DIRECTORY: Path of the directory where to create pages and keys directories. If it does not ends with a subdirectory matching the SERIAL, it will be added.
     """
-    deck = Manager.get_deck(deck)
+    deck = Manager.get_deck(serial)
     serial = deck.info['serial']
     directory = Manager.normalize_deck_directory(directory, serial)
     if directory.exists() and not directory.is_dir():
