@@ -82,8 +82,8 @@ class Deck(Entity):
         return index // self.nb_cols + 1, index % self.nb_cols + 1
 
     def on_create(self):
-        self.read_directory()
         Manager.add_watch(self.path, self)
+        self.read_directory()
 
     def run(self):
         from .page import FIRST

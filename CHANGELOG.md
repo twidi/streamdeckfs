@@ -4,6 +4,7 @@
 ## Release `1.2.dev0` - *2021-06-07*
 
 - API to get/set the current displayed page
+- Fix missing keys when copying a large page directory
 
 
 ## Release `1.1` - *2021-06-06*

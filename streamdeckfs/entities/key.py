@@ -97,8 +97,8 @@ class Key(Entity):
 
     def on_create(self):
         super().on_create()
-        self.read_directory()
         Manager.add_watch(self.path, self)
+        self.read_directory()
 
     @property
     def resolved_events(self):

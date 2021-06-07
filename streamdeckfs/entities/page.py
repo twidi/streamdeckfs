@@ -57,8 +57,8 @@ class Page(Entity):
 
     def on_create(self):
         super().on_create()
-        self.read_directory()
         Manager.add_watch(self.path, self)
+        self.read_directory()
 
     def on_delete(self):
         Manager.remove_watch(self.path, self)
