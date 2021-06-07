@@ -10,6 +10,7 @@ import json
 import re
 import shutil
 from copy import deepcopy
+from pathlib import Path
 from random import randint
 
 import click
@@ -36,6 +37,8 @@ __all__ = [
     'get_event_conf',
     'set_event_conf',
 ]
+
+NoneType = type(None)
 
 
 class FilterCommands:
@@ -442,6 +445,24 @@ def get_deck_info(directory):
         print(Manager.get_info_from_model_file(directory))
     except Exception:
         Manager.exit(1, f'Unable to read information from directory "{directory}')
+
+@cli.command()
+@FC.options['directory']
+def get_current_page(directory):
+    """Get the current page"""
+    try:
+        page_info = json.loads((Path(directory) / Deck.current_page_file_name).read_text().strip())
+        if set(page_info.keys()) != {'number', 'name', 'is_overlay'}:
+            raise ValueError
+        if (number := page_info['number']) is None:
+            if page_info['name'] is not None or page_info['is_overlay'] is not None:
+                raise ValueError
+        else:
+            if not isinstance(number, int) or not isinstance(page_info['name'], (str, NoneType)) or not isinstance(page_info['is_overlay'], bool):
+                raise ValueError
+        print(json.dumps(page_info))
+    except Exception:
+        Manager.exit(1, f'Unable to read current page information from directory "{directory}"')
 
 
 @cli.command()

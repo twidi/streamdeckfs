@@ -1,7 +1,12 @@
 # Changelog
 
 
-## Release `1.1.dev0` - *2021-06-06*
+## Release `1.2.dev0` - *2021-06-07*
+
+- API to get the current displayed page
+
+
+## Release `1.1` - *2021-06-06*
 
 - Complete API: get deck info + list/create/delete/move/duplicate pages/keys/images/texts/events (in addition to get/update) 
 - Run multiple StreamDeck at the same time

@@ -54,6 +54,8 @@ class Entity:
     disabled_filename_part = lambda args: 'disabled' if args.get('disabled', False) in (True, 'true', None) else None
     filename_parts = [name_filename_part, disabled_filename_part]
 
+    unnamed = '__unnamed__'
+
     parent_attr = None
     identifier_attr = None
     parent_container_attr = None
@@ -248,7 +250,7 @@ class Entity:
     def convert_args(cls, args):
         final_args = {
             'disabled': args.get('disabled', False),
-            'name': args.get('name') or '*unnamed*',
+            'name': args.get('name') or cls.unnamed,
         }
         return final_args
 
@@ -259,7 +261,7 @@ class Entity:
         return {
             'path': path,
             'path_modified_at': path_modified_at or time(),
-            'name': args.get('name') or '*unnamed*',
+            'name': args.get('name') or cls.unnamed,
             'disabled': args.get('disabled', False),
             cls.parent_attr: parent,
             cls.identifier_attr: identifier,

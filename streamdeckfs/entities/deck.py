@@ -6,6 +6,7 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+import json
 import threading
 from dataclasses import dataclass
 from queue import SimpleQueue
@@ -19,6 +20,7 @@ from .base import Entity, versions_dict_factory, FILTER_DENY
 @dataclass(eq=False)
 class Deck(Entity):
     is_dir = True
+    current_page_file_name = '.current_page'
 
     device: StreamDeck
     scroll_activated: bool
@@ -56,6 +58,7 @@ class Deck(Entity):
         self.pressed_key = None
         self.is_running = False
         self.directory_removed = False
+        self.current_page_state_file = self.path / self.current_page_file_name
 
     @property
     def str(self):
@@ -96,6 +99,12 @@ class Deck(Entity):
         if directory != self.path:
             return
         path = self.path / name
+
+        if name == self.current_page_file_name:
+            # ensure we are the sole owner of this file
+            self.write_current_page_info()
+            return None
+
         if (page_filter := self.filters.get('page')) != FILTER_DENY:
             from .page import Page
             if not entity_class or entity_class is Page:
@@ -145,6 +154,12 @@ class Deck(Entity):
         return page, transparent
 
     def go_to_page(self, page_ref, transparent=False):
+        try:
+            self._go_to_page(page_ref, transparent)
+        finally:
+            self.write_current_page_info()
+
+    def _go_to_page(self, page_ref, transparent=False):
         from .page import FIRST, PREVIOUS, BACK, NEXT
         transparent = bool(transparent)
 
@@ -207,6 +222,25 @@ class Deck(Entity):
 
         self.append_to_history(page, transparent)
         page.render(0, self.visible_pages[1:])
+
+    def write_current_page_info(self):
+        page = self.current_page if self.current_page_number else None
+        page_info = {
+            'number': self.current_page_number,
+            'name': page.name if page and page.name != self.unnamed else None,
+            'is_overlay': self.current_page_is_transparent if self.current_page_number else None,
+        }
+        if page_info != self.read_current_page_info():
+            try:
+                self.current_page_state_file.write_text(json.dumps(page_info))
+            except Exception:
+                pass
+
+    def read_current_page_info(self):
+        try:
+            return json.loads(self.current_page_state_file.read_text().strip())
+        except Exception:
+            return None
 
     def is_page_visible(self, page):
         number = page.number
@@ -298,6 +332,10 @@ class Deck(Entity):
         for page_number in self.visible_pages:
             if (page := self.pages.get(page_number)):
                 page.unrender()
+        try:
+            self.current_page_state_file.unlink()
+        except Exception:
+            pass
         if self.render_images_thread is not None:
             self.render_images_queue.put(None)
             self.render_images_thread.join(0.5)

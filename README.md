@@ -1346,6 +1346,21 @@ $ streamdeckfs get-deck-info ~/streamdeck-data/MYDECKSERIAL
 {'model': 'StreamDeckXL', 'nb_rows': 4, 'nb_cols': 8, 'key_width': 96, 'key_height': 96}
 ```
 
+## get-current-page
+
+Will print some information about the current page, if any.
+
+```bash
+streamdeckfs get-current-page SERIAL_DIRECTORY
+```
+
+Example:
+
+```bash
+$ streamdeckfs get-current-page ~/streamdeck-data/MYDECKSERIAL
+{"number": 60, "name": "spotify", "is_overlay": false}
+```
+
 ## list-pages
 
 Will print the pages of the deck.
