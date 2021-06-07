@@ -19,6 +19,8 @@ BACK = '__back__'
 PREVIOUS = '__prev__'
 NEXT = '__next__'
 
+PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
+
 
 @dataclass(eq=False)
 class Page(Entity):

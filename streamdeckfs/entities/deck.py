@@ -21,6 +21,7 @@ from .base import Entity, versions_dict_factory, FILTER_DENY
 class Deck(Entity):
     is_dir = True
     current_page_file_name = '.current_page'
+    set_current_page_file_name = '.set_current_page'
 
     device: StreamDeck
     scroll_activated: bool
@@ -59,6 +60,7 @@ class Deck(Entity):
         self.is_running = False
         self.directory_removed = False
         self.current_page_state_file = self.path / self.current_page_file_name
+        self.set_current_page_state_file = self.path / self.set_current_page_file_name
 
     @property
     def str(self):
@@ -87,7 +89,8 @@ class Deck(Entity):
         from .page import FIRST
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(FIRST)
+        self.go_to_page(FIRST)  # always display the first page first even if we'll load another one in `set_page_from_file`
+        self.set_page_from_file()
 
     def read_directory(self):
         if self.filters.get('page') != FILTER_DENY:
@@ -103,6 +106,10 @@ class Deck(Entity):
         if name == self.current_page_file_name:
             # ensure we are the sole owner of this file
             self.write_current_page_info()
+            return None
+
+        if name == self.set_current_page_file_name:
+            self.set_page_from_file()
             return None
 
         if (page_filter := self.filters.get('page')) != FILTER_DENY:
@@ -182,6 +189,9 @@ class Deck(Entity):
             page = possible_pages[0][1]
 
         elif page_ref == BACK:
+            if len(self.page_history) < 2:
+                return
+
             page, transparent = self.pop_from_history()
             if not page:
                 self.update_visible_pages_stack()  # because we may have updated the history
@@ -241,6 +251,23 @@ class Deck(Entity):
             return json.loads(self.current_page_state_file.read_text().strip())
         except Exception:
             return None
+
+    def set_page_from_file(self):
+        if not self.set_current_page_state_file.exists():
+            return
+        try:
+            page_info = json.loads(self.set_current_page_state_file.read_text().strip())
+            if set(page_info.keys()) != {'page', 'is_overlay'}:
+                raise ValueError
+            if not isinstance(page_ref := page_info['page'], str) or not isinstance(transparent := page_info['is_overlay'], bool):
+                raise ValueError
+            self.go_to_page(page_ref, transparent)
+        except Exception:
+            pass
+        try:
+            self.set_current_page_state_file.unlink()
+        except Exception:
+            pass
 
     def is_page_visible(self, page):
         number = page.number
@@ -332,10 +359,11 @@ class Deck(Entity):
         for page_number in self.visible_pages:
             if (page := self.pages.get(page_number)):
                 page.unrender()
-        try:
-            self.current_page_state_file.unlink()
-        except Exception:
-            pass
+        for file in (self.current_page_state_file, self.set_current_page_state_file):
+            try:
+                file.unlink()
+            except Exception:
+                pass
         if self.render_images_thread is not None:
             self.render_images_queue.put(None)
             self.render_images_thread.join(0.5)

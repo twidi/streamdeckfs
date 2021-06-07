@@ -1361,6 +1361,37 @@ $ streamdeckfs get-current-page ~/streamdeck-data/MYDECKSERIAL
 {"number": 60, "name": "spotify", "is_overlay": false}
 ```
 
+## set-current-page
+
+Will make the asked page the active one.
+
+```bash
+streamdeckfs set-current-page SERIAL_DIRECTORY PAGE OVERLAY
+```
+
+with:
+
+- `PAGE`: the number or name of the wanted page, or one of:
+	- `__first__` to go to the first page number available
+	- `__previous__` to go to the previous page number (i.e., the actual page number minus 1)
+	- `__next__` to go to the following page number (i.e., the actual page number plus 1)
+	- `__back__` to go to the previous page that was displayed before the current one
+- `OVERLAY`: either `--overlay` or `--no-overlay` (the default) to open the wanted page as an overlay over the current one. Have no effect if `PAGE` is `__back__`.
+
+Example, to open the spotify page:
+
+```bash
+$ streamdeckfs set-current-page ~/streamdeck-data/MYDECKSERIAL -p spotify
+```
+
+Example, to go back to the previous page:
+
+```bash
+$ streamdeckfs set-current-page ~/streamdeck-data/MYDECKSERIAL -p __back__
+```
+
+Note that if this command is executed while `streamdeckfs` is not running, it will open the wanted page the next time it will run.
+
 ## list-pages
 
 Will print the pages of the deck.

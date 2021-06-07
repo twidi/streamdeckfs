@@ -17,7 +17,7 @@ import click
 import click_log
 
 from ..common import logger, Manager
-from ..entities import Deck, FILTER_DENY
+from ..entities import Deck, FILTER_DENY, PAGE_CODES
 from .base import cli, validate_positive_integer
 
 __all__ = [
@@ -463,6 +463,27 @@ def get_current_page(directory):
         print(json.dumps(page_info))
     except Exception:
         Manager.exit(1, f'Unable to read current page information from directory "{directory}"')
+
+
+@cli.command()
+@FC.options['directory']
+@click.option('-p', '--page', 'page_filter', type=str, required=True, help='A page number or a name, or one of ' + ', '.join(f'"{page_code}"' for page_code in PAGE_CODES))
+@click.option('--overlay/--no-overlay', 'overlay', default=False, help='Set page as an overlay or not')
+def set_current_page(directory, page_filter, overlay):
+    """Set the current page"""
+    if page_filter not in PAGE_CODES:
+        FC.find_page(FC.get_deck(directory, key_filter=FILTER_DENY, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    page_info = {
+        'page': page_filter,
+        'is_overlay': overlay
+    }
+    path = Path(directory) / Deck.set_current_page_file_name
+    try:
+        if path.exists():
+            path.unlink()
+        path.write_text(json.dumps(page_info))
+    except Exception:
+        Manager.exit(1, f'Unable to write current page information into directory "{directory}"')
 
 
 @cli.command()

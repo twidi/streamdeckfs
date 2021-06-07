@@ -3,7 +3,7 @@
 
 ## Release `1.2.dev0` - *2021-06-07*
 
-- API to get the current displayed page
+- API to get/set the current displayed page
 
 
 ## Release `1.1` - *2021-06-06*
