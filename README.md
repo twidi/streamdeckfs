@@ -655,9 +655,11 @@ Like layers, you can either have one text line or many, using the `line=XX` conf
 
 "Lines" of texts can have different configuration options and will be written on top of each other in their numerical order. Note that all `IMAGE` layers will be drawn BEFORE the text lines.
 
-All text will be written in the same font (Roboto), which has many "styles" (combination of weight and italic).
+All text will be written in the same font ([Roboto](https://fonts.google.com/specimen/Roboto)), which has many "styles" (combination of weight and italic). Emojis are rendered via the [Noto Color Emoji](https://www.google.com/get/noto/help/emoji/) font. Both fonts are provided with the `streamdeckfs` package.
 
 Text is not wrapped by default and will be truncated to fit on a line. See the `wrap` and `scroll` options below to change this behavior.
+
+All consecutive white space will be merged on a single space.
 
 The configuration options for the texts are:
 
@@ -667,7 +669,7 @@ It's the number of the line to write. It is only needed if many lines are define
 
 #### Option "text"
 
-If defined, it's the text to write instead of reading if from the file content. New lines are replaced by spaces (except when wrapping is enabled).
+If defined, it's the text to write instead of reading if from the file content. New lines are replaced by spaces (except when wrapping is enabled.
 
 When setting the text using `text` in the file name, don't forget to consider the rules regarding the file names limitation: no `/` and length not longer than the max authorized on the operating system (256 characters on Linux). Plus, a last rule: the text cannot contain semi-colon as it is interpreted as the end of the text (because it's the configuration options separator)
 

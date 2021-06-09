@@ -7,15 +7,24 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import re
+from collections import namedtuple
 from dataclasses import dataclass
 from time import time
 
+from emoji import UNICODE_EMOJI
 from PIL import Image, ImageFont, ImageDraw
 
 from ..common import ASSETS_PATH, RENDER_IMAGE_DELAY
 from ..threads import Repeater
 from .base import RE_PARTS, InvalidArg
 from .image import keyImagePart
+
+
+TextPart = namedtuple('TextPart', ['kind', 'text', 'width', 'height'], defaults=[None, None, None, None])
+TextLine = namedtuple('TextLine', ['parts', 'width', 'height'])
+TEXT = 't'
+SPACE = ' '
+EMOJI = 'e'
 
 
 @dataclass(eq=False)
@@ -62,6 +71,8 @@ class KeyTextLine(keyImagePart):
     fonts_path = ASSETS_PATH / 'fonts'
     font_cache = {}
     text_size_cache = {}
+    emoji_font_size = 109
+    emoji_cache = {(emoji_font_size, 0): {}}
 
     identifier_attr = 'line'
     parent_container_attr = 'text_lines'
@@ -190,7 +201,7 @@ class KeyTextLine(keyImagePart):
             cls.text_size_drawer = ImageDraw.Draw(Image.new("RGB", (100, 100)))
         return cls.text_size_drawer
 
-    def get_font_path(self):
+    def get_text_font_path(self):
         weight = self.weight.capitalize()
         if weight == 'regular' and self.italic:
             weight = ''
@@ -198,10 +209,18 @@ class KeyTextLine(keyImagePart):
         return self.fonts_path / 'roboto' / f'Roboto-{weight}{italic}.ttf'
 
     @classmethod
-    def get_font(cls, font_path, size):
+    def get_text_font(cls, font_path, size):
         if (font_path, size) not in cls.font_cache:
             cls.font_cache[(font_path, size)] = ImageFont.truetype(str(font_path), size)
         return cls.font_cache[(font_path, size)]
+
+    @classmethod
+    def get_emoji_font(cls):
+        if 'emoji' not in cls.font_cache:
+            font_path = cls.fonts_path / 'noto-emoji' / 'NotoColorEmoji.ttf'
+            size = cls.emoji_font_size
+            cls.font_cache['emoji'] = ImageFont.truetype(str(font_path), size, layout_engine=ImageFont.LAYOUT_RAQM)
+        return cls.font_cache['emoji']
 
     @classmethod
     def get_text_size(cls, text, font):
@@ -210,59 +229,218 @@ class KeyTextLine(keyImagePart):
         return cls.text_size_cache[font][text]
 
     @classmethod
-    def split_text_in_lines(cls, text, max_width, font):
-        '''Split the given `text`  using the minimum length word-wrapping
-        algorithm to restrict the text to a pixel width of `width`.
-        Based on:
-        https://web.archive.org/web/20110818230121/http://jesselegg.com/archives/2009/09/5/simple-word-wrap-algorithm-pythons-pil/
-        With some updates:
-        - respect new lines
-        - split word in parts if it is too long to fit on a line (always start on its own line, but the last of its lines
-          can be followed by another word)
-        '''
-        line_width, line_height = cls.get_text_size(text, font)
-        if line_width <= max_width:
-            return [text]
-        space_width = cls.get_text_size(' ', font)[0]
-        lines = []
-        text_lines = [line.strip() for line in text.splitlines()]
-        for text_line in text_lines:
-            if not text_line:
-                lines.append(' ')
+    def get_emoji_image(cls, text, size, top_margin):
+        font = cls.get_emoji_font()
+        original_key = (cls.emoji_font_size, 0)
+        if text not in cls.emoji_cache[original_key]:
+            width, height = cls.get_text_size(text, font)
+            image = Image.new("RGBA", (width, height), '#00000000')
+            drawer = ImageDraw.Draw(image)
+            drawer.text((0, 0), text, font=font, fill='white', embedded_color=True)
+            cls.emoji_cache[original_key][text] = image.crop(image.getbbox())  # auto-crop
+        key = (size, top_margin)
+        if text not in cls.emoji_cache.setdefault(key, {}):
+            original_image = cls.emoji_cache[original_key][text]
+            original_width, original_height = original_image.size
+            new_height = size - top_margin
+            new_width = round(original_width * new_height / original_height)
+            image = original_image.resize((new_width, new_height), Image.LANCZOS)
+            if top_margin:
+                final_image = Image.new("RGBA", (new_width, new_height + top_margin), '#00000000')
+                final_image.paste(image, (0, top_margin))
+            else:
+                final_image = image
+            cls.emoji_cache[key][text] = final_image
+        return cls.emoji_cache[key][text]
+
+    @classmethod
+    def get_emmoji_size(cls, text, size, top_margin):
+        return cls.get_emoji_image(text, size, top_margin).size
+
+    @classmethod
+    def get_text_or_emoji_size(cls, kind, text, text_font, emoji_size, top_margin):
+        if kind == EMOJI:
+            return cls.get_emmoji_size(text, emoji_size, top_margin)
+        return cls.get_text_size(text, text_font)
+
+    @classmethod
+    def finalize_line(cls, parts, text_font, emoji_size, top_margin):
+        final_parts = []
+        line_height = line_width = 0
+        # for kind, text, width, height, part_top_margin in parts:
+        for part in parts:
+            if part.width is None:
+                width, height = cls.get_text_or_emoji_size(part.kind, part.text, text_font, emoji_size, top_margin)
+                part = part._replace(width=width, height=height)
+            line_width += part.width
+            if part.height > line_height:
+                line_height = part.height
+            final_parts.append(part)
+
+        return TextLine(final_parts, line_width, line_height)
+
+    @classmethod
+    def split_text_on_lines_and_emojis(cls, text, max_width, text_font, emoji_size, top_margin):
+        emojis = UNICODE_EMOJI['en']
+
+        # we strip lines and replace all consecutive whitespaces on each line by a single space
+        lines = [" ".join(line.split()) for line in text.splitlines()]
+        # if we don't have a max width, we keep all non empty lines and put them on a single line
+        if not max_width:
+            lines = [" ".join(line for line in lines if line)]
+
+        final_lines = []
+        total_width = total_height = 0
+        for line in lines:
+            parts = []
+            current_kind = None
+            current_part = []
+            for char in line:
+                new_kind = SPACE if char == ' ' else (EMOJI if char in emojis else TEXT)  # we keep spaces appart to help wrapping
+                if new_kind != current_kind:
+                    if current_part:
+                        parts.append((current_kind, current_part))
+                    current_kind = new_kind
+                    current_part = []
+                current_part.append(char)
+            if current_part:
+                parts.append((current_kind, current_part))
+            line_parts, line_width, line_height = cls.finalize_line([TextPart(part_kind, ''.join(chars)) for part_kind, chars in parts], text_font, emoji_size, top_margin)
+            total_height += line_height
+            if line_width > total_width:
+                total_width = line_width
+            final_lines.append(TextLine(line_parts, line_width, line_height))
+
+        if max_width and total_width > max_width:
+            final_lines, total_width, total_height = cls.wrap_parts(final_lines, max_width, text_font, emoji_size, top_margin)
+
+        # if only one line, with only emojis, remove the top margin
+        # amd if not wrapping, we take it, else we keep it only if it still fits on the line
+        if top_margin > 0 and len(final_lines) == 1 and len((final_line := final_lines[0]).parts) == 1 and (part := final_line.parts[0]).kind == EMOJI:
+            width, height = cls.get_emmoji_size(part.text, emoji_size, 0)
+            if not max_width or width <= max_width:
+                top_margin = 0
+                final_lines = [TextLine([TextPart(EMOJI, part.text, width, height)], width, height)]
+                total_width, total_height = width, height
+
+        return final_lines, total_width, total_height, top_margin
+
+    @classmethod
+    def wrap_parts(cls, lines, max_width, text_font, emoji_size, top_margin):
+        space_size = cls.get_text_size(' ', text_font)
+
+        def get_text_size(text, source_part):
+            return cls.get_text_or_emoji_size(source_part.kind, text, text_font, emoji_size, top_margin)
+
+        def text_part(text, source_part, width=None, height=None):
+            if width is None:
+                width, height = get_text_size(text, source_part)
+            return TextPart(source_part.kind, text, width, height)
+
+        def finish_line():
+            nonlocal line_remaining_width
+            parts = current_parts
+            if parts:
+                # remove leading space
+                if (part := parts[0]).text.startswith(' '):
+                    parts = ([text_part(part.text[1:], part)] if part.text != ' ' else []) + parts[1:]
+                # remove trailing space
+                if (part := parts[-1]).text.endswith(' '):
+                    parts = parts[:-1] + ([text_part(part.text[:-1], part)] if part.text != ' ' else [])
+
+                final_lines.append(cls.finalize_line(parts, text_font, emoji_size, top_margin))
+
+            line_remaining_width = max_width
+            current_parts[:] = []
+
+        def add_part(part):
+            nonlocal line_remaining_width, parts_remaining_width
+            current_parts.append(part)
+            line_remaining_width -= part.width
+            parts_remaining_width -= part.width
+
+        def unshift_part(part):
+            remaining_parts.insert(0, part)
+
+        final_lines = []
+        for line in lines:
+
+            # if we have a line that is short enough, we can add it entirely
+            if line.width <= max_width:
+                if not line.parts:
+                    # set a space to represent an empty line
+                    line = TextLine([TextPart(' ', ' ', *space_size)], *space_size)
+                final_lines.append(line)
                 continue
-            remaining = 0 if lines else max_width
-            for word in text_line.split(None):
-                if (word_width := cls.get_text_size(word, font)[0]) + space_width > remaining:
-                    if word_width > max_width:
-                        word, left = word[:-1], word[-1]
-                        while True:
-                            word_width = cls.get_text_size(word, font)[0]
-                            if len(word) == 1 and word_width >= max_width:  # big letters!
-                                lines.append(word)
-                                word, left = left, ''
-                                remaining = 0
-                                if not word:
-                                    break
-                            elif word_width <= remaining:
-                                lines.append(word)
-                                word, left = left, ''
-                                if word:
-                                    remaining = max_width
-                                else:
-                                    remaining = remaining - word_width
-                                    break
-                            else:
-                                word, left = word[:-1], word[-1] + left
+
+            # else we have to manage the different parts of the line
+
+            current_parts = []
+            line_remaining_width = max_width
+            parts_remaining_width = line.width
+
+            remaining_parts = list(line.parts)
+            while remaining_parts:
+                part = remaining_parts.pop(0)
+
+                # if we are at the start of a line and the part is a space, we ignore it
+                if line_remaining_width == max_width and part.kind == SPACE:
+                    continue
+
+                # if the text is short enough to fit in the remaining space we can add the part directly
+                if part.width <= line_remaining_width:
+                    add_part(part)
+                    continue
+
+                # if there is only one character but bigger than the whole line, we place it in its own line
+                if len(part.text) == 1 and line_remaining_width == max_width:
+                    # so we end the current line if anything in it
+                    finish_line()
+                    # then we add our line with our character
+                    add_part(part)
+                    finish_line()
+                    # the remaining parts will then be analyzed for a new line
+                    continue
+
+                # our part does not fit...
+
+                # if it fits in a new line, we'll end the current line and add the part back to the remaining parts
+                if part.width <= max_width:
+                    finish_line()
+                    unshift_part(part)
+                    continue
+
+                # ok here our part does not fit in a whole line, so we extrat the text that fit to
+                # put in on the current line, then we'll start a new line for the reste
+                for size in range(1, len(part.text) + 1):
+                    text = part.text[:size]
+                    width, height = get_text_size(text, part)
+                    if width <= line_remaining_width:
+                        continue
+                    if size == 1:
+                        # if the first char does not fit
+                        if width > max_width:
+                            # if it does not fit even the whole line, we end the current line
+                            # and then we add it itself as a part (will be handled above), and the rest too
+                            finish_line()
+                            unshift_part(text_part(part.text[1:], part))  # now at pos 0, will be at 1 on unshift_part next line
+                            unshift_part(text_part(text, part, width, height))
+                        else:
+                            # in the other case (first char does not fit the remaining, but fit in a whole line) we
+                            # simply finish the whole line and move the whole part to be analyzed again
+                            finish_line()
+                            unshift_part(part)
                     else:
-                        lines.append(word)
-                        remaining = max_width - word_width
-                else:
-                    if not lines:
-                        lines.append(word)
-                    else:
-                        lines[-1] += ' %s' % word
-                    remaining = remaining - (word_width + space_width)
-        return lines
+                        # we add the text that fit (the one without the current char) into the current line
+                        # that we finish, and we move the remaining part to be analyzed again
+                        add_part(text_part(part.text[:size - 1], part))
+                        finish_line()
+                        unshift_part(text_part(part.text[size - 1:], part))
+                    break
+
+            finish_line()
+
+        return final_lines, max(line.width for line in final_lines), sum(line.height for line in final_lines)
 
     def on_changed(self):
         super().on_changed()
@@ -290,7 +468,7 @@ class KeyTextLine(keyImagePart):
 
     def _compose_base(self):
         text = self.resolved_text
-        if not text:
+        if not text or not text.strip():
             return None
 
         image_size = self.key.image_size
@@ -298,32 +476,30 @@ class KeyTextLine(keyImagePart):
         max_width = image_size[0] - (margins['right'] + margins['left'])
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
-        font = self.get_font(self.get_font_path(), self.convert_coordinate(self.size, 'height'))
-        if self.wrap:
-            lines = self.split_text_in_lines(text, max_width, font)
-        else:
-            lines = [" ".join(stripped_line for line in text.splitlines() if (stripped_line := line.strip()))]
+        text_size = self.convert_coordinate(self.size, 'height')
+        text_font = self.get_text_font(self.get_text_font_path(), text_size)
+        top_margin = text_font.font.height - text_size
+        emoji_size = text_font.getmetrics()[0]
 
-        # compute all sizes
-        lines_with_dim = [(line, ) + self.get_text_size(line, font) for line in lines]
-        if self.wrap:
-            total_width = max(line_width for line, line_width, line_height in lines_with_dim)
-            total_height = sum(line_height for line, line_width, line_height in lines_with_dim)
-        else:
-            total_width, total_height = lines_with_dim[0][1:]
+        lines, total_width, total_height, top_margin = self.split_text_on_lines_and_emojis(text, max_width if self.wrap else None, text_font, emoji_size, top_margin)
 
         image = Image.new("RGBA", (total_width, total_height), '#00000000')
         drawer = ImageDraw.Draw(image)
 
-        pos_x, pos_y = 0, 0
-
-        for line, line_width, line_height in lines_with_dim:
+        pos_y = 0
+        for line in lines:
+            pos_x = 0
             if self.align == 'right':
-                pos_x = total_width - line_width
+                pos_x = total_width - line.width
             elif self.align == 'center':
-                pos_x = round((total_width - line_width) / 2)
-            drawer.text((pos_x, pos_y), line, font=font, fill=self.color)
-            pos_y += line_height
+                pos_x = round((total_width - line.width) / 2)
+            for part in line.parts:
+                if part.kind == EMOJI:
+                    image.paste(self.get_emoji_image(part.text, emoji_size, top_margin), (pos_x, pos_y))
+                else:
+                    drawer.text((pos_x, pos_y), part.text, font=text_font, fill=self.color)
+                pos_x += part.width
+            pos_y += line.height
 
         self.apply_opacity(image)
 
