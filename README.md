@@ -655,7 +655,7 @@ Like layers, you can either have one text line or many, using the `line=XX` conf
 
 "Lines" of texts can have different configuration options and will be written on top of each other in their numerical order. Note that all `IMAGE` layers will be drawn BEFORE the text lines.
 
-All text will be written in the same font ([Roboto](https://fonts.google.com/specimen/Roboto)), which has many "styles" (combination of weight and italic). Emojis are rendered via the [Noto Color Emoji](https://www.google.com/get/noto/help/emoji/) font. Both fonts are provided with the `streamdeckfs` package.
+All text will be written in the same font ([Roboto](https://fonts.google.com/specimen/Roboto)), which has many "styles" (combination of weight and italic). Emojis are rendered via the [Noto Color Emoji](https://www.google.com/get/noto/help/emoji/) font (you can use emojis directly, like `❤️`, or [emojis codes](https://www.webfx.com/tools/emoji-cheat-sheet/), like `:heart:`). Both fonts are provided with the `streamdeckfs` package.
 
 Text is not wrapped by default and will be truncated to fit on a line. See the `wrap` and `scroll` options below to change this behavior.
 

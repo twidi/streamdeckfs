@@ -11,7 +11,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 from time import time
 
-from emoji import UNICODE_EMOJI
+from emoji import UNICODE_EMOJI, emojize
 from PIL import Image, ImageFont, ImageDraw
 
 from ..common import ASSETS_PATH, RENDER_IMAGE_DELAY
@@ -25,6 +25,7 @@ TextLine = namedtuple('TextLine', ['parts', 'width', 'height'])
 TEXT = 't'
 SPACE = ' '
 EMOJI = 'e'
+EMOJI_TYPES = {'\uFE0F', '\uFE0E'}  # emoji variant, text variant
 
 
 @dataclass(eq=False)
@@ -43,6 +44,7 @@ class KeyTextLine(keyImagePart):
         re.compile(r'^(?P<arg>color)=(?P<value>' + RE_PARTS["color"] + ')$'),
         re.compile(r'^(?P<arg>opacity)=(?P<value>' + RE_PARTS["0-100"] + ')$'),
         re.compile(r'^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
+        re.compile(r'^(?P<flag>fit)(?:=(?P<value>false|true))?$'),
         re.compile(r'^(?P<arg>margin)=(?P<top>-?' + RE_PARTS["% | number"] + '),(?P<right>-?' + RE_PARTS["% | number"] + '),(?P<bottom>-?' + RE_PARTS["% | number"] + '),(?P<left>-?' + RE_PARTS["% | number"] + ')$'),
         re.compile(r'^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?' + RE_PARTS["% | number"] + ')$'),
         re.compile(r'^(?P<arg>scroll)=(?P<value>-?' + RE_PARTS["% | number"] + ')$'),
@@ -65,6 +67,7 @@ class KeyTextLine(keyImagePart):
         lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
         lambda args: f'scroll={scroll}' if (scroll := args.get('scroll')) else None,
         lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
+        lambda args: 'fit' if args.get('fit', False) in (True, 'true', None) else None,
         keyImagePart.disabled_filename_part,
     ]
 
@@ -93,6 +96,7 @@ class KeyTextLine(keyImagePart):
         self.color = None
         self.opacity = None
         self.wrap = False
+        self.fit = False
         self.margin = None
         self.scroll = None
         self._complete_image = None
@@ -112,6 +116,9 @@ class KeyTextLine(keyImagePart):
         if len([1 for key in ('text', 'file') if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "text", "file"')
 
+        if len([1 for key in ('wrap', 'fit') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these flags must be used: "wrap", "fit"')
+
         final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
         if 'text' in args:
             final_args['mode'] = 'text'
@@ -120,13 +127,15 @@ class KeyTextLine(keyImagePart):
         final_args['weight'] = args.get('weight') or 'medium'
         if 'italic' in args:
             final_args['italic'] = args['italic']
-        final_args['align'] = args.get('align') or 'left'
-        final_args['valign'] = args.get('valign') or 'top'
+        final_args['align'] = args.get('align') or ('center' if args.get('fit') else 'left')
+        final_args['valign'] = args.get('valign') or ('middle' if args.get('fit') else 'top')
         final_args['color'] = args.get('color') or 'white'
         if 'opacity' in args:
             final_args['opacity'] = int(args['opacity'])
         if 'wrap' in args:
             final_args['wrap'] = args['wrap']
+        if 'fit' in args:
+            final_args['fit'] = args['fit']
         if 'margin' in args:
             final_args['margin'] = {}
             for part, val in list(args['margin'].items()):
@@ -139,7 +148,7 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         line = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'margin', 'scroll'):
+        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'fit', 'margin', 'scroll'):
             if key not in args:
                 continue
             setattr(line, key, args[key])
@@ -282,12 +291,16 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def split_text_on_lines_and_emojis(cls, text, max_width, text_font, emoji_size, top_margin):
         emojis = UNICODE_EMOJI['en']
+        text = emojize(text, use_aliases=True, variant='emoji_type')
 
         # we strip lines and replace all consecutive whitespaces on each line by a single space
         lines = [" ".join(line.split()) for line in text.splitlines()]
         # if we don't have a max width, we keep all non empty lines and put them on a single line
         if not max_width:
             lines = [" ".join(line for line in lines if line)]
+
+        while lines and not lines[-1]:
+            lines.pop()
 
         final_lines = []
         total_width = total_height = 0
@@ -296,7 +309,7 @@ class KeyTextLine(keyImagePart):
             current_kind = None
             current_part = []
             for char in line:
-                new_kind = SPACE if char == ' ' else (EMOJI if char in emojis else TEXT)  # we keep spaces appart to help wrapping
+                new_kind = SPACE if char == ' ' else (EMOJI if char in EMOJI_TYPES or char in emojis else TEXT)  # we keep spaces appart to help wrapping
                 if new_kind != current_kind:
                     if current_part:
                         parts.append((current_kind, current_part))
@@ -466,6 +479,26 @@ class KeyTextLine(keyImagePart):
         self.start_scroller()
         return self.compose_cache
 
+    def prepare_text(self, text, max_width):
+        font_path = self.get_text_font_path()
+
+        def _prepare_text(text_size):
+            text_font = self.get_text_font(font_path, text_size)
+            top_margin = text_font.font.height - text_size
+            emoji_size = text_font.getmetrics()[0]
+
+            lines, total_width, total_height, top_margin = self.split_text_on_lines_and_emojis(text, max_width if self.wrap else None, text_font, emoji_size, top_margin)
+            return lines, total_width, total_height, top_margin, emoji_size, text_font
+
+        text_size = self.convert_coordinate(self.size, 'height')
+
+        while True:
+            lines, total_width, total_height, top_margin, emoji_size, text_font = _prepare_text(text_size)
+            if not self.fit:
+                break
+
+        return lines, total_width, total_height, top_margin, emoji_size, text_font
+
     def _compose_base(self):
         text = self.resolved_text
         if not text or not text.strip():
@@ -476,12 +509,7 @@ class KeyTextLine(keyImagePart):
         max_width = image_size[0] - (margins['right'] + margins['left'])
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
-        text_size = self.convert_coordinate(self.size, 'height')
-        text_font = self.get_text_font(self.get_text_font_path(), text_size)
-        top_margin = text_font.font.height - text_size
-        emoji_size = text_font.getmetrics()[0]
-
-        lines, total_width, total_height, top_margin = self.split_text_on_lines_and_emojis(text, max_width if self.wrap else None, text_font, emoji_size, top_margin)
+        lines, total_width, total_height, top_margin, emoji_size, text_font = self.prepare_text(text, max_width)
 
         image = Image.new("RGBA", (total_width, total_height), '#00000000')
         drawer = ImageDraw.Draw(image)
