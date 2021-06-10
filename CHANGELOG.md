@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.2.dev0` - *2021-06-07*
+## Release `1.2` - *2021-06-10*
 
 - API to get/set the current displayed page
 - Fix missing keys when copying a large page directory
