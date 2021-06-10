@@ -10,6 +10,9 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![PyPI](https://img.shields.io/pypi/v/streamdeckfs) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/streamdeckfs) ![PyPI - Wheel](https://img.shields.io/pypi/wheel/streamdeckfs) ![PyPI - Status](https://img.shields.io/pypi/status/streamdeckfs) ![PyPI - License](https://img.shields.io/pypi/l/streamdeckfs)](https://pypi.org/project/streamdeckfs/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/twidi/streamdeckfs)](https://github.com/twidi/streamdeckfs)
 
+
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start)) • [Pages](#pages) • [References](#references) • [API](#api)
+
 # StreamDeckFS
 
 StreamDeckFS is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
@@ -69,12 +72,12 @@ Here only the "bright" keys are active. Think of an overlay as a modal window.
 As a linux user I couldn't use the official application and I quickly felt very limited by the one available on linux, [streamdeck-ui](https://timothycrosley.github.io/streamdeck-ui/), because I had many things in my head that couldn't be done. And I'm not a Linux GUI developer so I preferred to do my own tool. I, however, yse the same [underlying Python library to interface the Stream Deck](https://python-elgato-streamdeck.readthedocs.io). And [SnakeDeck](https://github.com/jpetazzo/snakedeck) was written, by an extreme coincidence, at the same time as StreamDeckFS, without either of us knowing it.
 
 
-# Prerequisites
+# Installation
+
+## Prerequisites
 
 - Linux (compatibility with Darwin(mac) and Windows in a near future, I just don't have those OS at my disposal)
 - Python 3.9
-
-# Installation
 
 ## System
 
@@ -214,7 +217,7 @@ You can also run many instances of the program, one for each deck (so you can ea
 
 Note that `streamdeckfs` can be launched before the StreamDecks being plugged or their configuration directory being ready. It will patiently wait for everything to be ok for a StreamDeck to be rendered. And if theses directory become unavailable later, or if the StreamDecks are unplugged, it will stop rendering them and wait for them to be ready again.
 
-# Configuration
+Images
 
 There are two things you can configure on your StreamDeck: "appearance", i.e., what is displayed on the keys, and "events" that happen when you "act" with them.
 
