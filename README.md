@@ -696,6 +696,31 @@ Examples:
 ![image](https://user-images.githubusercontent.com/193474/120555088-d653f980-c3fa-11eb-889c-e9f0cea62b76.png)
 
 
+#### Option "fit"
+
+This configuration option can replace the `size` one when you want the size to be calculated to have the text occupy the maximum available space.
+
+It is compatible with `wrap`, ie if wrapping is not activated, it will find  a font size to make the whole text fit in one line.
+
+The default values for `valign` and `align` are different if `fit` is activated: `middle` (instead of `top`) for `valign`, and `center` (instead of `left`) for `align`.
+
+This configuration option is especially useful to display a single emoji at the maximum size possible.
+
+It must be defined like this:
+
+- `fit` or `fit=true` to fit the text
+- `fit=false` to not fit the text (it's the same as not defining the fit option at all)
+
+Examples:
+
+- `TEXT;text=😂;fit` or `TEXT;text=😂;fit=true` will make the emoji as big as possible:
+
+![image](https://user-images.githubusercontent.com/193474/121516559-a4d8c080-c9ee-11eb-8829-991f691a864f.png)
+
+- `TEXT;text=😂;fit=false` or `TEXT;text=😂` will use the default size
+
+
+
 #### Option "weight"
 
 It's the font-weight to use.
@@ -807,11 +832,11 @@ It must be defined like this:
 
 Examples:
 
-- `TEXT;text=foobar baz qux;wrap` or `TEXT;text=foobar;wrap=true` will wrap the text if too long:
+- `TEXT;text=foobar baz qux;wrap` or `TEXT;text=foobar baz qux;wrap=true` will wrap the text if too long:
 
 ![image](https://user-images.githubusercontent.com/193474/120556279-92fa8a80-c3fc-11eb-88d6-1b142486e13a.png)
 
-- `TEXT;text=foobar;wrap=false` or `TEXT;text=foobar` will not wrap the text
+- `TEXT;text=foobar baz qux;wrap=false` or `TEXT;text=foobar baz qux` will not wrap the text
 
 #### Option "margin"
 

@@ -6,6 +6,7 @@
 - API to get/set the current displayed page
 - Fix missing keys when copying a large page directory
 - Support for emojis
+- New `fit` configuration option for texts
 
 
 ## Release `1.1` - *2021-06-06*

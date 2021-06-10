@@ -22,6 +22,7 @@ from .image import keyImagePart
 
 TextPart = namedtuple('TextPart', ['kind', 'text', 'width', 'height'], defaults=[None, None, None, None])
 TextLine = namedtuple('TextLine', ['parts', 'width', 'height'])
+PreparedText = namedtuple('PreparedText', ['lines', 'width', 'height', 'top_margin', 'nb_forced_wrap', 'emoji_size', 'text_font'])
 TEXT = 't'
 SPACE = ' '
 EMOJI = 'e'
@@ -116,8 +117,8 @@ class KeyTextLine(keyImagePart):
         if len([1 for key in ('text', 'file') if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "text", "file"')
 
-        if len([1 for key in ('wrap', 'fit') if args.get(key)]) > 1:
-            raise InvalidArg('Only one of these flags must be used: "wrap", "fit"')
+        if len([1 for key in ('size', 'fit') if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "size", "fit"')
 
         final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
         if 'text' in args:
@@ -288,15 +289,14 @@ class KeyTextLine(keyImagePart):
 
         return TextLine(final_parts, line_width, line_height)
 
-    @classmethod
-    def split_text_on_lines_and_emojis(cls, text, max_width, text_font, emoji_size, top_margin):
+    def split_text_on_lines_and_emojis(self, text, max_width, text_font, emoji_size, top_margin):
         emojis = UNICODE_EMOJI['en']
         text = emojize(text, use_aliases=True, variant='emoji_type')
 
         # we strip lines and replace all consecutive whitespaces on each line by a single space
         lines = [" ".join(line.split()) for line in text.splitlines()]
         # if we don't have a max width, we keep all non empty lines and put them on a single line
-        if not max_width:
+        if not self.wrap:
             lines = [" ".join(line for line in lines if line)]
 
         while lines and not lines[-1]:
@@ -305,6 +305,9 @@ class KeyTextLine(keyImagePart):
         final_lines = []
         total_width = total_height = 0
         for line in lines:
+            if not line:
+                # we keep empty lines
+                line = ' '
             parts = []
             current_kind = None
             current_part = []
@@ -318,30 +321,20 @@ class KeyTextLine(keyImagePart):
                 current_part.append(char)
             if current_part:
                 parts.append((current_kind, current_part))
-            line_parts, line_width, line_height = cls.finalize_line([TextPart(part_kind, ''.join(chars)) for part_kind, chars in parts], text_font, emoji_size, top_margin)
+            line_parts, line_width, line_height = self.finalize_line([TextPart(part_kind, ''.join(chars)) for part_kind, chars in parts], text_font, emoji_size, top_margin)
             total_height += line_height
             if line_width > total_width:
                 total_width = line_width
             final_lines.append(TextLine(line_parts, line_width, line_height))
 
-        if max_width and total_width > max_width:
-            final_lines, total_width, total_height = cls.wrap_parts(final_lines, max_width, text_font, emoji_size, top_margin)
+        nb_forced_wrap = 0
+        if total_width > max_width and self.wrap:
+            final_lines, total_width, total_height, nb_forced_wrap = self.wrap_parts(final_lines, max_width, text_font, emoji_size, top_margin)
 
-        # if only one line, with only emojis, remove the top margin
-        # amd if not wrapping, we take it, else we keep it only if it still fits on the line
-        if top_margin > 0 and len(final_lines) == 1 and len((final_line := final_lines[0]).parts) == 1 and (part := final_line.parts[0]).kind == EMOJI:
-            width, height = cls.get_emmoji_size(part.text, emoji_size, 0)
-            if not max_width or width <= max_width:
-                top_margin = 0
-                final_lines = [TextLine([TextPart(EMOJI, part.text, width, height)], width, height)]
-                total_width, total_height = width, height
-
-        return final_lines, total_width, total_height, top_margin
+        return final_lines, total_width, total_height - top_margin, top_margin, nb_forced_wrap
 
     @classmethod
     def wrap_parts(cls, lines, max_width, text_font, emoji_size, top_margin):
-        space_size = cls.get_text_size(' ', text_font)
-
         def get_text_size(text, source_part):
             return cls.get_text_or_emoji_size(source_part.kind, text, text_font, emoji_size, top_margin)
 
@@ -376,13 +369,11 @@ class KeyTextLine(keyImagePart):
             remaining_parts.insert(0, part)
 
         final_lines = []
+        nb_forced_wrap = 0
         for line in lines:
 
             # if we have a line that is short enough, we can add it entirely
             if line.width <= max_width:
-                if not line.parts:
-                    # set a space to represent an empty line
-                    line = TextLine([TextPart(' ', ' ', *space_size)], *space_size)
                 final_lines.append(line)
                 continue
 
@@ -425,6 +416,7 @@ class KeyTextLine(keyImagePart):
 
                 # ok here our part does not fit in a whole line, so we extrat the text that fit to
                 # put in on the current line, then we'll start a new line for the reste
+                nb_forced_wrap += 1
                 for size in range(1, len(part.text) + 1):
                     text = part.text[:size]
                     width, height = get_text_size(text, part)
@@ -453,7 +445,7 @@ class KeyTextLine(keyImagePart):
 
             finish_line()
 
-        return final_lines, max(line.width for line in final_lines), sum(line.height for line in final_lines)
+        return final_lines, max(line.width for line in final_lines), sum(line.height for line in final_lines), nb_forced_wrap
 
     def on_changed(self):
         super().on_changed()
@@ -479,7 +471,7 @@ class KeyTextLine(keyImagePart):
         self.start_scroller()
         return self.compose_cache
 
-    def prepare_text(self, text, max_width):
+    def prepare_text(self, text, max_width, max_height):
         font_path = self.get_text_font_path()
 
         def _prepare_text(text_size):
@@ -487,17 +479,36 @@ class KeyTextLine(keyImagePart):
             top_margin = text_font.font.height - text_size
             emoji_size = text_font.getmetrics()[0]
 
-            lines, total_width, total_height, top_margin = self.split_text_on_lines_and_emojis(text, max_width if self.wrap else None, text_font, emoji_size, top_margin)
-            return lines, total_width, total_height, top_margin, emoji_size, text_font
+            lines, width, height, top_margin, nb_forced_wrap = self.split_text_on_lines_and_emojis(text, max_width, text_font, emoji_size, top_margin)
+            return PreparedText(lines, width, height, top_margin, nb_forced_wrap, emoji_size, text_font)
 
-        text_size = self.convert_coordinate(self.size, 'height')
+        if not self.fit:
+            return _prepare_text(self.convert_coordinate(self.size, 'height'))
 
-        while True:
-            lines, total_width, total_height, top_margin, emoji_size, text_font = _prepare_text(text_size)
-            if not self.fit:
+        min_bound = min_size = round(max_width * 0.1)
+        max_bound = round(max_width * 1.2)
+
+        fit_size = fit_prepared_text = None
+        while min_bound < max_bound:
+            size = (min_bound + max_bound) // 2
+            if size in (min_bound, max_bound):
                 break
+            prepared_text = _prepare_text(size)
+            if prepared_text.width > max_width or prepared_text.height > max_height:
+                if max_bound == size:
+                    break
+                max_bound = size
+            else:
+                if min_bound == size:
+                    break
+                fit_size = min_bound = size
+                fit_prepared_text = prepared_text
 
-        return lines, total_width, total_height, top_margin, emoji_size, text_font
+        if fit_prepared_text is None:
+            fit_size = min_size
+            fit_prepared_text = _prepare_text(fit_size)
+
+        return fit_prepared_text
 
     def _compose_base(self):
         text = self.resolved_text
@@ -509,13 +520,14 @@ class KeyTextLine(keyImagePart):
         max_width = image_size[0] - (margins['right'] + margins['left'])
         max_height = image_size[1] - (margins['top'] + margins['bottom'])
 
-        lines, total_width, total_height, top_margin, emoji_size, text_font = self.prepare_text(text, max_width)
+        prepared_text = self.prepare_text(text, max_width, max_height)
+        total_width, total_height = prepared_text.width, prepared_text.height
 
         image = Image.new("RGBA", (total_width, total_height), '#00000000')
         drawer = ImageDraw.Draw(image)
 
-        pos_y = 0
-        for line in lines:
+        pos_y = -prepared_text.top_margin
+        for line_index, line in enumerate(prepared_text.lines):
             pos_x = 0
             if self.align == 'right':
                 pos_x = total_width - line.width
@@ -523,9 +535,9 @@ class KeyTextLine(keyImagePart):
                 pos_x = round((total_width - line.width) / 2)
             for part in line.parts:
                 if part.kind == EMOJI:
-                    image.paste(self.get_emoji_image(part.text, emoji_size, top_margin), (pos_x, pos_y))
+                    image.paste(self.get_emoji_image(part.text, prepared_text.emoji_size, prepared_text.top_margin), (pos_x, pos_y))
                 else:
-                    drawer.text((pos_x, pos_y), part.text, font=text_font, fill=self.color)
+                    drawer.text((pos_x, pos_y), part.text, font=prepared_text.text_font, fill=self.color)
                 pos_x += part.width
             pos_y += line.height
 
