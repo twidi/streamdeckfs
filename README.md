@@ -9,6 +9,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 
 [![PyPI](https://img.shields.io/pypi/v/streamdeckfs) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/streamdeckfs) ![PyPI - Wheel](https://img.shields.io/pypi/wheel/streamdeckfs) ![PyPI - Status](https://img.shields.io/pypi/status/streamdeckfs) ![PyPI - License](https://img.shields.io/pypi/l/streamdeckfs)](https://pypi.org/project/streamdeckfs/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/twidi/streamdeckfs)](https://github.com/twidi/streamdeckfs)
+[![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
 **Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start)) • [Pages](#pages) • [References](#references) • [API](#api)
