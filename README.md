@@ -6,6 +6,10 @@ This file is part of StreamDeckFS
 
 License: MIT, see https://opensource.org/licenses/MIT
 -->
+
+[![PyPI](https://img.shields.io/pypi/v/streamdeckfs) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/streamdeckfs) ![PyPI - Wheel](https://img.shields.io/pypi/wheel/streamdeckfs) ![PyPI - Status](https://img.shields.io/pypi/status/streamdeckfs) ![PyPI - License](https://img.shields.io/pypi/l/streamdeckfs)](https://pypi.org/project/streamdeckfs/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/twidi/streamdeckfs)](https://github.com/twidi/streamdeckfs)
+
 # StreamDeckFS
 
 StreamDeckFS is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
