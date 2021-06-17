@@ -1,5 +1,8 @@
 # Changelog
 
+## Release `1.3` - *NOT RELEASED*
+
+- Fix some overlays issues
 
 ## Release `1.2` - *2021-06-10*
 

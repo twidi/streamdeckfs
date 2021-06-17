@@ -108,35 +108,52 @@ class Page(Entity):
 
     def iter_keys(self):
         for row_col, key in sorted(self.keys.items()):
-            if key:
+            if key and key.has_content:
                 yield key
 
     @property
     def is_visible(self):
         return self.deck.is_page_visible(self)
 
-    def render(self, overlay_level=0, pages_below=None, ignore_keys=None):
+    def render(self, render_above=True, render_below=True, rendered_keys=None):
         if not self.is_visible:
             return
-        if ignore_keys is None:
-            ignore_keys = set()
+
+        if rendered_keys is None:
+            rendered_keys = set()
+        elif len(rendered_keys) == self.deck.nb_keys:
+            return
+
+        if render_above and (page_above := self.deck.get_page_above(self)):
+            page_above.render(render_above=True, render_below=False, rendered_keys=rendered_keys)
+
+        level, transparent = self.deck.get_page_overlay_level(self)
+
         for key in self.iter_keys():
-            if key.key in ignore_keys:
-                continue
-            if not key.has_content():
+            if key.key in rendered_keys:
                 continue
             key.render()
-            ignore_keys.add(key.key)
-        if pages_below:
-            page_number, pages_below = pages_below[0], pages_below[1:]
-            if (page := self.deck.pages.get(page_number)):
-                page.render(overlay_level + 1, pages_below, ignore_keys)
+            rendered_keys.add(key.key)
 
-    def unrender(self):
+        if len(rendered_keys) == self.deck.nb_keys:
+            return
+
+        if render_below:
+            if (page_below := self.deck.get_page_below(self)):
+                page_below.render(render_above=False, render_below=True, rendered_keys=rendered_keys)
+            else:
+                # we have no page left below, we remove images on the remaining keys
+                for row in range(1, self.deck.nb_rows + 1):
+                    for col in range(1, self.deck.nb_cols + 1):
+                        if (row, col) not in rendered_keys:
+                            self.deck.remove_image(row, col)
+                            rendered_keys.add((row, col))
+
+    def unrender(self, clear_images=True):
         if not self.is_visible:
             return
         for key in self.iter_keys():
-            key.unrender()
+            key.unrender(clear_image=clear_images)
 
     @property
     def sorted_keys(self):

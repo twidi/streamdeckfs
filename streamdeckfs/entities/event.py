@@ -336,7 +336,7 @@ class KeyEvent(KeyFile):
     def activate(self, page=None):
         if page is None:
             page = self.page
-        if not page.is_current:
+        if not page.is_visible:
             return
         if self.activated:
             return

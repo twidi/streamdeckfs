@@ -43,7 +43,7 @@ ASSETS_PATH = Path.resolve(Path(__file__)).parent / 'assets'
 
 DEFAULT_BRIGHTNESS = 30
 
-RENDER_IMAGE_DELAY = 0.02
+RENDER_IMAGE_DELAY = 0.01
 
 
 class FakeDevice:

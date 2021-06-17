@@ -46,6 +46,7 @@ class Deck(Entity):
                 from traceback import print_exc
                 print_exc()
                 Manager.exit(1, 'Cannot guess model, please run the "make-dirs" command.')
+        self.nb_keys = self.nb_rows * self.nb_cols
         self.brightness = DEFAULT_BRIGHTNESS
         self.pages = versions_dict_factory()
         self.current_page_number = None
@@ -215,23 +216,29 @@ class Deck(Entity):
         if (page.number, transparent) == current:
             return
 
+        if page.number in self.visible_pages and page_ref != BACK:
+            logger.error(f'[{self}] Page [{page.str}] is already opened')
+            return
+
         if (current_page := self.current_page):
             if page_ref == BACK:
-                if current[1]:
+                if self.current_page_is_transparent:
                     logger.info(f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]')
                 else:
-                    logger.info(f'[{self}] Going back to [{page.str}] from [{current_page.str}]')
+                    logger.info(f'[{self}] Going back to {"overlay " if transparent else ""}[{page.str}] from [{current_page.str}]')
+                current_page.unrender(clear_images=False)
             elif transparent:
                 logger.info(f'[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]')
             else:
                 logger.info(f'[{self}] Changing current page from [{current_page.str}] to [{page.str}]')
-            if not transparent or page_ref == BACK:
-                current_page.unrender()
+                for page_number in self.visible_pages:
+                    if (visible_page := self.pages.get(page_number)):
+                        visible_page.unrender(clear_images=False)  # the render of the new page will clear keys needing to be cleared
         else:
             logger.info(f'[{self}] Setting current page to [{page.str}]')
 
         self.append_to_history(page, transparent)
-        page.render(0, self.visible_pages[1:])
+        page.render(render_above=False, render_below=True)
 
     def write_current_page_info(self):
         page = self.current_page if self.current_page_number else None
@@ -269,44 +276,71 @@ class Deck(Entity):
         except Exception:
             pass
 
-    def is_page_visible(self, page):
-        number = page.number
+    def is_page_visible(self, page_or_number):
+        number = page_or_number if isinstance(page_or_number, int) else page_or_number.number
         return self.current_page_number == number or number in self.visible_pages
+
+    def get_page_overlay_level(self, page_or_number):
+        number = page_or_number if isinstance(page_or_number, int) else page_or_number.number
+        if number < 1:
+            return None, None
+        for level, page_number in enumerate(self.visible_pages):
+            if page_number == number:
+                return level, level != len(self.visible_pages) - 1
+        return None, None
+
+    def get_page_below(self, page_or_number):
+        level, transparent = self.get_page_overlay_level(page_or_number)
+        if not transparent:
+            return None
+        nb_visible = len(self.visible_pages)
+        page = None
+        while level < nb_visible - 1 and not (page := self.pages.get(self.visible_pages[level + 1])):
+            level += 1
+        return page
+
+    def get_page_above(self, page_or_number):
+        level, transparent = self.get_page_overlay_level(page_or_number)
+        page = None
+        while level and not (page := self.pages.get(self.visible_pages[level - 1])):
+            level -= 1
+        return page
 
     def get_page_key(self, page_number, key_row_col):
         if not (page := self.pages.get(page_number)):
             return None
         return page.keys.get(key_row_col)
 
-    def get_key_visibility(self, key):
-        # returns visible, key level(if visible), key below(if visible)
-        if not key.page.is_visible:
-            return False, None, None
+    def get_key_visibility(self, page_number, key):
+        # Returns
+        # 0. bool: if the key if visible
+        # 1. int: key level (None if page not visible)
+        # 2. key: key on page below (None if page not visible or key not visible)
+        # 3. key: key on page above (None if page not visible or key visible)
+        if not (page := self.pages.get(page_number)) or not page.is_visible:
+            return False, None, None, None
 
-        visible_key_below = False
         key_level = None
-        key_page_number = key.page.number
-        key_row_col = key.key
 
-        for level, page_number in enumerate(self.visible_pages):
-            if page_number == key_page_number:
+        for level, current_page_number in enumerate(self.visible_pages):
+            if current_page_number == page_number:
                 key_level = level
             else:
-                page_key = self.get_page_key(page_number, key_row_col)
+                page_key = self.get_page_key(current_page_number, key)
                 if not page_key:
                     continue
                 if key_level is None:
                     # we are still above the key
                     if page_key.has_content():
                         # a key above ours is visible, so ours is not
-                        return False, None, None
+                        return False, None, None, page_key
                 else:
                     # we are below the key
                     if page_key.has_content():
-                        visible_key_below = page_key
-                        break
+                        # we found a visible key below ours, we don't need to dig more
+                        return True, key_level, page_key, None
 
-        return True, key_level, visible_key_below
+        return True, key_level, None, None
 
     @property
     def current_page(self):

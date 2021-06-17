@@ -322,28 +322,29 @@ class Key(Entity):
     def render(self):
         if not self.deck.is_running:
             return
-        visible, overlay_level, key_below = self.deck.get_key_visibility(self)
+        visible, overlay_level, key_below, key_above = key_visibility = self.deck.get_key_visibility(self.page.number, self.key)
         if visible and self.has_content():
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
             for text_line in self.resolved_text_lines.values():
                 if text_line:
                     text_line.start_scroller()
-            if self.page.is_current:
-                for event in self.resolved_events.values():
-                    if event:
-                        event.activate(self.page)
+            for event in self.resolved_events.values():
+                if event:
+                    event.activate(self.page)
             self.rendered_overlay = overlay_level
-        else:
-            self.unrender()
+        elif not self.page.is_visible:
+            self.unrender(key_visibility=key_visibility)
 
-    def unrender(self):
+    def unrender(self, clear_image=True, key_visibility=None):
         if self.rendered_overlay is None:
             return
-        visible, overlay_level, key_below = self.deck.get_key_visibility(self)
+        if key_visibility is None:
+            key_visibility = self.deck.get_key_visibility(self.page.number, self.key)
+        visible, overlay_level, key_below, key_above = key_visibility
         for text_line in self.resolved_text_lines.values():
             if text_line:
                 text_line.stop_scroller()
-        if visible:
+        if visible and clear_image:
             self.deck.remove_image(self.row, self.col)
         for event in self.resolved_events.values():
             if event:
