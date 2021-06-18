@@ -11,6 +11,7 @@ import os
 import platform
 import psutil
 import signal
+import sys
 import threading
 from pathlib import Path
 from queue import Empty
@@ -35,7 +36,8 @@ SUPPORTED_PLATFORMS = {
 }
 PLATFORM = platform.system()
 
-logger = logging.getLogger('streamdeckfs')
+LIBRARY_NAME = 'streamdeckfs'
+logger = logging.getLogger(LIBRARY_NAME)
 click_log.basic_config(logger)
 
 
@@ -369,7 +371,7 @@ class Manager:
         cls.processes_checker_thread = None
 
     @classmethod
-    def start_process(cls, command, register_stop=False, detach=False, shell=False, done_event=None):
+    def start_process(cls, command, register_stop=False, detach=False, shell=False, done_event=None, env=None):
         if done_event is not None:
             done_event.clear()
         if not cls.processes_checker_thread:
@@ -378,7 +380,7 @@ class Manager:
         base_str = f'[PROCESS] Launching `{command}`{" (in detached mode)" if detach else ""}'
         logger.info(f'{base_str}...')
         try:
-            process = psutil.Popen(command, start_new_session=bool(detach), shell=bool(shell))
+            process = psutil.Popen(command, start_new_session=bool(detach), shell=bool(shell), env=(os.environ | env) if env else None)
             cls.processes[process.pid] = {
                 'pid': process.pid,
                 'command': command,
@@ -423,7 +425,7 @@ class Manager:
     def terminate_process(cls, pid):
         if not (process_info := cls.processes.pop(pid, None)):
             return
-        if not psutil.pid_exists(pid):
+        if process_info['process'].poll() is not None:
             return
         base_str = f"[PROCESS {pid}] Terminating `{process_info['command']}`"
         logger.info(f'{base_str}...')
@@ -433,3 +435,10 @@ class Manager:
             logger.error(f'{base_str} [FAIL: still running: {" ".join([p.pid for p in alive])} ]')
         else:
             logger.info(f'{base_str} [done]')
+
+    @classmethod
+    def get_executable(cls):
+        executable = sys.argv[0]
+        if executable.endswith(f'{LIBRARY_NAME}/__main__.py'):
+            executable = f'{sys.executable} -m {LIBRARY_NAME}'
+        return executable

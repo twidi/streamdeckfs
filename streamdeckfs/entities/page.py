@@ -9,6 +9,8 @@
 import re
 from dataclasses import dataclass
 
+from cached_property import cached_property
+
 from ..common import Manager, file_flags
 from .base import Entity, versions_dict_factory, FILTER_DENY
 from .deck import Deck
@@ -182,3 +184,11 @@ class Page(Entity):
         self.unrender()
         if is_current_page_number:
             self.deck.go_to_page(BACK, None)
+
+    @cached_property
+    def env_vars(self):
+        return self.deck.env_vars | self.finalize_env_vars({
+            'page': str(self.number),
+            'page_name': '' if self.name == self.unnamed else self.name,
+            'page_directory': self.path,
+        })

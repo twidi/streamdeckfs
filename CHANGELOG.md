@@ -3,6 +3,8 @@
 ## Release `1.3` - *NOT RELEASED*
 
 - Fix some overlays issues
+- Pass environment variables to commands
+
 
 ## Release `1.2` - *2021-06-10*
 

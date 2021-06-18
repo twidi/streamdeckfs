@@ -9,6 +9,9 @@
 import re
 import threading
 from dataclasses import dataclass
+from time import time
+
+from cached_property import cached_property
 
 from ..common import DEFAULT_BRIGHTNESS, logger, Manager
 from ..threads import Delayer, Repeater
@@ -92,6 +95,7 @@ class KeyEvent(KeyFile):
         self.unique = False
         self.pids = []
         self.activated = False
+        self.activating_key = None
         self.repeat_thread = None
         self.wait_thread = None
         self.duration_thread = None
@@ -281,7 +285,7 @@ class KeyEvent(KeyFile):
                     shell = True
                 else:
                     raise ValueError('Invalid mode')
-                if (pid := Manager.start_process(command, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running)):
+                if (pid := Manager.start_process(command, register_stop=self.to_stop, detach=self.detach, shell=shell, done_event=self.ended_running, env=self.env_vars)):
                     self.pids.append(pid)
         except Exception:
             logger.exception(f'[{self}] Failure while running the command')
@@ -333,13 +337,14 @@ class KeyEvent(KeyFile):
     def is_stoppable(self):
         return self.kind == 'start' and self.to_stop and self.mode in RUN_MODES and self.pids
 
-    def activate(self, page=None):
-        if page is None:
-            page = self.page
-        if not page.is_visible:
+    def activate(self, from_key=None):
+        if from_key is None:
+            from_key = self.key
+        if not from_key.page.is_visible:
             return
         if self.activated:
             return
+        self.activating_key = from_key
         self.activated = True
         self.ended_running.set()
         if self.kind == 'start' and self.mode in RUN_MODES:
@@ -348,5 +353,26 @@ class KeyEvent(KeyFile):
     def deactivate(self):
         if not self.activated:
             return
-        self.activated = False
+        self.activated = None
+        self.activating_key = None
         self.stop()
+
+    @cached_property
+    def base_env_vars(self):
+        return self.finalize_env_vars({
+            'event': self.kind,
+            'event_name': '' if self.name == self.unnamed else self.name,
+            'event_file': self.path,
+        })
+
+    @property
+    def env_vars(self):
+        env_vars = self.base_env_vars
+
+        if self.kind != 'start':
+            env_vars = env_vars | self.finalize_env_vars({
+                'pressed_at': self.key.pressed_at,
+                'press_duration': self.key.press_duration,
+            })
+
+        return (self.activating_key or self.key).env_vars | env_vars

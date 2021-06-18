@@ -11,6 +11,7 @@ import threading
 from dataclasses import dataclass
 from queue import SimpleQueue
 
+from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
 
 from ..common import DEFAULT_BRIGHTNESS, Manager, logger, file_flags
@@ -417,3 +418,15 @@ class Deck(Entity):
     def find_page(self, page_filter, allow_disabled=False):
         from .page import Page
         return Page.find_by_identifier_or_name(self.pages, page_filter, int, allow_disabled=allow_disabled)
+
+    @cached_property
+    def env_vars(self):
+        return self.finalize_env_vars({
+            'executable': Manager.get_executable(),
+            'device_serial': self.serial,
+            'device_directory': self.path,
+            'device_nb_rows': self.nb_rows,
+            'device_nb_cols': self.nb_cols,
+            'device_key_width': self.key_width,
+            'device_key_height': self.key_height,
+        })

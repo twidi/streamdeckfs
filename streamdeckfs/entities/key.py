@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from time import time
 from typing import Tuple
 
+from cached_property import cached_property
 from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
@@ -330,7 +331,7 @@ class Key(Entity):
                     text_line.start_scroller()
             for event in self.resolved_events.values():
                 if event:
-                    event.activate(self.page)
+                    event.activate(self)
             self.rendered_overlay = overlay_level
         elif not self.page.is_visible:
             self.unrender(key_visibility=key_visibility)
@@ -385,6 +386,7 @@ class Key(Entity):
         return (time() - self.pressed_at) * 1000
 
     def pressed(self):
+        self.pressed_at = time()
         events = self.resolved_events
         if longpress_event := events.get('longpress'):
             logger.debug(f'[{self}] PRESSED. WAITING LONGPRESS.')
@@ -393,28 +395,39 @@ class Key(Entity):
             logger.debug(f'[{self}] PRESSED. IGNORED (event not configured)')
             return
         logger.info(f'[{press_event}] PRESSED.')
-        self.pressed_at = time()
         press_event.wait_run_and_repeat(on_press=True)
 
     def released(self):
-        events = self.resolved_events
-        duration = self.press_duration or None
-        for event_name in ('press', 'longpress'):
-            if event := events.get(event_name):
-                event.stop_repeater()
-                if event.duration_thread:
-                    event.stop_duration_waiter()
+        try:
+            events = self.resolved_events
+            duration = self.press_duration or None
+            for event_name in ('press', 'longpress'):
+                if event := events.get(event_name):
+                    event.stop_repeater()
+                    if event.duration_thread:
+                        event.stop_duration_waiter()
 
-        str_delay_part = f' (after {duration}ms)' if duration is not None else ''
-        if not (release_event := events.get('release')):
-            logger.debug(f'[{self}] RELEASED{str_delay_part}. IGNORED (event not configured)')
-            return
-        if release_event.duration_min and (duration is None or duration < release_event.duration_min):
-            logger.info(f'[{release_event}] RELEASED{str_delay_part}. ABORTED (not pressed long enough, less than {release_event.duration_min}ms')
-        else:
-            logger.info(f'[{release_event}] RELEASED{str_delay_part}.')
-            release_event.run()
-        self.pressed_at = None
+            str_delay_part = f' (after {duration}ms)' if duration is not None else ''
+            if not (release_event := events.get('release')):
+                logger.debug(f'[{self}] RELEASED{str_delay_part}. IGNORED (event not configured)')
+                return
+            if release_event.duration_min and (duration is None or duration < release_event.duration_min):
+                logger.info(f'[{release_event}] RELEASED{str_delay_part}. ABORTED (not pressed long enough, less than {release_event.duration_min}ms')
+            else:
+                logger.info(f'[{release_event}] RELEASED{str_delay_part}.')
+                release_event.run()
+        finally:
+            self.pressed_at = None
+
+    @cached_property
+    def env_vars(self):
+        return self.page.env_vars | self.finalize_env_vars({
+            'key': f'{self.row},{self.col}',
+            'key_row': self.row,
+            'key_col': self.col,
+            'key_name': '' if self.name == self.unnamed else self.name,
+            'key_directory': self.path,
+        })
 
 
 @dataclass(eq=False)

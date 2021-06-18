@@ -962,6 +962,29 @@ There can be only one of each event for each key. If the same `ON_XXX` is define
 
 If you want many actions to be done when a key is, for example, pressed, the file can be a bash script with many commands, periods of sleep, etc.
 
+Each command is executed with the environment variables received by `streamdeckfs` when it started, plus some others:
+
+- `SDFS_EXECUTABLE`: executable to run `streamdeckfs` (the same used to run the current instance of `streamdeckfs`)
+- `SDFS_DEVICE_SERIAL`: serial number of the current StreamDeck
+- `SDFS_DEVICE_DIRECTORY`: configuration directory for the current StreamDeck
+- `SDFS_DEVICE_NB_ROWS`: number of rows of the current StreamDeck
+- `SDFS_DEVICE_NB_COLS`: number of cols of the current StreamDeck
+- `SDFS_DEVICE_KEY_WIDTH`: width, in pixels, of a key on the current Streamdeck
+- `SDFS_DEVICE_KEY_HEIGHT`: height, in pixels, of a key on the current Streamdeck
+- `SDFS_PAGE`: number of the page from which the event was triggered
+- `SDFS_PAGE_NAME`: name, if defined, of the page from which the event was triggered
+- `SDFS_PAGE_DIRECTORY`: directory configuration of the page from which the event was triggered
+- `SDFS_KEY`: key from which the event was triggered (format `row,col`)
+- `SDFS_KEY_ROW`: row of the key from which the event was triggered
+- `SDFS_KEY_COL`: column of the key from which the event was triggered
+- `SDFS_KEY_NAME`: name, if defined, of the key from which the event was triggered
+- `SDFS_KEY_DIRECTORY`: directory configuration of the key from which the event was triggered
+- `SDFS_EVENT`: the kind of the triggered event (one of `start`, `press`, `longpress`, `release`)
+- `SDFS_EVENT_NAME`: name, if defined, of the triggered event
+- `SDFS_EVENT_FILE`: file configuration of the triggered event
+- `SDFS_PRESSED_AT`: for key press related events (ie not `ON_START`), the moment the key was pressed, as a timestamp (with decimals)
+- `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
+
 Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
 Now let see the different events, then how they can be configured:

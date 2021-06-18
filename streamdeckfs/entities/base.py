@@ -421,6 +421,14 @@ class Entity:
     def replace_special_chars(value, args):
         return value.replace(args.get('slash', DEFAULT_SLASH_REPL), '/').replace(args.get('semicolon', DEFAULT_SEMICOLON_REPL), ';')
 
+    @staticmethod
+    def finalize_env_vars(env_vars):
+        return {
+            f'SDFS_{key.upper()}': str(value)
+            for key, value in env_vars.items()
+            if value is not None
+        }
+
 
 class VersionProxy(ObjectWrapper):
     versions = None
