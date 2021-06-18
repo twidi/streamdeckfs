@@ -11,7 +11,7 @@ import threading
 from time import time
 
 try:
-    if platform.system() == 'Linux':
+    if platform.system() == "Linux":
         from prctl import set_name as set_thread_name
     else:
         raise ImportError

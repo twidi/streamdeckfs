@@ -14,18 +14,17 @@ from .base import BaseFilesWatcher
 
 
 class InotifyFilesWatcher(BaseFilesWatcher):
-
     def __init__(self):
         super().__init__()
         self.inotify = INotify()
         self.mapping = {}  # only used to display directories in debug mode
 
     flag_groups = {
-        'self_delete': f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
-        'all': f.CREATE | f.DELETE | f.MODIFY | f.MOVED_FROM | f.MOVED_TO | f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
-        'added': f.CREATE | f.MOVED_TO,
-        'removed': f.DELETE | f.MOVED_FROM,
-        'changed': f.MODIFY,
+        "self_delete": f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
+        "all": f.CREATE | f.DELETE | f.MODIFY | f.MOVED_FROM | f.MOVED_TO | f.DELETE_SELF | f.MOVE_SELF | f.UNMOUNT,
+        "added": f.CREATE | f.MOVED_TO,
+        "removed": f.DELETE | f.MOVED_FROM,
+        "changed": f.MODIFY,
     }
 
     def _set_watch(self, directory, watch_mode):
@@ -53,7 +52,9 @@ class InotifyFilesWatcher(BaseFilesWatcher):
         try:
             for event in self.inotify.read(timeout=500):
                 directory = self.mapping.get(event.wd)
-                logger.debug(f'{event} ; {directory}/{event.name} ; FLAGS: {", ".join(str(flag) for flag in f.from_mask(event.mask))}')
+                logger.debug(
+                    f'{event} ; {directory}/{event.name} ; FLAGS: {", ".join(str(flag) for flag in f.from_mask(event.mask))}'
+                )
                 if event.mask & f.IGNORED:
                     self.remove_watch(event.wd)
                     continue
@@ -72,19 +73,19 @@ class InotifyFilesWatcher(BaseFilesWatcher):
         return event.mask & f.ISDIR
 
     def is_event_self_removed(self, event):
-        return event.mask & self.flag_groups['self_delete']
+        return event.mask & self.flag_groups["self_delete"]
 
     def is_event_directory_added(self, event):
-        return self.is_directory_event(event) and (event.mask & self.flag_groups['added'])
+        return self.is_directory_event(event) and (event.mask & self.flag_groups["added"])
 
     def is_event_directory_removed(self, event):
-        return self.is_directory_event(event) and (event.mask & self.flag_groups['removed'])
+        return self.is_directory_event(event) and (event.mask & self.flag_groups["removed"])
 
     def is_file_added(self, event):
-        return not self.is_directory_event(event) and (event.mask & self.flag_groups['added'])
+        return not self.is_directory_event(event) and (event.mask & self.flag_groups["added"])
 
     def is_file_removed(self, event):
-        return not self.is_directory_event(event) and (event.mask & self.flag_groups['removed'])
+        return not self.is_directory_event(event) and (event.mask & self.flag_groups["removed"])
 
     def is_file_changed(self, event):
-        return not self.is_directory_event(event) and (event.mask & self.flag_groups['changed'])
+        return not self.is_directory_event(event) and (event.mask & self.flag_groups["changed"])

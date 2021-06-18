@@ -67,7 +67,7 @@ class WatchedDirectory:
         self.exists = self.directory_exists()
 
     def __str__(self):
-        return f'Watched directory: {self.directory} ; Exists={self.directory_exists()} ({self.exists}) ; Mode={self.get_mode()} ({self.watch_mode} ; WatchId={self.watch_id})'
+        return f"Watched directory: {self.directory} ; Exists={self.directory_exists()} ({self.exists}) ; Mode={self.get_mode()} ({self.watch_mode} ; WatchId={self.watch_id})"
 
     def __repr__(self):
         return f'<WatchedDirectory "{self.directory}">'
@@ -105,23 +105,23 @@ class WatchedDirectory:
         if self.waiting:
             # if the directory does not exist, we are in waiting mode, ie not watched but the parent will be
             # in "all" watch mode to know when the directory is created
-            return 'waiting'
+            return "waiting"
         if self.watchers:
             # if we have direct watchers, we watch for content and self-deletion
-            return 'all'
+            return "all"
         if self.has_waiting_children():
             # if we have no direct watchers but have direct children in waiting mode (ie their directory does not exist)
             # we watch for content and self-deletion
-            return 'all'
+            return "all"
         # if we have no direct watchers and no direct children in waiting mode, we only watch for self-deletion
-        return 'self_delete'
+        return "self_delete"
 
     def update_watch(self):
         self.exists = self.directory_exists()
         if (watch_mode := self.get_mode()) == self.watch_mode:
             return
         self.watch_mode = watch_mode
-        if self.watch_mode in ('waiting', None):
+        if self.watch_mode in ("waiting", None):
             if self.files_watcher and self.watch_id:
                 self.files_watcher.remove_watch(self.watch_id)
         else:
@@ -170,7 +170,7 @@ class WatchedDirectory:
             return None
 
     def on_directory_added(self, name):
-        if (child := self.get_child(name)):
+        if child := self.get_child(name):
             child.update_watch()
             for grand_child in child.iter_all_children():
                 grand_child.update_watch()
@@ -178,7 +178,7 @@ class WatchedDirectory:
             watcher.on_file_change(self.directory, name, file_flags.CREATE | file_flags.ISDIR, time())
 
     def on_directory_removed(self, name):
-        if (child := self.get_child(name)):
+        if child := self.get_child(name):
             child.update_watch()
             for grand_child in child.iter_all_children():
                 grand_child.update_watch()
@@ -211,7 +211,7 @@ class WatchedDirectory:
 
 class BaseFilesWatcher:
     WatchedDirectory = WatchedDirectory
-    thread_name = 'FilesWatcher'
+    thread_name = "FilesWatcher"
 
     def __init__(self):
         self.running = False
@@ -220,7 +220,9 @@ class BaseFilesWatcher:
         try:
             watch_id = self._set_watch(directory, watch_mode)
         except Exception as exc:
-            logger.exception(f'[{self.thread_name}] Could not watch directory "{directory}" in mode "{watch_mode}": {exc}')
+            logger.exception(
+                f'[{self.thread_name}] Could not watch directory "{directory}" in mode "{watch_mode}": {exc}'
+            )
         else:
             self.WatchedDirectory.on_watch_set(directory, watch_id)
 

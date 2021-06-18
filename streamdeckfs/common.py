@@ -29,18 +29,18 @@ from StreamDeck.Transport.Transport import TransportError
 from .threads import Repeater, set_thread_name
 
 SUPPORTED_PLATFORMS = {
-    'Linux': True,
-    'Darwin': False,
-    'Windows': False,
+    "Linux": True,
+    "Darwin": False,
+    "Windows": False,
 }
 PLATFORM = platform.system()
 
-LIBRARY_NAME = 'streamdeckfs'
+LIBRARY_NAME = "streamdeckfs"
 logger = logging.getLogger(LIBRARY_NAME)
 click_log.basic_config(logger)
 
 
-ASSETS_PATH = Path.resolve(Path(__file__)).parent / 'assets'
+ASSETS_PATH = Path.resolve(Path(__file__)).parent / "assets"
 
 DEFAULT_BRIGHTNESS = 30
 
@@ -87,14 +87,14 @@ class Manager:
     @staticmethod
     def get_device_class(device_type):
         return {
-            'Stream Deck Mini': StreamDeckMini,
-            'Stream Deck Original': StreamDeckOriginal,
-            'Stream Deck Original (V2)': StreamDeckOriginalV2,
-            'Stream Deck XL': StreamDeckXL,
-            'StreamDeckMini': StreamDeckMini,
-            'StreamDeckOriginal': StreamDeckOriginal,
-            'StreamDeckOriginalV2': StreamDeckOriginalV2,
-            'StreamDeckXL': StreamDeckXL,
+            "Stream Deck Mini": StreamDeckMini,
+            "Stream Deck Original": StreamDeckOriginal,
+            "Stream Deck Original (V2)": StreamDeckOriginalV2,
+            "Stream Deck XL": StreamDeckXL,
+            "StreamDeckMini": StreamDeckMini,
+            "StreamDeckOriginal": StreamDeckOriginal,
+            "StreamDeckOriginalV2": StreamDeckOriginalV2,
+            "StreamDeckXL": StreamDeckXL,
         }[device_type]
 
     @staticmethod
@@ -123,33 +123,35 @@ class Manager:
             serial = cls.open_deck(deck)
             if not serial:
                 if not already_seen:
-                    logger.warning(f'Stream Deck "{device_type}" (ID {device_id}) cannot be accessed. Maybe a program is already connected to it.')
+                    logger.warning(
+                        f'Stream Deck "{device_type}" (ID {device_id}) cannot be accessed. Maybe a program is already connected to it.'
+                    )
                 if need_open:
                     continue
                 connected = False
-                serial = f'UNKNOW-ID={device_id}'
+                serial = f"UNKNOW-ID={device_id}"
             else:
                 connected = True
                 deck.reset()
                 if limit_to_serials and serial not in limit_to_serials:
-                    deck.info = {'serial': serial}
+                    deck.info = {"serial": serial}
                     cls.close_deck(deck)
                     continue
                 deck.set_brightness(DEFAULT_BRIGHTNESS)
             decks[serial] = deck
             deck.info = {
-                'connected': connected,
-                'serial': serial if connected else 'Unknown',
-                'id': device_id,
-                'type': device_type,
-                'class': device_class,
-                'firmware': deck.get_firmware_version() if connected else 'Unknown',
-                'nb_keys': deck.key_count(),
-                'rows': (layout := deck.key_layout())[0],
-                'cols': layout[1],
-                'format': (image_format := deck.key_image_format())['format'],
-                'key_width': image_format['size'][0],
-                'key_height': image_format['size'][1],
+                "connected": connected,
+                "serial": serial if connected else "Unknown",
+                "id": device_id,
+                "type": device_type,
+                "class": device_class,
+                "firmware": deck.get_firmware_version() if connected else "Unknown",
+                "nb_keys": deck.key_count(),
+                "rows": (layout := deck.key_layout())[0],
+                "cols": layout[1],
+                "format": (image_format := deck.key_image_format())["format"],
+                "key_width": image_format["size"][0],
+                "key_height": image_format["size"][1],
             }
             if connected:
                 deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
@@ -162,7 +164,7 @@ class Manager:
         except Exception:
             return
         serial = device.get_serial_number()
-        logger.debug(f'[DECK {serial}] Connection opened')
+        logger.debug(f"[DECK {serial}] Connection opened")
         cls.open_decks[serial] = device
         return serial
 
@@ -178,13 +180,13 @@ class Manager:
             except Exception:
                 pass
         try:
-            serial = deck.info['serial']
+            serial = deck.info["serial"]
         except AttributeError:
             pass
         else:
             if serial:
                 cls.open_decks.pop(serial, None)
-        logger.debug(f'[DECK {serial or deck.id()}] Connection closed')
+        logger.debug(f"[DECK {serial or deck.id()}] Connection closed")
         sleep(0.05)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
 
     @classmethod
@@ -201,34 +203,40 @@ class Manager:
         decks = cls.get_decks(limit_to_serials=[serial] if serial else None)
         if not serial:
             if len(decks) > 1:
-                return cls.exit(1, f'{len(decks)} Stream Decks detected, you need to specify the serial. Use the "inspect" command to list all available decks.')
+                return cls.exit(
+                    1,
+                    f'{len(decks)} Stream Decks detected, you need to specify the serial. Use the "inspect" command to list all available decks.',
+                )
             return list(decks.values())[0]
         if serial not in decks:
-            return cls.exit(1, f'No Stream Deck found with the serial "{serial}". Use the "inspect" command to list all available decks.')
+            return cls.exit(
+                1,
+                f'No Stream Deck found with the serial "{serial}". Use the "inspect" command to list all available decks.',
+            )
         return decks[serial]
 
     @classmethod
     def write_deck_model(cls, directory, device_class):
-        model_path = directory / '.model'
-        model_path.write_text(f'{device_class.__name__}')
+        model_path = directory / ".model"
+        model_path.write_text(f"{device_class.__name__}")
 
     @classmethod
     def get_info_from_model_file(cls, directory):
-        device_class = (Path(directory) / '.model').read_text().split(':')[0]
+        device_class = (Path(directory) / ".model").read_text().split(":")[0]
         fake_device = cls.get_fake_device(cls.get_device_class(device_class))
         nb_rows, nb_cols = fake_device.key_layout()
-        key_width, key_height = fake_device.key_image_format()['size']
+        key_width, key_height = fake_device.key_image_format()["size"]
         return {
-            'model': device_class,
-            'nb_rows': nb_rows,
-            'nb_cols': nb_cols,
-            'key_width': key_width,
-            'key_height': key_height,
+            "model": device_class,
+            "nb_rows": nb_rows,
+            "nb_cols": nb_cols,
+            "key_width": key_width,
+            "key_height": key_height,
         }
 
     @staticmethod
     def render_deck_images(deck, queue):
-        set_thread_name('ImgRenderer')
+        set_thread_name("ImgRenderer")
         delay = RENDER_IMAGE_DELAY
         future_margin = RENDER_IMAGE_DELAY / 10
         timeout = None
@@ -303,6 +311,7 @@ class Manager:
     @classmethod
     def get_files_watcher_class(cls):
         from .watchers.inotify import InotifyFilesWatcher
+
         return InotifyFilesWatcher
 
     @classmethod
@@ -327,7 +336,7 @@ class Manager:
             return
         if msg is not None:
             if msg_level is None:
-                msg_level = 'info' if status == 0 else 'critical'
+                msg_level = "info" if status == 0 else "critical"
             getattr(logger, msg_level)(msg, exc_info=log_exception)
 
         cls.end_files_watcher()
@@ -348,17 +357,19 @@ class Manager:
     @classmethod
     def check_running_processes(cls):
         for pid, process_info in list(cls.processes.items()):
-            if (return_code := process_info['process'].poll()) is not None:
-                logger.info(f'[PROCESS] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]')
+            if (return_code := process_info["process"].poll()) is not None:
+                logger.info(
+                    f'[PROCESS] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]'
+                )
                 cls.processes.pop(pid, None)
-                if (event := process_info.get('done_event')):
+                if event := process_info.get("done_event"):
                     event.set()
 
     @classmethod
     def start_processes_checker(cls):
         if cls.processes_checker_thread:
             return
-        cls.processes_checker_thread = Repeater(cls.check_running_processes, 0.1, name='ProcessChecker')
+        cls.processes_checker_thread = Repeater(cls.check_running_processes, 0.1, name="ProcessChecker")
         cls.processes_checker_thread.start()
 
     @classmethod
@@ -377,26 +388,27 @@ class Manager:
             cls.start_processes_checker()
 
         base_str = f'[PROCESS] Launching `{command}`{" (in detached mode)" if detach else ""}'
-        logger.info(f'{base_str}...')
+        logger.info(f"{base_str}...")
         try:
-            process = psutil.Popen(command, start_new_session=bool(detach), shell=bool(shell), env=(os.environ | env) if env else None)
+            process = psutil.Popen(
+                command, start_new_session=bool(detach), shell=bool(shell), env=(os.environ | env) if env else None
+            )
             cls.processes[process.pid] = {
-                'pid': process.pid,
-                'command': command,
-                'process': process,
-                'to_stop': bool(register_stop),
-                'detached': detach,
-                'done_event': done_event,
+                "pid": process.pid,
+                "command": command,
+                "process": process,
+                "to_stop": bool(register_stop),
+                "detached": detach,
+                "done_event": done_event,
             }
-            logger.info(f'{base_str} [ok PID={process.pid}]')
+            logger.info(f"{base_str} [ok PID={process.pid}]")
             return None if detach else process.pid
         except Exception:
-            logger.exception(f'{base_str} [failed]')
+            logger.exception(f"{base_str} [failed]")
             return None
 
     @classmethod
-    def kill_proc_tree(cls, pid, sig=signal.SIGTERM, include_parent=True,
-                       timeout=None, on_terminate=None):
+    def kill_proc_tree(cls, pid, sig=signal.SIGTERM, include_parent=True, timeout=None, on_terminate=None):
         """Kill a process tree (including grandchildren) with signal
         "sig" and return a (gone, still_alive) tuple.
         "on_terminate", if specified, is a callback function which is
@@ -416,28 +428,27 @@ class Manager:
                 p.send_signal(sig)
             except psutil.NoSuchProcess:
                 pass
-        gone, alive = psutil.wait_procs(children, timeout=timeout,
-                                        callback=on_terminate)
+        gone, alive = psutil.wait_procs(children, timeout=timeout, callback=on_terminate)
         return (gone, alive)
 
     @classmethod
     def terminate_process(cls, pid):
         if not (process_info := cls.processes.pop(pid, None)):
             return
-        if process_info['process'].poll() is not None:
+        if process_info["process"].poll() is not None:
             return
         base_str = f"[PROCESS {pid}] Terminating `{process_info['command']}`"
-        logger.info(f'{base_str}...')
+        logger.info(f"{base_str}...")
         gone, alive = cls.kill_proc_tree(pid, timeout=5)
         if alive:
             # TODO: handle the remaining processes
             logger.error(f'{base_str} [FAIL: still running: {" ".join([p.pid for p in alive])} ]')
         else:
-            logger.info(f'{base_str} [done]')
+            logger.info(f"{base_str} [done]")
 
     @classmethod
     def get_executable(cls):
         executable = sys.argv[0]
-        if executable.endswith(f'{LIBRARY_NAME}/__main__.py'):
-            executable = f'{sys.executable} -m {LIBRARY_NAME}'
+        if executable.endswith(f"{LIBRARY_NAME}/__main__.py"):
+            executable = f"{sys.executable} -m {LIBRARY_NAME}"
         return executable

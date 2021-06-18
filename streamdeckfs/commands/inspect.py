@@ -13,10 +13,10 @@ from .base import cli, common_options
 
 
 @cli.command()
-@common_options['verbosity']
+@common_options["verbosity"]
 def inspect():
     """
-Get information about all connected Stream Decks.
+    Get information about all connected Stream Decks.
     """
     decks = Manager.get_decks(need_open=False)
 
@@ -32,5 +32,5 @@ Get information about all connected Stream Decks.
         click.echo(f"\t - Key Count: {info['nb_keys']} (in a {info['rows']}x{info['cols']} grid)")
         click.echo(f"\t - Key Images: {info['key_width']}x{info['key_height']} pixels, {info['format']} format")
 
-        if deck.info['connected']:
+        if deck.info["connected"]:
             Manager.close_deck(deck)

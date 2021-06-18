@@ -15,10 +15,10 @@ from ..common import Manager, file_flags
 from .base import FILTER_DENY, Entity, versions_dict_factory
 from .deck import Deck
 
-FIRST = '__first__'
-BACK = '__back__'
-PREVIOUS = '__prev__'
-NEXT = '__next__'
+FIRST = "__first__"
+BACK = "__back__"
+PREVIOUS = "__prev__"
+NEXT = "__next__"
 
 PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 
@@ -27,16 +27,16 @@ PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 class Page(Entity):
 
     is_dir = True
-    path_glob = 'PAGE_*'
-    dir_template = 'PAGE_{page}'
-    main_path_re = re.compile(r'^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)')
+    path_glob = "PAGE_*"
+    dir_template = "PAGE_{page}"
+    main_path_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)")
     main_filename_part = lambda args: f'PAGE_{args["page"]}'
 
-    parent_attr = 'deck'
-    identifier_attr = 'number'
-    parent_container_attr = 'pages'
+    parent_attr = "deck"
+    identifier_attr = "number"
+    parent_container_attr = "pages"
 
-    deck: 'Deck'
+    deck: "Deck"
     number: int
 
     def __post_init__(self):
@@ -48,12 +48,12 @@ class Page(Entity):
         return f'PAGE {self.number} ({self.name}{", disabled" if self.disabled else ""})'
 
     def __str__(self):
-        return f'{self.deck}, {self.str}'
+        return f"{self.deck}, {self.str}"
 
     @classmethod
     def convert_main_args(cls, args):
         args = super().convert_main_args(args)
-        args['page'] = int(args['page'])
+        args["page"] = int(args["page"])
         return args
 
     def on_create(self):
@@ -69,23 +69,36 @@ class Page(Entity):
         super().on_delete()
 
     def read_directory(self):
-        if self.deck.filters.get('key') != FILTER_DENY:
+        if self.deck.filters.get("key") != FILTER_DENY:
             from .key import Key
+
             for key_dir in sorted(self.path.glob(Key.path_glob)):
-                self.on_file_change(self.path, key_dir.name, file_flags.CREATE | (file_flags.ISDIR if key_dir.is_dir() else 0))
+                self.on_file_change(
+                    self.path, key_dir.name, file_flags.CREATE | (file_flags.ISDIR if key_dir.is_dir() else 0)
+                )
 
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
             return
         path = self.path / name
-        if (key_filter := self.deck.filters.get('key')) != FILTER_DENY:
+        if (key_filter := self.deck.filters.get("key")) != FILTER_DENY:
             from .key import Key
+
             if not entity_class or entity_class is Key:
                 ref_conf, ref, main, args = Key.parse_filename(name, self)
                 if main:
                     if key_filter is not None and not Key.args_matching_filter(main, args, key_filter):
                         return None
-                    return self.on_child_entity_change(path=path, flags=flags, entity_class=Key, data_identifier=(main['row'], main['col']), args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                    return self.on_child_entity_change(
+                        path=path,
+                        flags=flags,
+                        entity_class=Key,
+                        data_identifier=(main["row"], main["col"]),
+                        args=args,
+                        ref_conf=ref_conf,
+                        ref=ref,
+                        modified_at=modified_at,
+                    )
                 elif ref_conf:
                     Key.add_waiting_reference(self, path, ref_conf)
 
@@ -97,11 +110,11 @@ class Page(Entity):
         if filter is None:
             return True
         try:
-            if main['page'] == int(filter):
+            if main["page"] == int(filter):
                 return True
         except ValueError:
             pass
-        return args.get('name') == filter
+        return args.get("name") == filter
 
     @property
     def is_current(self):
@@ -140,7 +153,7 @@ class Page(Entity):
             return
 
         if render_below:
-            if (page_below := self.deck.get_page_below(self)):
+            if page_below := self.deck.get_page_below(self):
                 page_below.render(render_above=False, render_below=True, rendered_keys=rendered_keys)
             else:
                 # we have no page left below, we remove images on the remaining keys
@@ -165,7 +178,13 @@ class Page(Entity):
 
     def find_key(self, key_filter, allow_disabled=False):
         from .key import Key
-        return Key.find_by_identifier_or_name(self.keys, key_filter, lambda filter: tuple(int(val) for val in filter.split(',')), allow_disabled=allow_disabled)
+
+        return Key.find_by_identifier_or_name(
+            self.keys,
+            key_filter,
+            lambda filter: tuple(int(val) for val in filter.split(",")),
+            allow_disabled=allow_disabled,
+        )
 
     def version_activated(self):
         super().version_activated()
@@ -186,8 +205,10 @@ class Page(Entity):
 
     @cached_property
     def env_vars(self):
-        return self.deck.env_vars | self.finalize_env_vars({
-            'page': str(self.number),
-            'page_name': '' if self.name == self.unnamed else self.name,
-            'page_directory': self.path,
-        })
+        return self.deck.env_vars | self.finalize_env_vars(
+            {
+                "page": str(self.number),
+                "page_name": "" if self.name == self.unnamed else self.name,
+                "page_directory": self.path,
+            }
+        )

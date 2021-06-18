@@ -7,14 +7,14 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 __all__ = [
-    'FILTER_DENY',
-    'PAGE_CODES',
-    'Deck',
-    'Page',
-    'Key',
-    'KeyEvent',
-    'KeyImageLayer',
-    'KeyTextLine',
+    "FILTER_DENY",
+    "PAGE_CODES",
+    "Deck",
+    "Page",
+    "Key",
+    "KeyEvent",
+    "KeyImageLayer",
+    "KeyTextLine",
 ]
 
 from .base import FILTER_DENY

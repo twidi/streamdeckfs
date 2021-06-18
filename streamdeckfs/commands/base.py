@@ -17,19 +17,21 @@ class NaturalOrderGroup(click.Group):
         return self.commands.keys()
 
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 @click.group(cls=NaturalOrderGroup, context_settings=CONTEXT_SETTINGS)
 def cli():
     if not SUPPORTED_PLATFORMS.get(PLATFORM):
-        return Manager.exit(1, f'{PLATFORM} is not supported yet')
+        return Manager.exit(1, f"{PLATFORM} is not supported yet")
 
 
 common_options = {
-    'optional_serial': click.argument('serial', nargs=-1, required=False),
-    'optional_serials': click.argument('serials', nargs=-1, required=False),
-    'verbosity': click_log.simple_verbosity_option(logger, help='Either CRITICAL, ERROR, WARNING, INFO or DEBUG', show_default=True),
+    "optional_serial": click.argument("serial", nargs=-1, required=False),
+    "optional_serials": click.argument("serials", nargs=-1, required=False),
+    "verbosity": click_log.simple_verbosity_option(
+        logger, help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
+    ),
 }
 
 

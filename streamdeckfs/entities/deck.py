@@ -21,8 +21,8 @@ from .base import FILTER_DENY, Entity, versions_dict_factory
 @dataclass(eq=False)
 class Deck(Entity):
     is_dir = True
-    current_page_file_name = '.current_page'
-    set_current_page_file_name = '.set_current_page'
+    current_page_file_name = ".current_page"
+    set_current_page_file_name = ".set_current_page"
 
     device: StreamDeck
     scroll_activated: bool
@@ -30,21 +30,22 @@ class Deck(Entity):
     def __post_init__(self):
         super().__post_init__()
         if self.device:
-            self.serial = self.device.info['serial']
-            self.nb_cols = self.device.info['cols']
-            self.nb_rows = self.device.info['rows']
-            self.key_width = self.device.info['key_width']
-            self.key_height = self.device.info['key_height']
+            self.serial = self.device.info["serial"]
+            self.nb_cols = self.device.info["cols"]
+            self.nb_rows = self.device.info["rows"]
+            self.key_width = self.device.info["key_width"]
+            self.key_height = self.device.info["key_height"]
         else:
             self.serial = None
             try:
                 info = Manager.get_info_from_model_file(self.path)
-                self.nb_rows = info['nb_rows']
-                self.nb_cols = info['nb_cols']
-                self.key_width = info['key_width']
-                self.key_height = info['key_height']
+                self.nb_rows = info["nb_rows"]
+                self.nb_cols = info["nb_cols"]
+                self.key_width = info["key_width"]
+                self.key_height = info["key_height"]
             except Exception:
                 from traceback import print_exc
+
                 print_exc()
                 Manager.exit(1, 'Cannot guess model, please run the "make-dirs" command.')
         self.nb_keys = self.nb_rows * self.nb_cols
@@ -89,16 +90,22 @@ class Deck(Entity):
 
     def run(self):
         from .page import FIRST
+
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(FIRST)  # always display the first page first even if we'll load another one in `set_page_from_file`
+        self.go_to_page(
+            FIRST  # always display the first page first even if we'll load another one in `set_page_from_file`
+        )
         self.set_page_from_file()
 
     def read_directory(self):
-        if self.filters.get('page') != FILTER_DENY:
+        if self.filters.get("page") != FILTER_DENY:
             from .page import Page
+
             for page_dir in sorted(self.path.glob(Page.path_glob)):
-                self.on_file_change(self.path, page_dir.name, file_flags.CREATE | (file_flags.ISDIR if page_dir.is_dir() else 0))
+                self.on_file_change(
+                    self.path, page_dir.name, file_flags.CREATE | (file_flags.ISDIR if page_dir.is_dir() else 0)
+                )
 
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
@@ -114,14 +121,24 @@ class Deck(Entity):
             self.set_page_from_file()
             return None
 
-        if (page_filter := self.filters.get('page')) != FILTER_DENY:
+        if (page_filter := self.filters.get("page")) != FILTER_DENY:
             from .page import Page
+
             if not entity_class or entity_class is Page:
                 ref_conf, ref, main, args = Page.parse_filename(name, self)
                 if main:
                     if page_filter is not None and not Page.args_matching_filter(main, args, page_filter):
                         return None
-                    return self.on_child_entity_change(path=path, flags=flags, entity_class=Page, data_identifier=main['page'], args=args, ref_conf=ref_conf, ref=ref, modified_at=modified_at)
+                    return self.on_child_entity_change(
+                        path=path,
+                        flags=flags,
+                        entity_class=Page,
+                        data_identifier=main["page"],
+                        args=args,
+                        ref_conf=ref_conf,
+                        ref=ref,
+                        modified_at=modified_at,
+                    )
 
     def on_directory_removed(self, directory):
         self.directory_removed = True
@@ -158,7 +175,7 @@ class Deck(Entity):
             page_num, transparent = self.page_history.pop()
             if (page_num, transparent) == (self.current_page_number, self.current_page_is_transparent):
                 continue
-            if (page := self.pages.get(page_num)):
+            if page := self.pages.get(page_num):
                 break
         return page, transparent
 
@@ -170,9 +187,10 @@ class Deck(Entity):
 
     def _go_to_page(self, page_ref, transparent=False):
         from .page import BACK, FIRST, NEXT, PREVIOUS
+
         transparent = bool(transparent)
 
-        logger.debug(f'[{self}] Asking to go to page {page_ref} (current={self.current_page_number})')
+        logger.debug(f"[{self}] Asking to go to page {page_ref} (current={self.current_page_number})")
 
         if page_ref is None:
             return
@@ -218,25 +236,33 @@ class Deck(Entity):
             return
 
         if page.number in self.visible_pages and page_ref != BACK:
-            logger.error(f'[{self}] Page [{page.str}] is already opened')
+            logger.error(f"[{self}] Page [{page.str}] is already opened")
             return
 
-        if (current_page := self.current_page):
+        if current_page := self.current_page:
             if page_ref == BACK:
                 if self.current_page_is_transparent:
-                    logger.info(f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]')
+                    logger.info(
+                        f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]'
+                    )
                 else:
-                    logger.info(f'[{self}] Going back to {"overlay " if transparent else ""}[{page.str}] from [{current_page.str}]')
-                current_page.unrender(clear_images=False)
+                    logger.info(
+                        f'[{self}] Going back to {"overlay " if transparent else ""}[{page.str}] from [{current_page.str}]'
+                    )
+                current_page.unrender(
+                    clear_images=False  # the render of the new page will clear keys needing to be cleared
+                )
             elif transparent:
-                logger.info(f'[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]')
+                logger.info(f"[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]")
             else:
-                logger.info(f'[{self}] Changing current page from [{current_page.str}] to [{page.str}]')
+                logger.info(f"[{self}] Changing current page from [{current_page.str}] to [{page.str}]")
                 for page_number in self.visible_pages:
-                    if (visible_page := self.pages.get(page_number)):
-                        visible_page.unrender(clear_images=False)  # the render of the new page will clear keys needing to be cleared
+                    if visible_page := self.pages.get(page_number):
+                        visible_page.unrender(
+                            clear_images=False  # the render of the new page will clear keys needing to be cleared
+                        )
         else:
-            logger.info(f'[{self}] Setting current page to [{page.str}]')
+            logger.info(f"[{self}] Setting current page to [{page.str}]")
 
         self.append_to_history(page, transparent)
         page.render(render_above=False, render_below=True)
@@ -244,9 +270,9 @@ class Deck(Entity):
     def write_current_page_info(self):
         page = self.current_page if self.current_page_number else None
         page_info = {
-            'number': self.current_page_number,
-            'name': page.name if page and page.name != self.unnamed else None,
-            'is_overlay': self.current_page_is_transparent if self.current_page_number else None,
+            "number": self.current_page_number,
+            "name": page.name if page and page.name != self.unnamed else None,
+            "is_overlay": self.current_page_is_transparent if self.current_page_number else None,
         }
         if page_info != self.read_current_page_info():
             try:
@@ -265,9 +291,11 @@ class Deck(Entity):
             return
         try:
             page_info = json.loads(self.set_current_page_state_file.read_text().strip())
-            if set(page_info.keys()) != {'page', 'is_overlay'}:
+            if set(page_info.keys()) != {"page", "is_overlay"}:
                 raise ValueError
-            if not isinstance(page_ref := page_info['page'], str) or not isinstance(transparent := page_info['is_overlay'], bool):
+            if not isinstance(page_ref := page_info["page"], str) or not isinstance(
+                transparent := page_info["is_overlay"], bool
+            ):
                 raise ValueError
             self.go_to_page(page_ref, transparent)
         except Exception:
@@ -352,15 +380,15 @@ class Deck(Entity):
 
         if pressed:
             if self.pressed_key:
-                logger.warning('Multiple press is not supported yet. Press ignored.')
+                logger.warning("Multiple press is not supported yet. Press ignored.")
                 return
 
             if not (page := self.current_page):
-                logger.debug(f'[{self}, KEY ({row}, {col})] PRESSED. IGNORED (no current page)')
+                logger.debug(f"[{self}, KEY ({row}, {col})] PRESSED. IGNORED (no current page)")
                 return
 
             if not (key := page.keys[row_col]):
-                logger.debug(f'[{page}, KEY ({row}, {col})] PRESSED. IGNORED (key not configured)')
+                logger.debug(f"[{page}, KEY ({row}, {col})] PRESSED. IGNORED (key not configured)")
                 return
 
             self.pressed_key = key
@@ -374,11 +402,11 @@ class Deck(Entity):
 
     def set_brightness(self, operation, level):
         old_brightness = self.brightness
-        if operation == '=':
+        if operation == "=":
             self.brightness = level
-        elif operation == '+':
+        elif operation == "+":
             self.brightness = min(100, old_brightness + level)
-        elif operation == '-':
+        elif operation == "-":
             self.brightness = max(0, old_brightness - level)
         if self.brightness == old_brightness:
             return
@@ -392,7 +420,7 @@ class Deck(Entity):
 
     def unrender(self):
         for page_number in self.visible_pages:
-            if (page := self.pages.get(page_number)):
+            if page := self.pages.get(page_number):
                 page.unrender()
         for file in (self.current_page_state_file, self.set_current_page_state_file):
             try:
@@ -407,7 +435,9 @@ class Deck(Entity):
     def set_image(self, row, col, image):
         if self.render_images_thread is None:
             self.render_images_queue = SimpleQueue()
-            self.render_images_thread = threading.Thread(name='ImgRenderer', target=Manager.render_deck_images, args=(self.device, self.render_images_queue))
+            self.render_images_thread = threading.Thread(
+                name="ImgRenderer", target=Manager.render_deck_images, args=(self.device, self.render_images_queue)
+            )
             self.render_images_thread.start()
 
         self.render_images_queue.put((self.key_to_index(row, col), image))
@@ -417,16 +447,19 @@ class Deck(Entity):
 
     def find_page(self, page_filter, allow_disabled=False):
         from .page import Page
+
         return Page.find_by_identifier_or_name(self.pages, page_filter, int, allow_disabled=allow_disabled)
 
     @cached_property
     def env_vars(self):
-        return self.finalize_env_vars({
-            'executable': Manager.get_executable(),
-            'device_serial': self.serial,
-            'device_directory': self.path,
-            'device_nb_rows': self.nb_rows,
-            'device_nb_cols': self.nb_cols,
-            'device_key_width': self.key_width,
-            'device_key_height': self.key_height,
-        })
+        return self.finalize_env_vars(
+            {
+                "executable": Manager.get_executable(),
+                "device_serial": self.serial,
+                "device_directory": self.path,
+                "device_nb_rows": self.nb_rows,
+                "device_nb_cols": self.nb_cols,
+                "device_key_width": self.key_width,
+                "device_key_height": self.key_height,
+            }
+        )

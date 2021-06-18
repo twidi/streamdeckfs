@@ -26,6 +26,6 @@ def main():
     except SystemExit as exc:
         Manager.exit(exc.code)
     except Exception:
-        Manager.exit(1, 'Oops...', log_exception=True)
+        Manager.exit(1, "Oops...", log_exception=True)
     else:
         Manager.exit(0)

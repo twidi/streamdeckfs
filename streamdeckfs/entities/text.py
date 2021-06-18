@@ -19,66 +19,90 @@ from ..threads import Repeater
 from .base import RE_PARTS, InvalidArg
 from .image import keyImagePart
 
-TextPart = namedtuple('TextPart', ['kind', 'text', 'width', 'height'], defaults=[None, None, None, None])
-TextLine = namedtuple('TextLine', ['parts', 'width', 'height'])
-PreparedText = namedtuple('PreparedText', ['lines', 'width', 'height', 'top_margin', 'nb_forced_wrap', 'emoji_size', 'text_font'])
-TEXT = 't'
-SPACE = ' '
-EMOJI = 'e'
-EMOJI_TYPES = {'\uFE0F', '\uFE0E'}  # emoji variant, text variant
+TextPart = namedtuple("TextPart", ["kind", "text", "width", "height"], defaults=[None, None, None, None])
+TextLine = namedtuple("TextLine", ["parts", "width", "height"])
+PreparedText = namedtuple(
+    "PreparedText", ["lines", "width", "height", "top_margin", "nb_forced_wrap", "emoji_size", "text_font"]
+)
+TEXT = "t"
+SPACE = " "
+EMOJI = "e"
+EMOJI_TYPES = {"\uFE0F", "\uFE0E"}  # emoji variant, text variant
 
 
 @dataclass(eq=False)
 class KeyTextLine(keyImagePart):
-    path_glob = 'TEXT*'
-    main_path_re = re.compile(r'^(?P<kind>TEXT)(?:;|$)')
+    path_glob = "TEXT*"
+    main_path_re = re.compile(r"^(?P<kind>TEXT)(?:;|$)")
     filename_re_parts = keyImagePart.filename_re_parts + [
-        re.compile(r'^(?P<arg>line)=(?P<value>\d+)$'),
-        re.compile(r'^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$'),  # we'll use -1 if no line given
-        re.compile(r'^(?P<arg>text)=(?P<value>.+)$'),
-        re.compile(r'^(?P<arg>size)=(?P<value>' + RE_PARTS["% | number"] + ')$'),
-        re.compile(r'^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$'),
-        re.compile(r'^(?P<flag>italic)(?:=(?P<value>false|true))?$'),
-        re.compile(r'^(?P<arg>align)(?:=(?P<value>left|center|right))?$'),
-        re.compile(r'^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$'),
-        re.compile(r'^(?P<arg>color)=(?P<value>' + RE_PARTS["color"] + ')$'),
-        re.compile(r'^(?P<arg>opacity)=(?P<value>' + RE_PARTS["0-100"] + ')$'),
-        re.compile(r'^(?P<flag>wrap)(?:=(?P<value>false|true))?$'),
-        re.compile(r'^(?P<flag>fit)(?:=(?P<value>false|true))?$'),
-        re.compile(r'^(?P<arg>margin)=(?P<top>-?' + RE_PARTS["% | number"] + '),(?P<right>-?' + RE_PARTS["% | number"] + '),(?P<bottom>-?' + RE_PARTS["% | number"] + '),(?P<left>-?' + RE_PARTS["% | number"] + ')$'),
-        re.compile(r'^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?' + RE_PARTS["% | number"] + ')$'),
-        re.compile(r'^(?P<arg>scroll)=(?P<value>-?' + RE_PARTS["% | number"] + ')$'),
+        re.compile(r"^(?P<arg>line)=(?P<value>\d+)$"),
+        re.compile(
+            r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$"  # we'll use -1 if no line given
+        ),
+        re.compile(r"^(?P<arg>text)=(?P<value>.+)$"),
+        re.compile(r"^(?P<arg>size)=(?P<value>" + RE_PARTS["% | number"] + ")$"),
+        re.compile(r"^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$"),
+        re.compile(r"^(?P<flag>italic)(?:=(?P<value>false|true))?$"),
+        re.compile(r"^(?P<arg>align)(?:=(?P<value>left|center|right))?$"),
+        re.compile(r"^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$"),
+        re.compile(r"^(?P<arg>color)=(?P<value>" + RE_PARTS["color"] + ")$"),
+        re.compile(r"^(?P<arg>opacity)=(?P<value>" + RE_PARTS["0-100"] + ")$"),
+        re.compile(r"^(?P<flag>wrap)(?:=(?P<value>false|true))?$"),
+        re.compile(r"^(?P<flag>fit)(?:=(?P<value>false|true))?$"),
+        re.compile(
+            r"^(?P<arg>margin)=(?P<top>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<right>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<bottom>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<left>-?"
+            + RE_PARTS["% | number"]
+            + ")$"
+        ),
+        re.compile(
+            r"^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?" + RE_PARTS["% | number"] + ")$"
+        ),
+        re.compile(r"^(?P<arg>scroll)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
     ]
-    main_filename_part = lambda args: 'TEXT'
-    filename_parts = [
-        lambda args: f'line={line}' if (line := args.get('line')) else None,
-        keyImagePart.name_filename_part,
-        lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}' if (ref := args.get('ref')) else None,
-    ] + keyImagePart.filename_file_parts + [
-        lambda args: f'text={text}' if (text := args.get('text')) else None,
-        lambda args: f'size={size}' if (size := args.get('size')) else None,
-        lambda args: f'weight={weight}' if (weight := args.get('weight')) else None,
-        lambda args: 'italic' if args.get('italic', False) in (True, 'true', None) else None,
-        lambda args: f'color={color}' if (color := args.get('color')) else None,
-        lambda args: f'align={align}' if (align := args.get('align')) else None,
-        lambda args: f'valign={valign}' if (valign := args.get('valign')) else None,
-        lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}' if (margin := args.get('margin')) else None,
-        lambda args: [f'{key}={value}' for key, value in args.items() if key.startswith('margin.')],
-        lambda args: f'opacity={opacity}' if (opacity := args.get('opacity')) else None,
-        lambda args: f'scroll={scroll}' if (scroll := args.get('scroll')) else None,
-        lambda args: 'wrap' if args.get('wrap', False) in (True, 'true', None) else None,
-        lambda args: 'fit' if args.get('fit', False) in (True, 'true', None) else None,
-        keyImagePart.disabled_filename_part,
-    ]
+    main_filename_part = lambda args: "TEXT"
+    filename_parts = (
+        [
+            lambda args: f"line={line}" if (line := args.get("line")) else None,
+            keyImagePart.name_filename_part,
+            lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}'
+            if (ref := args.get("ref"))
+            else None,
+        ]
+        + keyImagePart.filename_file_parts
+        + [
+            lambda args: f"text={text}" if (text := args.get("text")) else None,
+            lambda args: f"size={size}" if (size := args.get("size")) else None,
+            lambda args: f"weight={weight}" if (weight := args.get("weight")) else None,
+            lambda args: "italic" if args.get("italic", False) in (True, "true", None) else None,
+            lambda args: f"color={color}" if (color := args.get("color")) else None,
+            lambda args: f"align={align}" if (align := args.get("align")) else None,
+            lambda args: f"valign={valign}" if (valign := args.get("valign")) else None,
+            lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}'
+            if (margin := args.get("margin"))
+            else None,
+            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("margin.")],
+            lambda args: f"opacity={opacity}" if (opacity := args.get("opacity")) else None,
+            lambda args: f"scroll={scroll}" if (scroll := args.get("scroll")) else None,
+            lambda args: "wrap" if args.get("wrap", False) in (True, "true", None) else None,
+            lambda args: "fit" if args.get("fit", False) in (True, "true", None) else None,
+            keyImagePart.disabled_filename_part,
+        ]
+    )
 
-    fonts_path = ASSETS_PATH / 'fonts'
+    fonts_path = ASSETS_PATH / "fonts"
     font_cache = {}
     text_size_cache = {}
     emoji_font_size = 109
     emoji_cache = {(emoji_font_size, 0): {}}
 
-    identifier_attr = 'line'
-    parent_container_attr = 'text_lines'
+    identifier_attr = "line"
+    parent_container_attr = "text_lines"
 
     line: int
 
@@ -113,42 +137,55 @@ class KeyTextLine(keyImagePart):
     def convert_args(cls, args):
         final_args = super().convert_args(args)
 
-        if len([1 for key in ('text', 'file') if args.get(key)]) > 1:
+        if len([1 for key in ("text", "file") if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "text", "file"')
 
-        if len([1 for key in ('size', 'fit') if args.get(key)]) > 1:
+        if len([1 for key in ("size", "fit") if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "size", "fit"')
 
-        final_args['line'] = int(args['line']) if 'line' in args else -1  # -1 for image used if no layers
-        if 'text' in args:
-            final_args['mode'] = 'text'
-            final_args['text'] = args.get('text') or ''
-        final_args['size'] = cls.parse_value_or_percent(args.get('size') or '20%')
-        final_args['weight'] = args.get('weight') or 'medium'
-        if 'italic' in args:
-            final_args['italic'] = args['italic']
-        final_args['align'] = args.get('align') or ('center' if args.get('fit') else 'left')
-        final_args['valign'] = args.get('valign') or ('middle' if args.get('fit') else 'top')
-        final_args['color'] = args.get('color') or 'white'
-        if 'opacity' in args:
-            final_args['opacity'] = int(args['opacity'])
-        if 'wrap' in args:
-            final_args['wrap'] = args['wrap']
-        if 'fit' in args:
-            final_args['fit'] = args['fit']
-        if 'margin' in args:
-            final_args['margin'] = {}
-            for part, val in list(args['margin'].items()):
-                final_args['margin'][part] = cls.parse_value_or_percent(val)
-        if 'scroll' in args:
-            final_args['scroll'] = cls.parse_value_or_percent(args['scroll'])
+        final_args["line"] = int(args["line"]) if "line" in args else -1  # -1 for image used if no layers
+        if "text" in args:
+            final_args["mode"] = "text"
+            final_args["text"] = args.get("text") or ""
+        final_args["size"] = cls.parse_value_or_percent(args.get("size") or "20%")
+        final_args["weight"] = args.get("weight") or "medium"
+        if "italic" in args:
+            final_args["italic"] = args["italic"]
+        final_args["align"] = args.get("align") or ("center" if args.get("fit") else "left")
+        final_args["valign"] = args.get("valign") or ("middle" if args.get("fit") else "top")
+        final_args["color"] = args.get("color") or "white"
+        if "opacity" in args:
+            final_args["opacity"] = int(args["opacity"])
+        if "wrap" in args:
+            final_args["wrap"] = args["wrap"]
+        if "fit" in args:
+            final_args["fit"] = args["fit"]
+        if "margin" in args:
+            final_args["margin"] = {}
+            for part, val in list(args["margin"].items()):
+                final_args["margin"][part] = cls.parse_value_or_percent(val)
+        if "scroll" in args:
+            final_args["scroll"] = cls.parse_value_or_percent(args["scroll"])
 
         return final_args
 
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         line = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ('text', 'size', 'weight', 'italic', 'align', 'valign', 'color', 'opacity', 'wrap', 'fit', 'margin', 'scroll'):
+        for key in (
+            "text",
+            "size",
+            "weight",
+            "italic",
+            "align",
+            "valign",
+            "color",
+            "opacity",
+            "wrap",
+            "fit",
+            "margin",
+            "scroll",
+        ):
             if key not in args:
                 continue
             setattr(line, key, args[key])
@@ -160,18 +197,17 @@ class KeyTextLine(keyImagePart):
     @classmethod
     def find_reference(cls, parent, ref_conf, main, args):
         final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
-        if not final_ref_conf.get('text_line'):
-            final_ref_conf['text_line'] = -1
+        if not final_ref_conf.get("text_line"):
+            final_ref_conf["text_line"] = -1
         if not key:
             return final_ref_conf, None
-        return final_ref_conf, key.find_text_line(final_ref_conf['text_line'])
+        return final_ref_conf, key.find_text_line(final_ref_conf["text_line"])
 
     def get_waiting_references(self):
         return [
             (path, parent, ref_conf)
-            for key, path, parent, ref_conf
-            in self.iter_waiting_references_for_key(self.key)
-            if (text_line := key.find_text_line(ref_conf['text_line'])) and text_line.line == self.line
+            for key, path, parent, ref_conf in self.iter_waiting_references_for_key(self.key)
+            if (text_line := key.find_text_line(ref_conf["text_line"])) and text_line.line == self.line
         ]
 
     @staticmethod
@@ -179,16 +215,16 @@ class KeyTextLine(keyImagePart):
         if filter is None:
             return True
         try:
-            if args['line'] == int(filter):
+            if args["line"] == int(filter):
                 return True
         except ValueError:
             pass
-        return args.get('name') == filter
+        return args.get("name") == filter
 
     @property
     def resolved_text(self):
         if self.text is None:
-            if self.mode == 'content':
+            if self.mode == "content":
                 self.track_symlink_dir()
                 try:
                     self.text = self.resolved_path.read_text()
@@ -196,8 +232,8 @@ class KeyTextLine(keyImagePart):
                     pass
                 if not self.text and self.reference:
                     self.text = self.reference.resolved_text
-            elif self.mode in ('file', 'inside'):
-                if (path := self.get_file_path()):
+            elif self.mode in ("file", "inside"):
+                if path := self.get_file_path():
                     try:
                         self.text = path.read_text()
                     except Exception:
@@ -212,10 +248,10 @@ class KeyTextLine(keyImagePart):
 
     def get_text_font_path(self):
         weight = self.weight.capitalize()
-        if weight == 'regular' and self.italic:
-            weight = ''
-        italic = 'Italic' if self.italic else ''
-        return self.fonts_path / 'roboto' / f'Roboto-{weight}{italic}.ttf'
+        if weight == "regular" and self.italic:
+            weight = ""
+        italic = "Italic" if self.italic else ""
+        return self.fonts_path / "roboto" / f"Roboto-{weight}{italic}.ttf"
 
     @classmethod
     def get_text_font(cls, font_path, size):
@@ -225,11 +261,11 @@ class KeyTextLine(keyImagePart):
 
     @classmethod
     def get_emoji_font(cls):
-        if 'emoji' not in cls.font_cache:
-            font_path = cls.fonts_path / 'noto-emoji' / 'NotoColorEmoji.ttf'
+        if "emoji" not in cls.font_cache:
+            font_path = cls.fonts_path / "noto-emoji" / "NotoColorEmoji.ttf"
             size = cls.emoji_font_size
-            cls.font_cache['emoji'] = ImageFont.truetype(str(font_path), size, layout_engine=ImageFont.LAYOUT_RAQM)
-        return cls.font_cache['emoji']
+            cls.font_cache["emoji"] = ImageFont.truetype(str(font_path), size, layout_engine=ImageFont.LAYOUT_RAQM)
+        return cls.font_cache["emoji"]
 
     @classmethod
     def get_text_size(cls, text, font):
@@ -243,9 +279,9 @@ class KeyTextLine(keyImagePart):
         original_key = (cls.emoji_font_size, 0)
         if text not in cls.emoji_cache[original_key]:
             width, height = cls.get_text_size(text, font)
-            image = Image.new("RGBA", (width, height), '#00000000')
+            image = Image.new("RGBA", (width, height), "#00000000")
             drawer = ImageDraw.Draw(image)
-            drawer.text((0, 0), text, font=font, fill='white', embedded_color=True)
+            drawer.text((0, 0), text, font=font, fill="white", embedded_color=True)
             cls.emoji_cache[original_key][text] = image.crop(image.getbbox())  # auto-crop
         key = (size, top_margin)
         if text not in cls.emoji_cache.setdefault(key, {}):
@@ -255,7 +291,7 @@ class KeyTextLine(keyImagePart):
             new_width = round(original_width * new_height / original_height)
             image = original_image.resize((new_width, new_height), Image.LANCZOS)
             if top_margin:
-                final_image = Image.new("RGBA", (new_width, new_height + top_margin), '#00000000')
+                final_image = Image.new("RGBA", (new_width, new_height + top_margin), "#00000000")
                 final_image.paste(image, (0, top_margin))
             else:
                 final_image = image
@@ -289,8 +325,8 @@ class KeyTextLine(keyImagePart):
         return TextLine(final_parts, line_width, line_height)
 
     def split_text_on_lines_and_emojis(self, text, max_width, text_font, emoji_size, top_margin):
-        emojis = UNICODE_EMOJI['en']
-        text = emojize(text, use_aliases=True, variant='emoji_type')
+        emojis = UNICODE_EMOJI["en"]
+        text = emojize(text, use_aliases=True, variant="emoji_type")
 
         # we strip lines and replace all consecutive whitespaces on each line by a single space
         lines = [" ".join(line.split()) for line in text.splitlines()]
@@ -306,12 +342,16 @@ class KeyTextLine(keyImagePart):
         for line in lines:
             if not line:
                 # we keep empty lines
-                line = ' '
+                line = " "
             parts = []
             current_kind = None
             current_part = []
             for char in line:
-                new_kind = SPACE if char == ' ' else (EMOJI if char in EMOJI_TYPES or char in emojis else TEXT)  # we keep spaces appart to help wrapping
+                new_kind = (
+                    SPACE
+                    if char == " "  # we keep spaces appart to help wrapping
+                    else (EMOJI if char in EMOJI_TYPES or char in emojis else TEXT)
+                )
                 if new_kind != current_kind:
                     if current_part:
                         parts.append((current_kind, current_part))
@@ -320,7 +360,9 @@ class KeyTextLine(keyImagePart):
                 current_part.append(char)
             if current_part:
                 parts.append((current_kind, current_part))
-            line_parts, line_width, line_height = self.finalize_line([TextPart(part_kind, ''.join(chars)) for part_kind, chars in parts], text_font, emoji_size, top_margin)
+            line_parts, line_width, line_height = self.finalize_line(
+                [TextPart(part_kind, "".join(chars)) for part_kind, chars in parts], text_font, emoji_size, top_margin
+            )
             total_height += line_height
             if line_width > total_width:
                 total_width = line_width
@@ -328,7 +370,9 @@ class KeyTextLine(keyImagePart):
 
         nb_forced_wrap = 0
         if total_width > max_width and self.wrap:
-            final_lines, total_width, total_height, nb_forced_wrap = self.wrap_parts(final_lines, max_width, text_font, emoji_size, top_margin)
+            final_lines, total_width, total_height, nb_forced_wrap = self.wrap_parts(
+                final_lines, max_width, text_font, emoji_size, top_margin
+            )
 
         return final_lines, total_width, total_height - top_margin, top_margin, nb_forced_wrap
 
@@ -347,11 +391,11 @@ class KeyTextLine(keyImagePart):
             parts = current_parts
             if parts:
                 # remove leading space
-                if (part := parts[0]).text.startswith(' '):
-                    parts = ([text_part(part.text[1:], part)] if part.text != ' ' else []) + parts[1:]
+                if (part := parts[0]).text.startswith(" "):
+                    parts = ([text_part(part.text[1:], part)] if part.text != " " else []) + parts[1:]
                 # remove trailing space
-                if (part := parts[-1]).text.endswith(' '):
-                    parts = parts[:-1] + ([text_part(part.text[:-1], part)] if part.text != ' ' else [])
+                if (part := parts[-1]).text.endswith(" "):
+                    parts = parts[:-1] + ([text_part(part.text[:-1], part)] if part.text != " " else [])
 
                 final_lines.append(cls.finalize_line(parts, text_font, emoji_size, top_margin))
 
@@ -427,7 +471,9 @@ class KeyTextLine(keyImagePart):
                             # if it does not fit even the whole line, we end the current line
                             # and then we add it itself as a part (will be handled above), and the rest too
                             finish_line()
-                            unshift_part(text_part(part.text[1:], part))  # now at pos 0, will be at 1 on unshift_part next line
+                            unshift_part(
+                                text_part(part.text[1:], part)  # now at pos 0, will be at 1 on unshift_part next line
+                            )
                             unshift_part(text_part(text, part, width, height))
                         else:
                             # in the other case (first char does not fit the remaining, but fit in a whole line) we
@@ -437,19 +483,24 @@ class KeyTextLine(keyImagePart):
                     else:
                         # we add the text that fit (the one without the current char) into the current line
                         # that we finish, and we move the remaining part to be analyzed again
-                        add_part(text_part(part.text[:size - 1], part))
+                        add_part(text_part(part.text[: size - 1], part))
                         finish_line()
-                        unshift_part(text_part(part.text[size - 1:], part))
+                        unshift_part(text_part(part.text[size - 1 :], part))
                     break
 
             finish_line()
 
-        return final_lines, max(line.width for line in final_lines), sum(line.height for line in final_lines), nb_forced_wrap
+        return (
+            final_lines,
+            max(line.width for line in final_lines),
+            sum(line.height for line in final_lines),
+            nb_forced_wrap,
+        )
 
     def on_changed(self):
         super().on_changed()
         self.stop_scroller()
-        if self.mode != 'text':
+        if self.mode != "text":
             self.text = None
         self._complete_image = self.compose_cache = None
         self.key.on_image_changed()
@@ -478,11 +529,13 @@ class KeyTextLine(keyImagePart):
             top_margin = text_font.font.height - text_size
             emoji_size = text_font.getmetrics()[0]
 
-            lines, width, height, top_margin, nb_forced_wrap = self.split_text_on_lines_and_emojis(text, max_width, text_font, emoji_size, top_margin)
+            lines, width, height, top_margin, nb_forced_wrap = self.split_text_on_lines_and_emojis(
+                text, max_width, text_font, emoji_size, top_margin
+            )
             return PreparedText(lines, width, height, top_margin, nb_forced_wrap, emoji_size, text_font)
 
         if not self.fit:
-            return _prepare_text(self.convert_coordinate(self.size, 'height'))
+            return _prepare_text(self.convert_coordinate(self.size, "height"))
 
         min_bound = min_size = round(max_width * 0.1)
         max_bound = round(max_width * 1.2)
@@ -516,25 +569,28 @@ class KeyTextLine(keyImagePart):
 
         image_size = self.key.image_size
         margins = self.convert_margins()
-        max_width = image_size[0] - (margins['right'] + margins['left'])
-        max_height = image_size[1] - (margins['top'] + margins['bottom'])
+        max_width = image_size[0] - (margins["right"] + margins["left"])
+        max_height = image_size[1] - (margins["top"] + margins["bottom"])
 
         prepared_text = self.prepare_text(text, max_width, max_height)
         total_width, total_height = prepared_text.width, prepared_text.height
 
-        image = Image.new("RGBA", (total_width, total_height), '#00000000')
+        image = Image.new("RGBA", (total_width, total_height), "#00000000")
         drawer = ImageDraw.Draw(image)
 
         pos_y = -prepared_text.top_margin
         for line_index, line in enumerate(prepared_text.lines):
             pos_x = 0
-            if self.align == 'right':
+            if self.align == "right":
                 pos_x = total_width - line.width
-            elif self.align == 'center':
+            elif self.align == "center":
                 pos_x = round((total_width - line.width) / 2)
             for part in line.parts:
                 if part.kind == EMOJI:
-                    image.paste(self.get_emoji_image(part.text, prepared_text.emoji_size, prepared_text.top_margin), (pos_x, pos_y))
+                    image.paste(
+                        self.get_emoji_image(part.text, prepared_text.emoji_size, prepared_text.top_margin),
+                        (pos_x, pos_y),
+                    )
                 else:
                     drawer.text((pos_x, pos_y), part.text, font=prepared_text.text_font, fill=self.color)
                 pos_x += part.width
@@ -543,17 +599,17 @@ class KeyTextLine(keyImagePart):
         self.apply_opacity(image)
 
         self._complete_image = {
-            'image': image,
-            'max_width': max_width,
-            'max_height': max_height,
-            'total_width': total_width,
-            'total_height': total_height,
-            'margins': margins,
-            'default_crop': None,
-            'visible_width': total_width,
-            'visible_height': total_height,
-            'fixed_position_top': None,
-            'fixed_position_left': None,
+            "image": image,
+            "max_width": max_width,
+            "max_height": max_height,
+            "total_width": total_width,
+            "total_height": total_height,
+            "margins": margins,
+            "default_crop": None,
+            "visible_width": total_width,
+            "visible_height": total_height,
+            "fixed_position_top": None,
+            "fixed_position_left": None,
         }
 
         align = self.align
@@ -561,45 +617,45 @@ class KeyTextLine(keyImagePart):
         if total_width > max_width or total_height > max_height:
             crop = {}
             if total_width <= max_width:
-                crop['left'] = 0
-                crop['right'] = total_width
+                crop["left"] = 0
+                crop["right"] = total_width
             else:
                 if self.scroll and not self.wrap and self.scroll_pixels:
-                    self.scrollable = align = ('left' if self.scroll_pixels > 0 else 'right')
-                self._complete_image['fixed_position_left'] = margins['left']
-                if align == 'left':
-                    crop['left'] = 0
-                    crop['right'] = max_width
-                elif align == 'right':
-                    crop['left'] = total_width - max_width
-                    crop['right'] = total_width
+                    self.scrollable = align = "left" if self.scroll_pixels > 0 else "right"
+                self._complete_image["fixed_position_left"] = margins["left"]
+                if align == "left":
+                    crop["left"] = 0
+                    crop["right"] = max_width
+                elif align == "right":
+                    crop["left"] = total_width - max_width
+                    crop["right"] = total_width
                 else:  # center
-                    crop['left'] = round((total_width - max_width) / 2)
-                    crop['right'] = round((total_width + max_width) / 2)
-                self._complete_image['visible_width'] = max_width
+                    crop["left"] = round((total_width - max_width) / 2)
+                    crop["right"] = round((total_width + max_width) / 2)
+                self._complete_image["visible_width"] = max_width
 
             if total_height <= max_height:
-                crop['top'] = 0
-                crop['bottom'] = total_height
+                crop["top"] = 0
+                crop["bottom"] = total_height
             else:
                 if self.scroll and self.wrap and self.scroll_pixels:
-                    self.scrollable = valign = ('top' if self.scroll_pixels > 0 else 'bottom')
-                self._complete_image['fixed_position_top'] = margins['top']
-                if valign == 'top':
-                    crop['top'] = 0
-                    crop['bottom'] = max_height
-                elif valign == 'bottom':
-                    crop['top'] = total_height - max_height
-                    crop['bottom'] = total_height
+                    self.scrollable = valign = "top" if self.scroll_pixels > 0 else "bottom"
+                self._complete_image["fixed_position_top"] = margins["top"]
+                if valign == "top":
+                    crop["top"] = 0
+                    crop["bottom"] = max_height
+                elif valign == "bottom":
+                    crop["top"] = total_height - max_height
+                    crop["bottom"] = total_height
                 else:  # middle
-                    crop['top'] = round((total_height - max_height) / 2)
-                    crop['bottom'] = round((total_height + max_height) / 2)
-                self._complete_image['visible_height'] = max_height
+                    crop["top"] = round((total_height - max_height) / 2)
+                    crop["bottom"] = round((total_height + max_height) / 2)
+                self._complete_image["visible_height"] = max_height
 
-            self._complete_image['default_crop'] = crop
+            self._complete_image["default_crop"] = crop
 
-        self._complete_image['align'] = align
-        self._complete_image['valign'] = valign
+        self._complete_image["align"] = align
+        self._complete_image["valign"] = valign
 
         return self._complete_image
 
@@ -607,8 +663,8 @@ class KeyTextLine(keyImagePart):
         if not (ci := self._complete_image):
             return None
 
-        if not (crop := ci['default_crop']):
-            final_image = ci['image']
+        if not (crop := ci["default_crop"]):
+            final_image = ci["image"]
         else:
             if self.scrollable:
                 if self.scrolled is None:
@@ -616,41 +672,41 @@ class KeyTextLine(keyImagePart):
                 else:
                     crop = crop.copy()
                     sign = self.scroll_pixels // abs(self.scroll_pixels)
-                    if self.scrollable in ('left', 'right'):
-                        if sign * self.scrolled >= ci['total_width']:
-                            self.scrolled = -sign * ci['max_width']
-                        crop['left'] += self.scrolled
-                        crop['right'] = max(crop['right'] + self.scrolled, ci['total_width'])
+                    if self.scrollable in ("left", "right"):
+                        if sign * self.scrolled >= ci["total_width"]:
+                            self.scrolled = -sign * ci["max_width"]
+                        crop["left"] += self.scrolled
+                        crop["right"] = max(crop["right"] + self.scrolled, ci["total_width"])
                     else:  # top, bottom
-                        if sign * self.scrolled >= ci['total_height']:
-                            self.scrolled = -sign * ci['max_height']
-                        crop['top'] += self.scrolled
-                        crop['bottom'] = max(crop['bottom'] + self.scrolled, ci['total_height'])
+                        if sign * self.scrolled >= ci["total_height"]:
+                            self.scrolled = -sign * ci["max_height"]
+                        crop["top"] += self.scrolled
+                        crop["bottom"] = max(crop["bottom"] + self.scrolled, ci["total_height"])
 
-            final_image = ci['image'].crop((crop['left'], crop['top'], crop['right'], crop['bottom']))
+            final_image = ci["image"].crop((crop["left"], crop["top"], crop["right"], crop["bottom"]))
 
-        if (left := ci['fixed_position_left']) is None:
-            if (align := ci['align']) == 'left':
-                left = ci['margins']['left']
-            elif align == 'right':
-                left = self.key.width - ci['margins']['right'] - ci['visible_width']
+        if (left := ci["fixed_position_left"]) is None:
+            if (align := ci["align"]) == "left":
+                left = ci["margins"]["left"]
+            elif align == "right":
+                left = self.key.width - ci["margins"]["right"] - ci["visible_width"]
             else:  # center
-                left = ci['margins']['left'] + round((ci['max_width'] - ci['visible_width']) / 2)
+                left = ci["margins"]["left"] + round((ci["max_width"] - ci["visible_width"]) / 2)
 
-        if (top := ci['fixed_position_top']) is None:
-            if (valign := ci['valign']) == 'top':
-                top = ci['margins']['top']
-            elif valign == 'bottom':
-                top = self.key.height - ci['margins']['bottom'] - ci['visible_height']
+        if (top := ci["fixed_position_top"]) is None:
+            if (valign := ci["valign"]) == "top":
+                top = ci["margins"]["top"]
+            elif valign == "bottom":
+                top = self.key.height - ci["margins"]["bottom"] - ci["visible_height"]
             else:  # middle
-                top = ci['margins']['top'] + round((ci['max_height'] - ci['visible_height']) / 2)
+                top = ci["margins"]["top"] + round((ci["max_height"] - ci["visible_height"]) / 2)
 
         return final_image, left, top, final_image
 
     @property
     def scroll_pixels(self):
-        if not hasattr(self, '_scroll_pixels'):
-            self._scroll_pixels = self.convert_coordinate(self.scroll, 'height' if self.wrap else 'width')
+        if not hasattr(self, "_scroll_pixels"):
+            self._scroll_pixels = self.convert_coordinate(self.scroll, "height" if self.wrap else "width")
         return self._scroll_pixels
 
     def start_scroller(self):
@@ -662,7 +718,7 @@ class KeyTextLine(keyImagePart):
             self.do_scroll,
             max(RENDER_IMAGE_DELAY, 1 / abs(self.scroll_pixels)),
             wait_first=self.SCROLL_WAIT,
-            name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line and self.line != -1 else ""}'
+            name=f'TxtScrol{self.page.number}.{self.key.row}{self.key.col}{(".%s" % self.line) if self.line and self.line != -1 else ""}',
         )
         self.scroll_thread.start()
 

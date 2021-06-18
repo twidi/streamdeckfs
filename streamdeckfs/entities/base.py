@@ -19,16 +19,16 @@ from peak.util.proxies import ObjectWrapper
 from ..common import file_flags, logger
 
 RE_PARTS = {
-    '0-100': r'0*(?:\d{1,2}?|100)',
-    '%': r'(?:\d+|\d*\.\d+)%',
-    'color': r'\w+|(?:#[a-fA-F0-9]{6})',
-    'color & alpha?': r'\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)',
+    "0-100": r"0*(?:\d{1,2}?|100)",
+    "%": r"(?:\d+|\d*\.\d+)%",
+    "color": r"\w+|(?:#[a-fA-F0-9]{6})",
+    "color & alpha?": r"\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)",
 }
 
-RE_PARTS['% | number'] = r'(?:\d+|' + RE_PARTS["%"] + ')'
+RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-DEFAULT_SLASH_REPL = '\\\\'  # double \
-DEFAULT_SEMICOLON_REPL = '^'
+DEFAULT_SLASH_REPL = "\\\\"  # double \
+DEFAULT_SEMICOLON_REPL = "^"
 
 
 class FILTER_DENY:
@@ -46,15 +46,15 @@ class Entity:
     path_glob = None
     main_path_re = None
     filename_re_parts = [
-        re.compile(r'^(?P<flag>disabled)(?:=(?P<value>false|true))?$'),
-        re.compile(r'^(?P<arg>name)=(?P<value>[^;]+)$'),
+        re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$"),
+        re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$"),
     ]
     main_filename_part = None
-    name_filename_part = lambda args: f'name={args["name"]}' if args.get('name') else None
-    disabled_filename_part = lambda args: 'disabled' if args.get('disabled', False) in (True, 'true', None) else None
+    name_filename_part = lambda args: f'name={args["name"]}' if args.get("name") else None
+    disabled_filename_part = lambda args: "disabled" if args.get("disabled", False) in (True, "true", None) else None
     filename_parts = [name_filename_part, disabled_filename_part]
 
-    unnamed = '__unnamed__'
+    unnamed = "__unnamed__"
 
     parent_attr = None
     identifier_attr = None
@@ -113,7 +113,7 @@ class Entity:
     @classmethod
     def compose_filename(cls, main, args):
         main_part, args_parts = cls.compose_filename_parts(main, args)
-        return ';'.join([main_part] + args_parts)
+        return ";".join([main_part] + args_parts)
 
     @classmethod
     def raw_parse_filename(cls, name, parent):
@@ -122,7 +122,7 @@ class Entity:
 
         if name not in cls.parse_cache:
 
-            main_part, *parts = name.split(';')
+            main_part, *parts = name.split(";")
             if not (match := cls.main_path_re.match(main_part)):
                 main, args = None, None
             else:
@@ -132,15 +132,15 @@ class Entity:
                     for regex in cls.filename_re_parts:
                         if match := regex.match(part):
                             values = match.groupdict()
-                            is_flag = 'flag' in values and 'arg' not in values and len(values) == 2
+                            is_flag = "flag" in values and "arg" not in values and len(values) == 2
                             if not is_flag:
                                 values = {key: value for key, value in values.items() if value}
-                            if not (arg_name := values.pop('flag' if is_flag else 'arg', None)):
+                            if not (arg_name := values.pop("flag" if is_flag else "arg", None)):
                                 continue
-                            if list(values.keys()) == ['value']:
-                                values = values['value']
+                            if list(values.keys()) == ["value"]:
+                                values = values["value"]
                                 if is_flag:
-                                    values = values in (None, 'true')
+                                    values = values in (None, "true")
                             args[arg_name] = values
 
             cls.parse_cache[name] = (main, args)
@@ -164,9 +164,9 @@ class Entity:
             return None, None, None, None
 
         ref_conf = ref = None
-        if (ref_conf := cls.parse_cache[name][1].get('ref')):
-            if 'key_same_page' in ref_conf:
-                ref_conf['key'] = ref_conf.pop('key_same_page')
+        if ref_conf := cls.parse_cache[name][1].get("ref"):
+            if "key_same_page" in ref_conf:
+                ref_conf["key"] = ref_conf.pop("key_same_page")
             ref_conf, ref = cls.find_reference(parent, ref_conf, main, args)
             if not ref:
                 return ref_conf, None, None, None
@@ -179,9 +179,9 @@ class Entity:
             # do not inherit "sub arguments" (things like `margin.2` if whole argument is defined in the current conf, like, in this example, `margin`)
             sub_ref_args = {}
             for key, value in ref_args.items():
-                if '.' not in key:
+                if "." not in key:
                     continue
-                parent_key = key.split('.', 1)[0]
+                parent_key = key.split(".", 1)[0]
                 sub_ref_args.setdefault(parent_key, {})[key] = value
             if sub_ref_args:
                 ref_args = ref_args.copy()
@@ -195,23 +195,23 @@ class Entity:
         # merge "sub arguments" in their main arguments
         sub_args = {}
         for key, value in args.items():
-            if '.' not in key:
+            if "." not in key:
                 continue
-            parent_key = key.split('.', 1)[0]
+            parent_key = key.split(".", 1)[0]
             sub_args.setdefault(parent_key, {})[key] = value
         if sub_args:
             for parent_key in sub_args.keys():
                 if parent_key in args:
                     if isinstance(args[parent_key], str):
                         try:
-                            parts = args[parent_key].split(',')
+                            parts = args[parent_key].split(",")
                             for key, value in sub_args[parent_key].items():
                                 try:
-                                    index = int(key.split('.')[-1])
+                                    index = int(key.split(".")[-1])
                                     parts[index] = value
                                 except Exception:
                                     continue
-                            args[parent_key] = ','.join(parts)
+                            args[parent_key] = ",".join(parts)
                         except Exception:
                             pass
                     elif isinstance(args[parent_key], dict):
@@ -219,7 +219,7 @@ class Entity:
                             parts = list(args[parent_key].keys())
                             for key, value in sub_args[parent_key].items():
                                 try:
-                                    part = key.split('.')[-1]
+                                    part = key.split(".")[-1]
                                     try:
                                         index = int(part)
                                     except ValueError:
@@ -238,7 +238,7 @@ class Entity:
                 if (args := cls.convert_args(args)) is not None:
                     return ref_conf, ref, main, args
         except InvalidArg as exc:
-            logger.error(f'[{parent}] [{name}] {exc}')
+            logger.error(f"[{parent}] [{name}] {exc}")
 
         return ref_conf, None, None, None
 
@@ -249,8 +249,8 @@ class Entity:
     @classmethod
     def convert_args(cls, args):
         final_args = {
-            'disabled': args.get('disabled', False),
-            'name': args.get('name') or cls.unnamed,
+            "disabled": args.get("disabled", False),
+            "name": args.get("name") or cls.unnamed,
         }
         return final_args
 
@@ -259,10 +259,10 @@ class Entity:
         if args is None:
             args = {}
         return {
-            'path': path,
-            'path_modified_at': path_modified_at or time(),
-            'name': args.get('name') or cls.unnamed,
-            'disabled': args.get('disabled', False),
+            "path": path,
+            "path_modified_at": path_modified_at or time(),
+            "name": args.get("name") or cls.unnamed,
+            "disabled": args.get("disabled", False),
             cls.parent_attr: parent,
             cls.identifier_attr: identifier,
         }
@@ -300,16 +300,22 @@ class Entity:
     @staticmethod
     def get_waiting_reference_holder(deck, ref_conf):
         from .key import Key
-        if isinstance(ref_conf.get('key'), Key):
-            return ref_conf['key']
+
+        if isinstance(ref_conf.get("key"), Key):
+            return ref_conf["key"]
+
         from .page import Page
-        if isinstance(ref_conf.get('page'), Page):
-            return ref_conf['page']
+
+        if isinstance(ref_conf.get("page"), Page):
+            return ref_conf["page"]
         return deck
 
     @classmethod
     def add_waiting_reference(cls, parent, path, ref_conf):
-        cls.get_waiting_reference_holder(parent.deck, ref_conf).waiting_child_references.setdefault(cls, {})[path] = (parent, ref_conf)
+        cls.get_waiting_reference_holder(parent.deck, ref_conf).waiting_child_references.setdefault(cls, {})[path] = (
+            parent,
+            ref_conf,
+        )
 
     @classmethod
     def remove_waiting_reference(cls, deck, path, ref_conf):
@@ -320,7 +326,12 @@ class Entity:
 
     def on_create(self):
         for path, parent, ref_conf in self.get_waiting_references():
-            if parent.on_file_change(parent.path, path.name, file_flags.CREATE | (file_flags.ISDIR if self.is_dir else 0), entity_class=self.__class__):
+            if parent.on_file_change(
+                parent.path,
+                path.name,
+                file_flags.CREATE | (file_flags.ISDIR if self.is_dir else 0),
+                entity_class=self.__class__,
+            ):
                 self.remove_waiting_reference(self.deck, path, ref_conf)
 
     def on_changed(self):
@@ -338,10 +349,16 @@ class Entity:
         self.on_delete()
         self.parent_container[self.identifier].remove_version(self.path)
 
-    def on_child_entity_change(self, path, flags, entity_class, data_identifier, args, ref_conf, ref, modified_at=None):
+    def on_child_entity_change(
+        self, path, flags, entity_class, data_identifier, args, ref_conf, ref, modified_at=None
+    ):
         data_dict = getattr(self, entity_class.parent_container_attr)
 
-        if (bool(flags & file_flags.ISDIR) ^ entity_class.is_dir) or (flags & file_flags.DELETE) or (flags & file_flags.MOVED_FROM):
+        if (
+            (bool(flags & file_flags.ISDIR) ^ entity_class.is_dir)
+            or (flags & file_flags.DELETE)
+            or (flags & file_flags.MOVED_FROM)
+        ):
             if entity := data_dict[data_identifier].get_version(path):
                 entity.on_delete()
                 data_dict[data_identifier].remove_version(path)
@@ -361,11 +378,7 @@ class Entity:
             return False
 
         entity = entity_class.create_from_args(
-            path=path,
-            parent=self,
-            identifier=data_identifier,
-            args=args,
-            path_modified_at=modified_at
+            path=path, parent=self, identifier=data_identifier, args=args, path_modified_at=modified_at
         )
         if ref:
             entity.reference = ref
@@ -375,10 +388,10 @@ class Entity:
         return True
 
     def version_activated(self):
-        logger.debug(f'[{self}] Version activated: {self.path}')
+        logger.debug(f"[{self}] Version activated: {self.path}")
 
     def version_deactivated(self):
-        logger.debug(f'[{self}] Version deactivated: {self.path}')
+        logger.debug(f"[{self}] Version deactivated: {self.path}")
 
     @classmethod
     def find_by_identifier_or_name(cls, data, filter, to_identifier, allow_disabled=False):
@@ -419,15 +432,13 @@ class Entity:
 
     @staticmethod
     def replace_special_chars(value, args):
-        return value.replace(args.get('slash', DEFAULT_SLASH_REPL), '/').replace(args.get('semicolon', DEFAULT_SEMICOLON_REPL), ';')
+        return value.replace(args.get("slash", DEFAULT_SLASH_REPL), "/").replace(
+            args.get("semicolon", DEFAULT_SEMICOLON_REPL), ";"
+        )
 
     @staticmethod
     def finalize_env_vars(env_vars):
-        return {
-            f'SDFS_{key.upper()}': str(value)
-            for key, value in env_vars.items()
-            if value is not None
-        }
+        return {f"SDFS_{key.upper()}": str(value) for key, value in env_vars.items() if value is not None}
 
 
 class VersionProxy(ObjectWrapper):
@@ -440,7 +451,7 @@ class VersionProxy(ObjectWrapper):
         self.sort_key_func = sort_key_func
 
     def add_version(self, key, value):
-        assert key not in self.versions, f'Key {key} already in available versions'
+        assert key not in self.versions, f"Key {key} already in available versions"
         self.versions[key] = value
         self.reset_subject()
 
@@ -477,9 +488,9 @@ class VersionProxy(ObjectWrapper):
         except StopIteration:
             new_subject = self.__subject__ = None
         if new_subject != old_subject:
-            if old_subject and hasattr(old_subject, 'version_deactivated'):
+            if old_subject and hasattr(old_subject, "version_deactivated"):
                 old_subject.version_deactivated()
-            if new_subject and hasattr(new_subject, 'version_activated'):
+            if new_subject and hasattr(new_subject, "version_activated"):
                 new_subject.version_activated()
 
 
