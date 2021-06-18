@@ -12,7 +12,13 @@ from dataclasses import dataclass
 from cached_property import cached_property
 
 from ..common import Manager, file_flags
-from .base import FILTER_DENY, Entity, versions_dict_factory
+from .base import (
+    FILE_NOT_AN_EVENT,
+    FILTER_DENY,
+    Entity,
+    WithEvents,
+    versions_dict_factory,
+)
 from .deck import Deck
 
 FIRST = "__first__"
@@ -24,7 +30,7 @@ PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 
 
 @dataclass(eq=False)
-class Page(Entity):
+class Page(WithEvents, Entity):
 
     is_dir = True
     path_glob = "PAGE_*"
@@ -38,6 +44,12 @@ class Page(Entity):
 
     deck: "Deck"
     number: int
+
+    @cached_property
+    def event_class(self):
+        from . import PageEvent
+
+        return PageEvent
 
     def __post_init__(self):
         super().__post_init__()
@@ -69,6 +81,7 @@ class Page(Entity):
         super().on_delete()
 
     def read_directory(self):
+        super().read_directory()
         if self.deck.filters.get("key") != FILTER_DENY:
             from .key import Key
 
@@ -80,6 +93,10 @@ class Page(Entity):
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
             return
+        if (
+            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
+        ) is not FILE_NOT_AN_EVENT:
+            return event_result
         path = self.path / name
         if (key_filter := self.deck.filters.get("key")) != FILTER_DENY:
             from .key import Key
@@ -133,6 +150,8 @@ class Page(Entity):
         if not self.is_visible:
             return
 
+        self.activate_events()
+
         if rendered_keys is None:
             rendered_keys = set()
         elif len(rendered_keys) == self.deck.nb_keys:
@@ -168,13 +187,7 @@ class Page(Entity):
             return
         for key in self.iter_keys():
             key.unrender(clear_image=clear_images)
-
-    @property
-    def sorted_keys(self):
-        keys = {}
-        for row_col, key in sorted((key.key, key) for key in self.iter_keys()):
-            keys[row_col] = key
-        return keys
+        self.deactivate_events()
 
     def find_key(self, key_filter, allow_disabled=False):
         from .key import Key
@@ -212,3 +225,32 @@ class Page(Entity):
                 "page_directory": self.path,
             }
         )
+
+
+@dataclass(eq=False)
+class PageContent(Entity):
+    parent_attr = "page"
+
+    page: "Page"
+
+    @property
+    def deck(self):
+        return self.page.deck
+
+    @classmethod
+    def find_reference_page(cls, parent, ref_conf):
+        final_ref_conf = ref_conf.copy()
+        if ref_page := ref_conf.get("page"):
+            if not (page := parent.deck.find_page(ref_page)):
+                return final_ref_conf, None
+        else:
+            final_ref_conf["page"] = page = parent
+        return final_ref_conf, page
+
+    @classmethod
+    def iter_waiting_references_for_page(cls, check_page):
+        for path, (parent, ref_conf) in check_page.waiting_child_references.get(cls, {}).items():
+            yield check_page, path, parent, ref_conf
+        for path, (parent, ref_conf) in check_page.deck.waiting_child_references.get(cls, {}).items():
+            if (page := check_page.deck.find_page(ref_conf["page"])) and page.number == check_page.number:
+                yield page, path, parent, ref_conf

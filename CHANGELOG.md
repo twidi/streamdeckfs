@@ -1,5 +1,11 @@
 # Changelog
 
+
+## Release `1.4` - *IN PROGRESS*
+
+- Add `ON_START` and `ON_END` events for pages
+
+
 ## Release `1.3` - *2021-06-18*
 
 - Fix some overlays issues

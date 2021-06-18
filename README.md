@@ -948,9 +948,9 @@ Examples:
 - `TEXT;file=|home|myself|texts|intro,version2.txt;slash=|;semicolon=,` same but using `|` for slashes and `,` for semicolons
 
 
-## Configuring events (press, long-press, release, start, end)
+## Configuring key events (press, long-press, release, start, end)
 
-`streamdeckfs` handles four different events from your StreamDeck that are listed below. But first, let see how events are defined.
+`streamdeckfs` handles five different events from your StreamDeck that are listed below. But first, let see how events are defined.
 
 An event for a key is a file in a `KEY...` directory that starts with `ON_`, followed by the event's name uppercased: `ON_PRESS`, `ON_RELEASE`, `ON_LONGPRESS`, `ON_START`, `ON_END`.
 
@@ -1227,6 +1227,14 @@ Examples:
 - `ON_PRESS;page=50;overlay` or `ON_PRESS;overlay=true` will open the page number 50 as an overlay
 - `ON_PRESS;page=50;overlay=false` or `ON_PRESS;page=50` will open the page number 50 without any key of the current page being visible
 
+## Configuring page events
+
+Like keys, pages can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the page directory.
+
+When a page is displayed, the `ON_START` action is executed. And when the page is removed (by opening a new page (but not an overlay), going back to the previous one, or when `streamdeckfs` is terminated), the `ON_END` action is executed.
+
+All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
+
 
 # Pages
 
@@ -1287,25 +1295,32 @@ As with all configuration options, `name` and `layer` are inherited too (if defi
 
 A text line can reference another text line like this: `ref=PAGE:KEY:LINE`, with:
 
-- `PAGE` is the name or number of the page where the reference text is, and not setting a page (`ref=:KEY:LAYER`) means looking on the same page as the image defining the `ref`
+- `PAGE` is the name or number of the page where the reference text is, and not setting a page (`ref=:KEY:LINE`) means looking on the same page as the image defining the `ref`
 - `KEY` is the name or coordinates (`ROW,COL`) of the key where the reference text is
 - `LINE` is the name or line number of the reference text, and not setting the line (`ref=PAGE:KEY:`) means referencing the text on the `KEY` that has no line defined
 
 As with all configuration options, `name` and `line` are inherited too (if defined on the reference) if not specified on the text having the `ref` option.
 
-### Events
+### Key events
 
-An event can reference another event like this: `ref=PAGE:KEY:EVENT`, with:
+A key event can reference another key event like this: `ref=PAGE:KEY:EVENT`, with:
 
-- `PAGE` is the name or number of the page where the reference event is, and not setting a page (`ref=:KEY:LAYER`) means looking on the same page as the event defining the `ref`
+- `PAGE` is the name or number of the page where the reference event is, and not setting a page (`ref=:KEY:EVENT`) means looking on the same page as the event defining the `ref`
 - `KEY` is the name or coordinates (`ROW,COL`) of the key where the reference event is
 - `EVENT` is the name or kind (`press`, `longpress`, `release`, `start`, `end`) of the reference event, and not setting the event (`ref=PAGE:KEY:`) means referencing the event for the `KEY` with the same kind (`ON_PRESS;ref=PAGE:KEY:` = looking for a `press` event in the key `KEY` of the page `PAGE`)
+
+### Page events
+
+A page event can reference another page event like this: `ref=PAGE:EVENT`, with:
+
+- `PAGE` is the name or number of the page where the reference event is, and not setting a page (`ref=:EVENT`) means looking on the same page as the event defining the `ref`
+- `EVENT` is the name or kind (`start`, `end`) of the reference event, and not setting the event (`ref=PAGE:`) means referencing the event for the `PAGE` with the same kind (`ON_START;ref=PAGE:` = looking for a `start` event in the page `PAGE`)
 
 ### Keys
 
 A key can reference another key like this: `ref=PAGE:KEY`, with:
 
-- `PAGE` is the name or number of the page where the reference key is, and not setting a page (`ref=:KEY:LAYER`) means looking on the same page as the event defining the `ref`
+- `PAGE` is the name or number of the page where the reference key is, and not setting a page (`ref=:KEY`) means looking on the same page as the event defining the `ref`
 - `KEY` is the name or coordinates (`ROW,COL`) of the reference key, and not setting the key (`ref=PAGE:`) means referencing the key on the `PAGE` with the same coordinates
 
 Keys references are particular because a key can contain text, images, events, etc. The way it works is simple: by default, everything that is available in the reference key is "imported" in the key referencing it, but in the directory key referencing it, you can add texts, images, events... that will "replace" the ones in the reference key. So you can add layers, texts, and if you want to change one configuration of, say, an image, you can reference it and only add the configuration to update. See below when using the "close" reference.
@@ -2275,7 +2290,7 @@ $ streamdeckfs delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 
 ## list-events
 
-Will print the events of a key.
+Will print the events of a page or a key.
 
 ```bsash
 streamdeckfs list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
@@ -2283,8 +2298,8 @@ streamdeckfs list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
 
 with:
 
-- `PAGE`: the number or name of the page where to find the key for which to list the events
-- `KEY`: the name of the key for which to list the events, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
+- `PAGE`: the number or name of the page for which to list the events, or if `-k` is passed, where to find the key for which to list the events
+- `KEY`: the name of the key for which to list the events, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument to list events of a page
 - `DISABLED`: either `--without-disabled` (the default, to only list the events that can be rendered) or `--with-disabled` (to list all the events)
 
 Events are listed one per output line, with for each the same result as if `get-event-conf` were called. See `get-event-conf` for output examples.
@@ -2300,8 +2315,8 @@ streamdeckfs get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
 
 Example:
 
@@ -2321,8 +2336,8 @@ streamdeckfs get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
 
 Example:
 
@@ -2342,8 +2357,8 @@ streamdeckfs set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 
 with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2357,7 +2372,7 @@ Example, to stop allowing repetition:
 $ streamdeckfs set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
 ```
 
-Passing an empty string for the `every` configuration option removes it from the file name, as we can see then by calling `get-event-path` and `get_event-conf`:
+Passing an empty string for the `every` configuration option removes it from the file name, as we can see just after by calling `get-event-path` and `get_event-conf`:
 
 ```bash
 $ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
@@ -2379,8 +2394,8 @@ streamdeckfs create-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VA
 with:
 
 - `PAGE`: the number or name of the page where to create the wanted event
-- `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the event to create
+- `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the event to create
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
@@ -2398,7 +2413,7 @@ $ streamdeckfs create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "
 
 ## copy-event
 
-Will make a copy of an event, in the same key or another.
+Will make a copy of an event, in the same key or another for a key event, or in the same page or another for a page event
 
 ```
 streamdeckfs copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
@@ -2407,11 +2422,11 @@ streamdeckfs copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk
 with:
 
 - `PAGE`: the number or name of the page where to find the event to copy
-- `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to copy
+- `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to copy
 - `TO_PAGE`: the number or the name of the page where to copy the event (`-tp` is for `--to-page`). Optional: if not given, will use the page of the event to copy
-- `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy
-- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the new event. Optional: if not given, will use the same kind as the event to copy
+- `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy. Do not pass this argument for a page event
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the new event. Optional: if not given, will use the same kind as the event to copy
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2428,7 +2443,7 @@ $ streamdeckfs copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -
 
 ## move-event
 
-Will move an event to another key
+Will move an event to another key for a key event, or to another page for a page event
 
 ```
 streamdeckfs move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk TO_KEY -te TO_EVENT -c OPTION1 VALUE1 -c OPTION2 VALUE2
@@ -2437,11 +2452,11 @@ streamdeckfs move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk
 with:
 
 - `PAGE`: the number or name of the page where to find the event to move
-- `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to move
+- `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to move
 - `TO_PAGE`: the number or the name of the page where to move the event (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
-- `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move
-- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the moved event. Optional: if not given, will use the same kind as the event to move
+- `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move. Do not pass this argument for a page event
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the moved event. Optional: if not given, will use the same kind as the event to move
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2467,8 +2482,8 @@ streamdeckfs delete-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 with:
 
 - `PAGE`: the number or name of the page where to find the event to delete
-- `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to delete
+- `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to delete
 
 This command returns the path of the deleted event file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 

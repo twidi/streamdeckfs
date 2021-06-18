@@ -277,7 +277,13 @@ class Entity:
 
     @property
     def parent(self):
-        return getattr(self, self.parent_attr)
+        return getattr(self, self.parent_attr, None) if self.parent_attr else None
+
+    @property
+    def has_disabled_parent(self):
+        if parent := self.parent:
+            return parent.disabled or parent.has_disabled_parent
+        return False
 
     @property
     def parent_container(self):
@@ -496,3 +502,84 @@ class VersionProxy(ObjectWrapper):
 
 VersionProxyMostRecent = partial(VersionProxy, sort_key_func=lambda key_and_obj: key_and_obj[1].path_modified_at)
 versions_dict_factory = lambda: defaultdict(VersionProxyMostRecent)
+
+
+class FILE_NOT_AN_EVENT:
+    pass
+
+
+class WithEvents:
+
+    event_class = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.events = versions_dict_factory()
+
+    @property
+    def resolved_events(self):
+        if not self.reference:
+            return self.events
+        events = {}
+        for kind, event in self.events.items():
+            if event:
+                events[kind] = event
+        for kind, event in self.reference.resolved_events.items():
+            if kind not in events and event:
+                events[kind] = event
+        return events
+
+    def on_delete(self):
+        for event_versions in self.events.values():
+            for event in event_versions.all_versions:
+                event.on_delete()
+        super().on_delete()
+
+    def activate_events(self):
+        for event in self.resolved_events.values():
+            if event:
+                event.activate(self)
+
+    def deactivate_events(self):
+        for event in self.resolved_events.values():
+            if event:
+                event.deactivate()
+
+    def find_event(self, event_filter, allow_disabled=False):
+        return self.event_class.find_by_identifier_or_name(
+            self.resolved_events, event_filter, str, allow_disabled=allow_disabled
+        )
+
+    def read_directory(self):
+        if self.deck.filters.get("event") != FILTER_DENY:
+            for event_file in sorted(self.path.glob(self.event_class.path_glob)):
+                self.on_file_change(
+                    self.path,
+                    event_file.name,
+                    file_flags.CREATE | (file_flags.ISDIR if event_file.is_dir() else 0),
+                    entity_class=self.event_class,
+                )
+
+    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+        if (event_filter := self.deck.filters.get("event")) != FILTER_DENY:
+            if not entity_class or entity_class is self.event_class:
+                ref_conf, ref, main, args = self.event_class.parse_filename(name, self)
+                path = self.path / name
+                if main:
+                    if event_filter is not None and not self.event_class.args_matching_filter(
+                        main, args, event_filter
+                    ):
+                        return None
+                    return self.on_child_entity_change(
+                        path=path,
+                        flags=flags,
+                        entity_class=self.event_class,
+                        data_identifier=main["kind"],
+                        args=args,
+                        ref_conf=ref_conf,
+                        ref=ref,
+                        modified_at=modified_at,
+                    )
+                elif ref_conf:
+                    self.event_class.add_waiting_reference(self, path, ref_conf)
+        return FILE_NOT_AN_EVENT

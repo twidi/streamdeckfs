@@ -14,15 +14,15 @@ from PIL import Image, ImageDraw, ImageEnhance
 
 from ..common import Manager, logger
 from .base import RE_PARTS, InvalidArg
-from .key import KeyFile
+from .key import KeyContent
 
 
 @dataclass(eq=False)
-class keyImagePart(KeyFile):
+class keyImagePart(KeyContent):
 
     no_margins = {"top": ("int", 0), "right": ("int", 0), "bottom": ("int", 0), "left": ("int", 0)}
 
-    filename_re_parts = KeyFile.filename_re_parts + [
+    filename_re_parts = KeyContent.filename_re_parts + [
         re.compile(r"^(?P<arg>file)=(?P<value>.+)$"),
         re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
         re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),

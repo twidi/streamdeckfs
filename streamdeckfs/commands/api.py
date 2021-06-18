@@ -20,24 +20,6 @@ from ..common import Manager, logger
 from ..entities import FILTER_DENY, PAGE_CODES, Deck
 from .base import cli, validate_positive_integer
 
-__all__ = [
-    "get_page_path",
-    "get_page_conf",
-    "set_page_conf",
-    "get_key_path",
-    "get_key_conf",
-    "set_key_conf",
-    "get_image_path",
-    "get_image_conf",
-    "set_image_conf",
-    "get_text_path",
-    "get_text_conf",
-    "set_text_conf",
-    "get_event_path",
-    "get_event_conf",
-    "set_event_conf",
-]
-
 NoneType = type(None)
 
 
@@ -58,13 +40,16 @@ class FilterCommands:
         "key": click.option(
             "-k", "--key", "key_filter", type=str, required=True, help='A key as "row,col" or a name'
         ),
+        "optional_key": click.option(
+            "-k", "--key", "key_filter", type=str, required=False, help='An optional key as "row,col" or a name'
+        ),
         "to_key": click.option(
             "-tk",
             "--to-key",
             "to_key_filter",
             type=str,
             required=False,
-            help='The optional destinations key as "row,col" or a name',
+            help='The optional destination key as "row,col" or a name',
         ),
         "layer": click.option(
             "-l",
@@ -88,7 +73,7 @@ class FilterCommands:
             "event_filter",
             type=str,
             required=True,
-            help="An event kind (press/longpress/release/start) or name",
+            help="An event kind ([press|longpress|release|start|end] for a key event, or [start|end] for a page even) or name",
         ),
         "names": click.option(
             "-c",
@@ -140,31 +125,45 @@ class FilterCommands:
         options = {}
         options["page_filter"] = lambda func: cls.options["directory"](cls.options["page"](func))
         options["key_filter"] = lambda func: options["page_filter"](cls.options["key"](func))
+        options["optional_key_filter"] = lambda func: options["page_filter"](cls.options["optional_key"](func))
         options["layer_filter"] = lambda func: options["key_filter"](cls.options["layer"](func))
         options["text_line_filter"] = lambda func: options["key_filter"](cls.options["text_line"](func))
-        options["event_filter"] = lambda func: options["key_filter"](cls.options["event"](func))
-
-        def add_verbosity(option):
-            return lambda func: option(cls.options["verbosity"](func))
+        options["event_filter"] = lambda func: options["optional_key_filter"](cls.options["event"](func))
 
         def set_command(name, option):
-            cls.options[name] = add_verbosity(option)
+            cls.options[name] = option
             arg_key = f"{name}_arg"
-            options[arg_key] = lambda func: option(cls.options["name"](func))
-            cls.options[arg_key] = add_verbosity(options[arg_key])
-
+            cls.options[arg_key] = lambda func: option(cls.options["name"](func))
             key = f"{name}_with_names"
-            options[key] = lambda func: option(cls.options["names"](func))
-            cls.options[key] = add_verbosity(options[key])
-
+            cls.options[key] = lambda func: option(cls.options["names"](func))
             key = f"{name}_with_names_and_values"
-            options[key] = lambda func: option(cls.options["names_and_values"](func))
-            cls.options[key] = add_verbosity(options[key])
+            cls.options[key] = lambda func: option(cls.options["names_and_values"](func))
 
         for name, option in list(options.items()):
             set_command(name, option)
 
         cls.options["to_page_to_key"] = lambda func: cls.options["to_page"](cls.options["to_key"](func))
+        cls.options["event_to_key"] = click.option(
+            "-tk",
+            "--to-key",
+            "to_key_filter",
+            type=str,
+            required=False,
+            help='The optional destination key as "row,col" or a name. (only for a key event, not for a page event)',
+            callback=cls.validate_to_key_event_destination,
+        )
+
+    @staticmethod
+    def validate_event_kind(ctx, param, value):
+        if ctx.params.get("key_filter") is None and value is not None and value not in ("start", "end"):
+            raise click.BadParameter("For a page, only [start|end] events are valid")
+        return value
+
+    @staticmethod
+    def validate_to_key_event_destination(ctx, param, value):
+        if ctx.params.get("key_filter") is None and value is not None:
+            raise click.BadParameter("A page event destination cannot be a key")
+        return value
 
     @staticmethod
     def get_deck(
@@ -561,15 +560,25 @@ class FilterCommands:
         )
 
     @classmethod
-    def copy_event(cls, event, to_key, to_kind, names_and_values, dry_run=False):
+    def copy_event(cls, event, to_parent, to_kind, names_and_values, dry_run=False):
         return cls.copy_entity(
-            event, to_key, {"kind": to_kind}, names_and_values, f"{to_key}, NEW EVENT {to_kind}", dry_run=dry_run
+            event,
+            to_parent,
+            {"kind": to_kind},
+            names_and_values,
+            f"{to_parent}, NEW EVENT {to_kind}",
+            dry_run=dry_run,
         )
 
     @classmethod
-    def move_event(cls, event, to_key, to_kind, names_and_values, dry_run=False):
+    def move_event(cls, event, to_parent, to_kind, names_and_values, dry_run=False):
         return cls.move_entity(
-            event, to_key, {"kind": to_kind}, names_and_values, f"{to_key}, NEW EVENT {to_kind}", dry_run=dry_run
+            event,
+            to_parent,
+            {"kind": to_kind},
+            names_and_values,
+            f"{to_parent}, NEW EVENT {to_kind}",
+            dry_run=dry_run,
         )
 
     @classmethod
@@ -595,6 +604,7 @@ FC.combine_options()
 
 @cli.command()
 @FC.options["directory"]
+@FC.options["verbosity"]
 def get_deck_info(directory):
     """Get some information about the deck"""
     try:
@@ -605,6 +615,7 @@ def get_deck_info(directory):
 
 @cli.command()
 @FC.options["directory"]
+@FC.options["verbosity"]
 def get_current_page(directory):
     """Get the current page"""
     try:
@@ -637,6 +648,7 @@ def get_current_page(directory):
     help="A page number or a name, or one of " + ", ".join(f'"{page_code}"' for page_code in PAGE_CODES),
 )
 @click.option("--overlay/--no-overlay", "overlay", default=False, help="Set page as an overlay or not")
+@FC.options["verbosity"]
 def set_current_page(directory, page_filter, overlay):
     """Set the current page"""
     if page_filter not in PAGE_CODES:
@@ -663,6 +675,7 @@ def set_current_page(directory, page_filter, overlay):
 @cli.command()
 @FC.options["directory"]
 @FC.options["disabled_flag"]
+@FC.options["verbosity"]
 def list_pages(directory, with_disabled):
     """List the page of the deck"""
     deck = FC.get_deck(
@@ -677,6 +690,7 @@ def list_pages(directory, with_disabled):
 
 @cli.command()
 @FC.options["page_filter"]
+@FC.options["verbosity"]
 def get_page_path(directory, page_filter):
     """Get the path of a page."""
     page = FC.find_page(
@@ -694,6 +708,7 @@ def get_page_path(directory, page_filter):
 
 @cli.command()
 @FC.options["page_filter_with_names"]
+@FC.options["verbosity"]
 def get_page_conf(directory, page_filter, names):
     """Get the configuration of a page, in json."""
     page = FC.find_page(
@@ -712,6 +727,7 @@ def get_page_conf(directory, page_filter, names):
 @cli.command()
 @FC.options["page_filter_with_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def set_page_conf(directory, page_filter, names_and_values, dry_run):
     """Set the value of some entries of a page configuration."""
     page = FC.find_page(
@@ -750,6 +766,7 @@ If no available page match the request, a error will be raised."""
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def create_page(directory, page, names_and_values, dry_run):
     """Create a new image layer with configuration"""
     deck = FC.get_deck(
@@ -775,6 +792,7 @@ def create_page(directory, page, names_and_values, dry_run):
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run):
     """Copy a page and all its content"""
     deck = FC.get_deck(
@@ -801,6 +819,7 @@ def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run)
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def move_page(directory, page_filter, to_page_number, names_and_values, dry_run):
     """Move a page to a different number"""
     deck = FC.get_deck(
@@ -817,6 +836,7 @@ def move_page(directory, page_filter, to_page_number, names_and_values, dry_run)
 @cli.command()
 @FC.options["page_filter"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def delete_page(directory, page_filter, dry_run):
     """Fully delete a page directory."""
     page = FC.find_page(
@@ -835,6 +855,7 @@ def delete_page(directory, page_filter, dry_run):
 @cli.command()
 @FC.options["page_filter"]
 @FC.options["disabled_flag"]
+@FC.options["verbosity"]
 def list_keys(directory, page_filter, with_disabled):
     """List the keys of a page"""
     page = FC.find_page(
@@ -846,6 +867,7 @@ def list_keys(directory, page_filter, with_disabled):
 
 @cli.command()
 @FC.options["key_filter"]
+@FC.options["verbosity"]
 def get_key_path(directory, page_filter, key_filter):
     """Get the path of a key."""
     key = FC.find_key(
@@ -860,6 +882,7 @@ def get_key_path(directory, page_filter, key_filter):
 
 @cli.command()
 @FC.options["key_filter_with_names"]
+@FC.options["verbosity"]
 def get_key_conf(directory, page_filter, key_filter, names):
     """Get the configuration of a key, in json."""
     key = FC.find_key(
@@ -875,6 +898,7 @@ def get_key_conf(directory, page_filter, key_filter, names):
 @cli.command()
 @FC.options["key_filter_with_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def set_key_conf(directory, page_filter, key_filter, names_and_values, dry_run):
     """Set the value of some entries of a key configuration."""
     key = FC.find_key(
@@ -904,6 +928,7 @@ If no available key match the request, a error will be raised."""
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def create_key(directory, page_filter, key, names_and_values, dry_run):
     """Create a new image layer with configuration"""
     page = FC.find_page(
@@ -929,6 +954,7 @@ def create_key(directory, page_filter, key, names_and_values, dry_run):
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_and_values, dry_run):
     """Copy a key and all its content"""
     deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
@@ -953,6 +979,7 @@ def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def move_key(directory, page_filter, key_filter, to_page_filter, to_key, names_and_values, dry_run):
     """Move a key to another page and/or a different position"""
     deck = FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
@@ -965,6 +992,7 @@ def move_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
 @cli.command()
 @FC.options["key_filter"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def delete_key(directory, page_filter, key_filter, dry_run):
     """Fully delete of a key directory."""
     key = FC.find_key(
@@ -980,6 +1008,7 @@ def delete_key(directory, page_filter, key_filter, dry_run):
 @cli.command()
 @FC.options["key_filter"]
 @FC.options["disabled_flag"]
+@FC.options["verbosity"]
 def list_images(directory, page_filter, key_filter, with_disabled):
     """List the image layers of a key"""
     key = FC.find_key(
@@ -991,6 +1020,7 @@ def list_images(directory, page_filter, key_filter, with_disabled):
 
 @cli.command()
 @FC.options["layer_filter"]
+@FC.options["verbosity"]
 def get_image_path(directory, page_filter, key_filter, layer_filter):
     """Get the path of an image layer."""
     layer = FC.find_layer(
@@ -1005,6 +1035,7 @@ def get_image_path(directory, page_filter, key_filter, layer_filter):
 
 @cli.command()
 @FC.options["layer_filter_with_names"]
+@FC.options["verbosity"]
 def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
     """Get the configuration of an image layer, in json."""
     layer = FC.find_layer(
@@ -1020,6 +1051,7 @@ def get_image_conf(directory, page_filter, key_filter, layer_filter, names):
 @cli.command()
 @FC.options["layer_filter_with_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_values, dry_run):
     """Set the value of some entries of an image configuration."""
     layer = FC.find_layer(
@@ -1037,6 +1069,7 @@ def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_v
 @FC.options["optional_names_and_values"]
 @FC.options["link"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def create_image(directory, page_filter, key_filter, names_and_values, link, dry_run):
     """Create a new image layer with configuration"""
     key = FC.find_key(
@@ -1054,6 +1087,7 @@ def create_image(directory, page_filter, key_filter, names_and_values, link, dry
 @FC.options["to_page_to_key"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def copy_image(
     directory, page_filter, key_filter, layer_filter, to_page_filter, to_key_filter, names_and_values, dry_run
 ):
@@ -1075,6 +1109,7 @@ def copy_image(
 @FC.options["to_page_to_key"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def move_image(
     directory, page_filter, key_filter, layer_filter, to_page_filter, to_key_filter, names_and_values, dry_run
 ):
@@ -1094,6 +1129,7 @@ def move_image(
 @cli.command()
 @FC.options["layer_filter"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def delete_image(directory, page_filter, key_filter, layer_filter, dry_run):
     """Delete an image layer."""
     layer = FC.find_layer(
@@ -1109,6 +1145,7 @@ def delete_image(directory, page_filter, key_filter, layer_filter, dry_run):
 @cli.command()
 @FC.options["key_filter"]
 @FC.options["disabled_flag"]
+@FC.options["verbosity"]
 def list_texts(directory, page_filter, key_filter, with_disabled):
     """List the text lines of a key"""
     key = FC.find_key(
@@ -1120,6 +1157,7 @@ def list_texts(directory, page_filter, key_filter, with_disabled):
 
 @cli.command()
 @FC.options["text_line_filter"]
+@FC.options["verbosity"]
 def get_text_path(directory, page_filter, key_filter, text_line_filter):
     """Get the path of an image layer."""
     text_line = FC.find_text_line(
@@ -1134,6 +1172,7 @@ def get_text_path(directory, page_filter, key_filter, text_line_filter):
 
 @cli.command()
 @FC.options["text_line_filter_with_names"]
+@FC.options["verbosity"]
 def get_text_conf(directory, page_filter, key_filter, text_line_filter, names):
     """Get the configuration of an image layer, in json."""
     text_line = FC.find_text_line(
@@ -1149,6 +1188,7 @@ def get_text_conf(directory, page_filter, key_filter, text_line_filter, names):
 @cli.command()
 @FC.options["text_line_filter_with_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_and_values, dry_run):
     """Set the value of some entries of an image configuration."""
     text_line = FC.find_text_line(
@@ -1166,6 +1206,7 @@ def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_an
 @FC.options["optional_names_and_values"]
 @FC.options["link"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def create_text(directory, page_filter, key_filter, names_and_values, link, dry_run):
     """Create a new text line with configuration"""
     key = FC.find_key(
@@ -1183,6 +1224,7 @@ def create_text(directory, page_filter, key_filter, names_and_values, link, dry_
 @FC.options["to_page_to_key"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def copy_text(
     directory, page_filter, key_filter, text_line_filter, to_page_filter, to_key_filter, names_and_values, dry_run
 ):
@@ -1204,6 +1246,7 @@ def copy_text(
 @FC.options["to_page_to_key"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def move_text(
     directory, page_filter, key_filter, text_line_filter, to_page_filter, to_key_filter, names_and_values, dry_run
 ):
@@ -1223,6 +1266,7 @@ def move_text(
 @cli.command()
 @FC.options["text_line_filter"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def delete_text(directory, page_filter, key_filter, text_line_filter, dry_run):
     """Delete a text line."""
     text_line = FC.find_text_line(
@@ -1236,98 +1280,91 @@ def delete_text(directory, page_filter, key_filter, text_line_filter, dry_run):
 
 
 @cli.command()
-@FC.options["key_filter"]
+@FC.options["optional_key_filter"]
 @FC.options["disabled_flag"]
+@FC.options["verbosity"]
 def list_events(directory, page_filter, key_filter, with_disabled):
-    """List the events of a key"""
-    key = FC.find_key(
-        FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
-        key_filter,
-    )
-    FC.list_content(key, key.events, with_disabled=with_disabled)
+    """List the events of a page or a key"""
+    page = FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    FC.list_content(obj, obj.events, with_disabled=with_disabled)
 
 
 @cli.command()
 @FC.options["event_filter"]
+@FC.options["verbosity"]
 def get_event_path(directory, page_filter, key_filter, event_filter):
-    """Get the path of an event."""
-    event = FC.find_event(
-        FC.find_key(
-            FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
-            key_filter,
-        ),
-        event_filter,
-    )
+    """Get the path of an event of a page or a key."""
+    page = FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
     print(event.path)
 
 
 @cli.command()
 @FC.options["event_filter_with_names"]
+@FC.options["verbosity"]
 def get_event_conf(directory, page_filter, key_filter, event_filter, names):
-    """Get the configuration of an event, in json."""
-    event = FC.find_event(
-        FC.find_key(
-            FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
-            key_filter,
-        ),
-        event_filter,
-    )
+    """Get the configuration of an event of a page or a key, in json."""
+    page = FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
     print(FC.get_args_as_json(event, names or None))
 
 
 @cli.command()
 @FC.options["event_filter_with_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_values, dry_run):
-    """Set the value of some entries of an event configuration."""
-    event = FC.find_event(
-        FC.find_key(
-            FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
-            key_filter,
-        ),
-        event_filter,
-    )
+    """Set the value of some entries of an event (of a page or a key) configuration."""
+    page = FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
     print(FC.rename_entity(event, FC.get_update_args_filename(event, names_and_values), dry_run=dry_run)[1])
 
 
 @cli.command()
-@FC.options["key_filter"]
+@FC.options["optional_key_filter"]
 @click.option(
     "-e",
     "--event",
     "event_kind",
-    type=click.Choice(["press", "longpress", "release", "start"]),
+    type=click.Choice(["press", "longpress", "release", "start", "end"]),
     required=True,
-    help="The kind of event to create",
+    help="The kind of event to create (only [start|end] for a page event)",
+    callback=FC.validate_event_kind,
 )
 @FC.options["optional_names_and_values"]
 @FC.options["link"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def create_event(directory, page_filter, key_filter, event_kind, names_and_values, link, dry_run):
-    """Create a new event with configuration"""
-    key = FC.find_key(
-        FC.find_page(
-            FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY),
-            page_filter,
-        ),
-        key_filter,
+    """Create a new page or key event in a page or key, with configuration"""
+    page = FC.find_page(
+        FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY),
+        page_filter,
     )
-    print(FC.create_event(key, event_kind, names_and_values, link, dry_run=dry_run))
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    print(FC.create_event(obj, event_kind, names_and_values, link, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options["event_filter"]
-@FC.options["to_page_to_key"]
+@FC.options["to_page"]
+@FC.options["event_to_key"]
 @click.option(
     "-te",
     "--to-event",
     "to_kind",
-    type=click.Choice(["press", "longpress", "release", "start"]),
+    type=click.Choice(["press", "longpress", "release", "start", "end"]),
     required=False,
-    help="The optional kind of the new event",
+    help="The optional kind of the new event (only [start|end] for a page event)",
+    callback=FC.validate_event_kind,
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def copy_event(
     directory,
     page_filter,
@@ -1339,34 +1376,46 @@ def copy_event(
     names_and_values,
     dry_run,
 ):
-    """Copy an event"""
+    """Copy an event from a page to another page or from a key to another key"""
     deck = FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
-    event = FC.find_event(FC.find_key(FC.find_page(deck, page_filter), key_filter), event_filter)
+    page = FC.find_page(deck, page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
+
     to_page = FC.find_page(deck, to_page_filter) if to_page_filter else event.page
-    if to_key_filter:
-        to_key = FC.find_key(to_page, to_key_filter)
-    elif to_page_filter:
-        to_key = FC.find_key(to_page, "%s,%s" % event.key.key)
-    else:
-        to_key = event.key
+
+    if key_filter is None:  # page event
+        to_parent = to_page
+    else:  # key event
+        if to_key_filter:
+            to_parent = FC.find_key(to_page, to_key_filter)
+        elif to_page_filter:
+            to_parent = FC.find_key(to_page, "%s,%s" % event.key.key)
+        else:
+            to_parent = event.key
+
     if not to_kind:
         to_kind = event.kind
-    print(FC.copy_event(event, to_key, to_kind, names_and_values, dry_run=dry_run))
+
+    print(FC.copy_event(event, to_parent, to_kind, names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options["event_filter"]
-@FC.options["to_page_to_key"]
+@FC.options["to_page"]
+@FC.options["event_to_key"]
 @click.option(
     "-te",
     "--to-event",
     "to_kind",
-    type=click.Choice(["press", "longpress", "release", "start"]),
+    type=click.Choice(["press", "longpress", "release", "start", "end"]),
     required=False,
-    help="The optional kind of the new event",
+    help="The optional kind of the new event (only [start|end] for a page event)",
+    callback=FC.validate_event_kind,
 )
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def move_event(
     directory,
     page_filter,
@@ -1378,31 +1427,37 @@ def move_event(
     names_and_values,
     dry_run,
 ):
-    """Move an event to another key"""
+    """Move an event to another page or to another key"""
     deck = FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY)
-    event = FC.find_event(FC.find_key(FC.find_page(deck, page_filter), key_filter), event_filter)
+    page = FC.find_page(deck, page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
+
     to_page = FC.find_page(deck, to_page_filter) if to_page_filter else event.page
-    if to_key_filter:
-        to_key = FC.find_key(to_page, to_key_filter)
-    elif to_page_filter:
-        to_key = FC.find_key(to_page, "%s,%s" % event.key.key)
-    else:
-        to_key = event.key
+
+    if key_filter is None:  # page event
+        to_parent = to_page
+    else:  # key event
+        if to_key_filter:
+            to_parent = FC.find_key(to_page, to_key_filter)
+        elif to_page_filter:
+            to_parent = FC.find_key(to_page, "%s,%s" % event.key.key)
+        else:
+            to_parent = event.key
+
     if not to_kind:
         to_kind = event.kind
-    print(FC.move_event(event, to_key, to_kind, names_and_values, dry_run=dry_run))
+
+    print(FC.move_event(event, to_parent, to_kind, names_and_values, dry_run=dry_run))
 
 
 @cli.command()
 @FC.options["event_filter"]
 @FC.options["dry_run"]
+@FC.options["verbosity"]
 def delete_event(directory, page_filter, key_filter, event_filter, dry_run):
-    """Delete an event."""
-    event = FC.find_event(
-        FC.find_key(
-            FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
-            key_filter,
-        ),
-        event_filter,
-    )
+    """Delete an event in a page or a key."""
+    page = FC.find_page(FC.get_deck(directory, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter)
+    obj = page if key_filter is None else FC.find_key(page, key_filter)
+    event = FC.find_event(obj, event_filter)
     print(FC.delete_entity(event, dry_run=dry_run))

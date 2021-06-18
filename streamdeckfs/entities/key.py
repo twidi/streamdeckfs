@@ -16,42 +16,51 @@ from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
 from ..common import Manager, file_flags, logger
-from .base import FILTER_DENY, Entity, versions_dict_factory
-from .page import Page
+from .base import (
+    FILE_NOT_AN_EVENT,
+    FILTER_DENY,
+    Entity,
+    WithEvents,
+    versions_dict_factory,
+)
+from .page import PageContent
 
 
 @dataclass(eq=False)
-class Key(Entity):
+class Key(WithEvents, PageContent):
 
     is_dir = True
     path_glob = "KEY_ROW_*_COL_*"
     dir_template = "KEY_ROW_{row}_COL_{col}"
     main_path_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)(?:;|$)")
-    filename_re_parts = Entity.filename_re_parts + [
+    filename_re_parts = PageContent.filename_re_parts + [
         re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$"),  # we'll use current row,col if no key given
     ]
     main_filename_part = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
     filename_parts = [
-        Entity.name_filename_part,
+        PageContent.name_filename_part,
         lambda args: f'ref={ref.get("page")}:{ref["key"]}' if (ref := args.get("ref")) else None,
-        Entity.disabled_filename_part,
+        PageContent.disabled_filename_part,
     ]
 
-    parent_attr = "page"
     identifier_attr = "key"
     parent_container_attr = "keys"
 
-    page: "Page"
     key: Tuple[int, int]
 
     def __post_init__(self):
         super().__post_init__()
         self.compose_image_cache = None
         self.pressed_at = None
-        self.events = versions_dict_factory()
         self.layers = versions_dict_factory()
         self.text_lines = versions_dict_factory()
         self.rendered_overlay = None
+
+    @cached_property
+    def event_class(self):
+        from . import KeyEvent
+
+        return KeyEvent
 
     @property
     def row(self):
@@ -60,10 +69,6 @@ class Key(Entity):
     @property
     def col(self):
         return self.key[1]
-
-    @property
-    def deck(self):
-        return self.page.deck
 
     @property
     def width(self):
@@ -107,19 +112,6 @@ class Key(Entity):
         self.read_directory()
 
     @property
-    def resolved_events(self):
-        if not self.reference:
-            return self.events
-        events = {}
-        for kind, event in self.events.items():
-            if event:
-                events[kind] = event
-        for kind, event in self.reference.resolved_events.items():
-            if kind not in events and event:
-                events[kind] = event
-        return events
-
-    @property
     def resolved_layers(self):
         if not self.reference:
             return self.layers
@@ -153,20 +145,7 @@ class Key(Entity):
         for text_line_versions in self.text_lines.values():
             for text_line in text_line_versions.all_versions:
                 text_line.on_delete()
-        for event_versions in self.events.values():
-            for event in event_versions.all_versions:
-                event.on_delete()
         super().on_delete()
-
-    @classmethod
-    def find_reference_page(cls, parent, ref_conf):
-        final_ref_conf = ref_conf.copy()
-        if ref_page := ref_conf.get("page"):
-            if not (page := parent.deck.find_page(ref_page)):
-                return final_ref_conf, None
-        else:
-            final_ref_conf["page"] = page = parent
-        return final_ref_conf, page
 
     @classmethod
     def find_reference(cls, parent, ref_conf, main, args):
@@ -177,14 +156,6 @@ class Key(Entity):
             return final_ref_conf, None
         return final_ref_conf, page.find_key(final_ref_conf["key"])
 
-    @classmethod
-    def iter_waiting_references_for_page(cls, check_page):
-        for path, (parent, ref_conf) in check_page.waiting_child_references.get(cls, {}).items():
-            yield check_page, path, parent, ref_conf
-        for path, (parent, ref_conf) in check_page.deck.waiting_child_references.get(cls, {}).items():
-            if (page := check_page.deck.find_page(ref_conf["page"])) and page.number == check_page.number:
-                yield page, path, parent, ref_conf
-
     def get_waiting_references(self):
         return [
             (path, parent, ref_conf)
@@ -193,16 +164,7 @@ class Key(Entity):
         ]
 
     def read_directory(self):
-        if self.deck.filters.get("event") != FILTER_DENY:
-            from . import KeyEvent
-
-            for event_file in sorted(self.path.glob(KeyEvent.path_glob)):
-                self.on_file_change(
-                    self.path,
-                    event_file.name,
-                    file_flags.CREATE | (file_flags.ISDIR if event_file.is_dir() else 0),
-                    entity_class=KeyEvent,
-                )
+        super().read_directory()
         if self.deck.filters.get("layer") != FILTER_DENY:
             from . import KeyImageLayer
 
@@ -227,27 +189,11 @@ class Key(Entity):
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
             return
+        if (
+            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
+        ) is not FILE_NOT_AN_EVENT:
+            return event_result
         path = self.path / name
-        if (event_filter := self.deck.filters.get("event")) != FILTER_DENY:
-            from . import KeyEvent
-
-            if not entity_class or entity_class is KeyEvent:
-                ref_conf, ref, main, args = KeyEvent.parse_filename(name, self)
-                if main:
-                    if event_filter is not None and not KeyEvent.args_matching_filter(main, args, event_filter):
-                        return None
-                    return self.on_child_entity_change(
-                        path=path,
-                        flags=flags,
-                        entity_class=KeyEvent,
-                        data_identifier=main["kind"],
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
-                        modified_at=modified_at,
-                    )
-                elif ref_conf:
-                    KeyEvent.add_waiting_reference(self, path, ref_conf)
         if (layer_filter := self.deck.filters.get("layer")) != FILTER_DENY:
             from . import KeyImageLayer
 
@@ -389,9 +335,7 @@ class Key(Entity):
             for text_line in self.resolved_text_lines.values():
                 if text_line:
                     text_line.start_scroller()
-            for event in self.resolved_events.values():
-                if event:
-                    event.activate(self)
+            self.activate_events()
             self.rendered_overlay = overlay_level
         elif not self.page.is_visible:
             self.unrender(key_visibility=key_visibility)
@@ -407,9 +351,7 @@ class Key(Entity):
                 text_line.stop_scroller()
         if visible and clear_image:
             self.deck.remove_image(self.row, self.col)
-        for event in self.resolved_events.values():
-            if event:
-                event.deactivate()
+        self.deactivate_events()
         self.rendered_overlay = None
         if key_below:
             key_below.render()
@@ -438,13 +380,6 @@ class Key(Entity):
 
         return KeyTextLine.find_by_identifier_or_name(
             self.resolved_text_lines, text_line_filter, int, allow_disabled=allow_disabled
-        )
-
-    def find_event(self, event_filter, allow_disabled=False):
-        from . import KeyEvent
-
-        return KeyEvent.find_by_identifier_or_name(
-            self.resolved_events, event_filter, str, allow_disabled=allow_disabled
         )
 
     @property
@@ -486,7 +421,7 @@ class Key(Entity):
                 )
             else:
                 logger.info(f"[{release_event}] RELEASED{str_delay_part}.")
-                release_event.run()
+                release_event.wait_run_and_repeat()
         finally:
             self.pressed_at = None
 
@@ -504,7 +439,7 @@ class Key(Entity):
 
 
 @dataclass(eq=False)
-class KeyFile(Entity):
+class KeyContent(Entity):
     parent_attr = "key"
 
     key: "Key"
