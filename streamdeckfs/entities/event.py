@@ -25,7 +25,7 @@ RUN_MODES = ("path", "command", "inside")
 @dataclass(eq=False)
 class KeyEvent(KeyFile):
     path_glob = "ON_*"
-    main_path_re = re.compile(r"^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START)(?:;|$)")
+    main_path_re = re.compile(r"^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START|END)(?:;|$)")
     filename_re_parts = KeyFile.filename_re_parts + [
         # reference
         re.compile(
@@ -144,7 +144,7 @@ class KeyEvent(KeyFile):
             if final_args["mode"] == "command":
                 final_args["command"] = cls.replace_special_chars(args["command"], args)
             final_args["detach"] = args.get("detach", False)
-            final_args["unique"] = args.get("unique", True if main["kind"] == "start" else False)
+            final_args["unique"] = args.get("unique", True if main["kind"] in ("start", "end") else False)
         elif final_args["mode"] == "page":
             final_args["page_ref"] = args["page"]
             if "page_ref" != BACK and "overlay" in args:
@@ -393,6 +393,8 @@ class KeyEvent(KeyFile):
         self.activated = None
         self.activating_key = None
         self.stop()
+        if self.kind == "end" and self.mode in RUN_MODES:
+            self.wait_run_and_repeat()
 
     @cached_property
     def base_env_vars(self):

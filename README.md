@@ -12,7 +12,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start)) • [Pages](#pages) • [References](#references) • [API](#api)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [API](#api)
 
 # StreamDeckFS
 
@@ -948,11 +948,11 @@ Examples:
 - `TEXT;file=|home|myself|texts|intro,version2.txt;slash=|;semicolon=,` same but using `|` for slashes and `,` for semicolons
 
 
-## Configuring events (press, long-press, release, start)
+## Configuring events (press, long-press, release, start, end)
 
 `streamdeckfs` handles four different events from your StreamDeck that are listed below. But first, let see how events are defined.
 
-An event for a key is a file in a `KEY...` directory that starts with `ON_`, followed by the event's name uppercased: `ON_PRESS`, `ON_RELEASE`, `ON_LONGPRESS`, `ON_START`
+An event for a key is a file in a `KEY...` directory that starts with `ON_`, followed by the event's name uppercased: `ON_PRESS`, `ON_RELEASE`, `ON_LONGPRESS`, `ON_START`, `ON_END`.
 
 And it is configured the same way as images, texts, with configurations options, like this: `ON_PRESS;conf1=value1;conf2=value2`
 
@@ -979,11 +979,11 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_KEY_COL`: column of the key from which the event was triggered
 - `SDFS_KEY_NAME`: name, if defined, of the key from which the event was triggered
 - `SDFS_KEY_DIRECTORY`: directory configuration of the key from which the event was triggered
-- `SDFS_EVENT`: the kind of the triggered event (one of `start`, `press`, `longpress`, `release`)
+- `SDFS_EVENT`: the kind of the triggered event (one of `start`, `end`, press`, `longpress`, `release`)
 - `SDFS_EVENT_NAME`: name, if defined, of the triggered event
 - `SDFS_EVENT_FILE`: file configuration of the triggered event
-- `SDFS_PRESSED_AT`: for key press related events (ie not `ON_START`), the moment the key was pressed, as a timestamp (with decimals)
-- `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
+- `SDFS_PRESSED_AT`: for key press related events (ie not `ON_START` or `ON_END`), the moment the key was pressed, as a timestamp (with decimals)
+- `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START` or `ON_END`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
 
 Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
@@ -996,6 +996,14 @@ Now let see the different events, then how they can be configured:
 When a key is displayed, the `ON_START` command is executed. And if it still runs when the key stops to be displayed (when `streamdeckfs` ends or when you change page), the command will be terminated. It can be used, for example, to start a script that will periodically fetch some information and update a key, like the temperature of your CPU, the title of the current Spotify song, etc.
 
 If the command must still run when the key stops to be displayed, it can be "detached" (and in this case, it will not even be stopped when `streamdeckfs` ends)
+
+Note that if the key is hidden by an overlay, the `ON_START` command, if still running, won't be stopped. And when the overlay is closed, it won't be launched again.
+
+#### Event "ON_END"
+
+When a key is hidden (by the page being closed, or with an other page being displayed, but not an overlay), the `ON_END` command is executed.
+
+Note that if the key is hidden by an overlay, the `ON_END` command won't be launched.
 
 #### Event "ON_PRESS"
 
@@ -1119,8 +1127,8 @@ The `unique` flag avoids running a command when its previous execution (from the
 
 It must be defined like this:
 
-- `unique` or `unique=true` to deny the execution of a program if it's still running from the same event. It's the default for event `ON_START`
-- `unique=false` won't check if the program is already running, and it's the default for events other than `ON_START`
+- `unique` or `unique=true` to deny the execution of a program if it's still running from the same event. It's the default for events `ON_START` and `ON_END`
+- `unique=false` won't check if the program is already running, and it's the default for events other than `ON_START` and `ON_END`
 
 Examples:
 
@@ -1291,7 +1299,7 @@ An event can reference another event like this: `ref=PAGE:KEY:EVENT`, with:
 
 - `PAGE` is the name or number of the page where the reference event is, and not setting a page (`ref=:KEY:LAYER`) means looking on the same page as the event defining the `ref`
 - `KEY` is the name or coordinates (`ROW,COL`) of the key where the reference event is
-- `EVENT` is the name or kind (`press`, `longpress`, `release`, `start`) of the reference event, and not setting the event (`ref=PAGE:KEY:`) means referencing the event for the `KEY` with the same kind (`ON_PRESS;ref=PAGE:KEY:` = looking for a `press` event in the key `KEY` of the page `PAGE`)
+- `EVENT` is the name or kind (`press`, `longpress`, `release`, `start`, `end`) of the reference event, and not setting the event (`ref=PAGE:KEY:`) means referencing the event for the `KEY` with the same kind (`ON_PRESS;ref=PAGE:KEY:` = looking for a `press` event in the key `KEY` of the page `PAGE`)
 
 ### Keys
 
@@ -2293,7 +2301,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
 - `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
 
 Example:
 
@@ -2314,7 +2322,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
 - `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
 
 Example:
 
@@ -2335,7 +2343,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted event
 - `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the wanted event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the wanted event
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2372,7 +2380,7 @@ with:
 
 - `PAGE`: the number or name of the page where to create the wanted event
 - `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the event to create
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the event to create
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
@@ -2400,10 +2408,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the event to copy
 - `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to copy
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to copy
 - `TO_PAGE`: the number or the name of the page where to copy the event (`-tp` is for `--to-page`). Optional: if not given, will use the page of the event to copy
 - `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy
-- `TO_EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the new event. Optional: if not given, will use the same kind as the event to copy
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the new event. Optional: if not given, will use the same kind as the event to copy
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2430,10 +2438,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the event to move
 - `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to move
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to move
 - `TO_PAGE`: the number or the name of the page where to move the event (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
 - `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move
-- `TO_EVENT`: the kind (`start`, `press`, `longpress`, `release`) of the moved event. Optional: if not given, will use the same kind as the event to move
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) of the moved event. Optional: if not given, will use the same kind as the event to move
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2460,7 +2468,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the event to delete
 - `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row)
-- `EVENT`: the kind (`start`, `press`, `longpress`, `release`) or name of the event to delete
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, `release`) or name of the event to delete
 
 This command returns the path of the deleted event file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 

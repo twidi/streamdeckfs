@@ -5,6 +5,7 @@
 - Fix some overlays issues
 - Pass environment variables to commands
 - `ON_START` events have `unique=true` by default
+- Add `ON_END` events
 
 
 ## Release `1.2` - *2021-06-10*
