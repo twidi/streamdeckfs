@@ -106,6 +106,7 @@ class KeyEvent(KeyFile):
         self.wait_thread = None
         self.duration_thread = None
         self.ended_running = threading.Event()
+        self.ended_running.set()
 
     @property
     def str(self):
@@ -122,10 +123,10 @@ class KeyEvent(KeyFile):
         return args
 
     @classmethod
-    def convert_args(cls, args):
+    def convert_args(cls, main, args):
         from .page import BACK
 
-        final_args = super().convert_args(args)
+        final_args = super().convert_args(main, args)
 
         if len([1 for key in ("page", "brightness", "command") if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "page", "brightness", "command')
@@ -143,7 +144,7 @@ class KeyEvent(KeyFile):
             if final_args["mode"] == "command":
                 final_args["command"] = cls.replace_special_chars(args["command"], args)
             final_args["detach"] = args.get("detach", False)
-            final_args["unique"] = args.get("unique", False)
+            final_args["unique"] = args.get("unique", True if main["kind"] == "start" else False)
         elif final_args["mode"] == "page":
             final_args["page_ref"] = args["page"]
             if "page_ref" != BACK and "overlay" in args:
@@ -289,9 +290,10 @@ class KeyEvent(KeyFile):
                 self.deck.go_to_page(self.page_ref, self.overlay)
             elif self.mode in RUN_MODES:
                 if self.unique and not self.ended_running.is_set():
-                    logger.warning(
-                        f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
-                    )
+                    if self.kind != "start":
+                        logger.warning(
+                            f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
+                        )
                     return True
                 if self.mode == "path":
                     command = self.resolved_path
@@ -382,7 +384,6 @@ class KeyEvent(KeyFile):
             return
         self.activating_key = from_key
         self.activated = True
-        self.ended_running.set()
         if self.kind == "start" and self.mode in RUN_MODES:
             self.wait_run_and_repeat()
 

@@ -45,8 +45,8 @@ class keyImagePart(KeyFile):
         self.compose_cache = None
 
     @classmethod
-    def convert_args(cls, args):
-        final_args = super().convert_args(args)
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
         final_args["mode"] = "content"
         if "file" in args:
             if args["file"] == "__inside__":
@@ -311,8 +311,8 @@ class KeyImageLayer(keyImagePart):
         return f'LAYER{(" %s" % self.layer) if self.layer != -1 else ""} ({self.name}{", disabled" if self.disabled else ""})'
 
     @classmethod
-    def convert_args(cls, args):
-        final_args = super().convert_args(args)
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
 
         if len([1 for key in ("draw", "file") if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "draw", "file"')

@@ -1119,8 +1119,8 @@ The `unique` flag avoids running a command when its previous execution (from the
 
 It must be defined like this:
 
-- `unique` or `unique=true` to deny the execution of a program if it's still running from the same event
-- `unique=false` won't check if the program is already running, and it's the default
+- `unique` or `unique=true` to deny the execution of a program if it's still running from the same event. It's the default for event `ON_START`
+- `unique=false` won't check if the program is already running, and it's the default for events other than `ON_START`
 
 Examples:
 

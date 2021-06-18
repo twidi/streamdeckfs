@@ -355,15 +355,21 @@ class Manager:
         return directory
 
     @classmethod
+    def check_process_running(cls, pid, process_info):
+        if (return_code := process_info["process"].poll()) is None:
+            return True
+        logger.info(
+            f'[PROCESS {pid}] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [ReturnCode={return_code}]'
+        )
+        cls.processes.pop(pid, None)
+        if event := process_info.get("done_event"):
+            event.set()
+        return False
+
+    @classmethod
     def check_running_processes(cls):
         for pid, process_info in list(cls.processes.items()):
-            if (return_code := process_info["process"].poll()) is not None:
-                logger.info(
-                    f'[PROCESS] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [PID={pid}; ReturnCode={return_code}]'
-                )
-                cls.processes.pop(pid, None)
-                if event := process_info.get("done_event"):
-                    event.set()
+            cls.check_process_running(pid, process_info)
 
     @classmethod
     def start_processes_checker(cls):
@@ -433,9 +439,9 @@ class Manager:
 
     @classmethod
     def terminate_process(cls, pid):
-        if not (process_info := cls.processes.pop(pid, None)):
+        if not (process_info := cls.processes.get(pid)):
             return
-        if process_info["process"].poll() is not None:
+        if not cls.check_process_running(pid, process_info):
             return
         base_str = f"[PROCESS {pid}] Terminating `{process_info['command']}`"
         logger.info(f"{base_str}...")
@@ -445,6 +451,7 @@ class Manager:
             logger.error(f'{base_str} [FAIL: still running: {" ".join([p.pid for p in alive])} ]')
         else:
             logger.info(f"{base_str} [done]")
+        cls.check_process_running(pid, process_info)  # to update the `done_event`
 
     @classmethod
     def get_executable(cls):

@@ -134,8 +134,8 @@ class KeyTextLine(keyImagePart):
         return f'TEXT LINE{(" %s" % self.line) if self.line != -1 else ""} ({self.name}{", disabled" if self.disabled else ""})'
 
     @classmethod
-    def convert_args(cls, args):
-        final_args = super().convert_args(args)
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
 
         if len([1 for key in ("text", "file") if args.get(key)]) > 1:
             raise InvalidArg('Only one of these arguments must be used: "text", "file"')

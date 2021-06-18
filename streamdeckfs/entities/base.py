@@ -235,7 +235,7 @@ class Entity:
         try:
             main = cls.convert_main_args(main)
             if main is not None:
-                if (args := cls.convert_args(args)) is not None:
+                if (args := cls.convert_args(main, args)) is not None:
                     return ref_conf, ref, main, args
         except InvalidArg as exc:
             logger.error(f"[{parent}] [{name}] {exc}")
@@ -247,7 +247,7 @@ class Entity:
         return args
 
     @classmethod
-    def convert_args(cls, args):
+    def convert_args(cls, main, args):
         final_args = {
             "disabled": args.get("disabled", False),
             "name": args.get("name") or cls.unnamed,
