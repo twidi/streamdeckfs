@@ -1,6 +1,6 @@
 # Changelog
 
-## Release `1.3` - *NOT RELEASED*
+## Release `1.3` - *2021-06-18*
 
 - Fix some overlays issues
 - Pass environment variables to commands
