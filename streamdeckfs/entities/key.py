@@ -15,8 +15,8 @@ from cached_property import cached_property
 from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
-from ..common import logger, Manager, file_flags
-from .base import Entity, versions_dict_factory, FILTER_DENY
+from ..common import Manager, file_flags, logger
+from .base import FILTER_DENY, Entity, versions_dict_factory
 from .page import Page
 
 

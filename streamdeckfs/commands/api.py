@@ -16,8 +16,8 @@ from random import randint
 import click
 import click_log
 
-from ..common import logger, Manager
-from ..entities import Deck, FILTER_DENY, PAGE_CODES
+from ..common import Manager, logger
+from ..entities import FILTER_DENY, PAGE_CODES, Deck
 from .base import cli, validate_positive_integer
 
 __all__ = [

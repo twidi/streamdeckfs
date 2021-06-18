@@ -10,9 +10,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageEnhance, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 
-from ..common import logger, Manager
+from ..common import Manager, logger
 from .base import RE_PARTS, InvalidArg
 from .key import KeyFile
 

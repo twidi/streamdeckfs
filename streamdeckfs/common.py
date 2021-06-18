@@ -9,7 +9,6 @@
 import logging
 import os
 import platform
-import psutil
 import signal
 import sys
 import threading
@@ -18,16 +17,16 @@ from queue import Empty
 from time import sleep, time
 
 import click_log
+import psutil
 from inotify_simple import flags as file_flags  # noqa: F401
+from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.Devices.StreamDeckMini import StreamDeckMini
 from StreamDeck.Devices.StreamDeckOriginal import StreamDeckOriginal
 from StreamDeck.Devices.StreamDeckOriginalV2 import StreamDeckOriginalV2
 from StreamDeck.Devices.StreamDeckXL import StreamDeckXL
-from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.Transport.Transport import TransportError
 
 from .threads import Repeater, set_thread_name
-
 
 SUPPORTED_PLATFORMS = {
     'Linux': True,

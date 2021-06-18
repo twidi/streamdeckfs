@@ -6,7 +6,8 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
-from inotify_simple import INotify, flags as f
+from inotify_simple import INotify
+from inotify_simple import flags as f
 
 from ..common import logger
 from .base import BaseFilesWatcher

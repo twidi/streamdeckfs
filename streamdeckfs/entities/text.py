@@ -12,13 +12,12 @@ from dataclasses import dataclass
 from time import time
 
 from emoji import UNICODE_EMOJI, emojize
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from ..common import ASSETS_PATH, RENDER_IMAGE_DELAY
 from ..threads import Repeater
 from .base import RE_PARTS, InvalidArg
 from .image import keyImagePart
-
 
 TextPart = namedtuple('TextPart', ['kind', 'text', 'width', 'height'], defaults=[None, None, None, None])
 TextLine = namedtuple('TextLine', ['parts', 'width', 'height'])

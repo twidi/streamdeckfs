@@ -12,11 +12,10 @@ from dataclasses import dataclass
 
 from cached_property import cached_property
 
-from ..common import DEFAULT_BRIGHTNESS, logger, Manager
+from ..common import DEFAULT_BRIGHTNESS, Manager, logger
 from ..threads import Delayer, Repeater
 from .base import RE_PARTS, InvalidArg
 from .key import KeyFile
-
 
 LONGPRESS_DURATION_MIN = 300  # in ms
 

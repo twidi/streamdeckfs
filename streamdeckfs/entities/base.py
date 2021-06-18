@@ -16,7 +16,7 @@ from time import time
 
 from peak.util.proxies import ObjectWrapper
 
-from ..common import logger, file_flags
+from ..common import file_flags, logger
 
 RE_PARTS = {
     '0-100': r'0*(?:\d{1,2}?|100)',

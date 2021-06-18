@@ -14,8 +14,8 @@ from queue import SimpleQueue
 from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
 
-from ..common import DEFAULT_BRIGHTNESS, Manager, logger, file_flags
-from .base import Entity, versions_dict_factory, FILTER_DENY
+from ..common import DEFAULT_BRIGHTNESS, Manager, file_flags, logger
+from .base import FILTER_DENY, Entity, versions_dict_factory
 
 
 @dataclass(eq=False)
@@ -169,7 +169,7 @@ class Deck(Entity):
             self.write_current_page_info()
 
     def _go_to_page(self, page_ref, transparent=False):
-        from .page import FIRST, PREVIOUS, BACK, NEXT
+        from .page import BACK, FIRST, NEXT, PREVIOUS
         transparent = bool(transparent)
 
         logger.debug(f'[{self}] Asking to go to page {page_ref} (current={self.current_page_number})')

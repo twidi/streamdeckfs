@@ -12,9 +12,8 @@ from dataclasses import dataclass
 from cached_property import cached_property
 
 from ..common import Manager, file_flags
-from .base import Entity, versions_dict_factory, FILTER_DENY
+from .base import FILTER_DENY, Entity, versions_dict_factory
 from .deck import Deck
-
 
 FIRST = '__first__'
 BACK = '__back__'

@@ -9,7 +9,7 @@
 import click
 import click_log
 
-from ..common import SUPPORTED_PLATFORMS, PLATFORM, Manager, logger
+from ..common import PLATFORM, SUPPORTED_PLATFORMS, Manager, logger
 
 
 class NaturalOrderGroup(click.Group):
