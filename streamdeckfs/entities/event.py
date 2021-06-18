@@ -9,7 +9,6 @@
 import re
 import threading
 from dataclasses import dataclass
-from time import time
 
 from cached_property import cached_property
 

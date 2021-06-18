@@ -446,6 +446,7 @@ def get_deck_info(directory):
     except Exception:
         Manager.exit(1, f'Unable to read information from directory "{directory}')
 
+
 @cli.command()
 @FC.options['directory']
 def get_current_page(directory):
