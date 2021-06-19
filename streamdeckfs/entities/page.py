@@ -19,7 +19,7 @@ from .base import (
     WithEvents,
     versions_dict_factory,
 )
-from .deck import Deck
+from .deck import DeckContent
 
 FIRST = "__first__"
 BACK = "__back__"
@@ -30,7 +30,7 @@ PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 
 
 @dataclass(eq=False)
-class Page(WithEvents, Entity):
+class Page(WithEvents, DeckContent):
 
     is_dir = True
     path_glob = "PAGE_*"
@@ -38,11 +38,9 @@ class Page(WithEvents, Entity):
     main_path_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)")
     main_filename_part = lambda args: f'PAGE_{args["page"]}'
 
-    parent_attr = "deck"
     identifier_attr = "number"
     parent_container_attr = "pages"
 
-    deck: "Deck"
     number: int
 
     @cached_property

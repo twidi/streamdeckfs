@@ -52,7 +52,7 @@ def run(serials, directory, scroll):
         )
         Manager.write_deck_model(deck_directory, device.info["class"])
         deck.on_create()
-        deck.run()
+        deck.render()
         current_decks[serial] = deck
 
     def stop_deck(deck, close=True):

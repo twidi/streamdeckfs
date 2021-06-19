@@ -15,6 +15,7 @@ from cached_property import cached_property
 from ..common import DEFAULT_BRIGHTNESS, Manager, logger
 from ..threads import Delayer, Repeater
 from .base import RE_PARTS, Entity, InvalidArg
+from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
 
@@ -340,6 +341,30 @@ class BaseEvent:
     @cached_property
     def env_vars(self):
         return self._env_vars
+
+
+@dataclass(eq=False)
+class DeckEvent(BaseEvent, DeckContent):
+    filename_re_parts = Entity.filename_re_parts + BaseEvent.common_filename_re_parts
+
+    main_path_re = re.compile(r"^ON_(?P<kind>START|END)(?:;|$)")
+    filename_parts = (
+        [KeyContent.name_filename_part] + BaseEvent.common_filename_parts + [KeyContent.disabled_filename_part]
+    )
+
+    @classmethod
+    def find_reference_parent(cls, parent, ref_conf):
+        return ref_conf, None
+
+    def iter_waiting_references_for_parent(self, parent):
+        return []
+
+    @property
+    def thread_name_base(self):
+        return "Deck"
+
+    def can_be_activated(self, parent):
+        return True
 
 
 @dataclass(eq=False)

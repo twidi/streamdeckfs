@@ -10,6 +10,7 @@ __all__ = [
     "FILTER_DENY",
     "PAGE_CODES",
     "Deck",
+    "DeckEvent",
     "Page",
     "PageEvent",
     "Key",
@@ -20,7 +21,7 @@ __all__ = [
 
 from .base import FILTER_DENY
 from .deck import Deck
-from .event import KeyEvent, PageEvent
+from .event import DeckEvent, KeyEvent, PageEvent
 from .image import KeyImageLayer
 from .key import Key
 from .page import PAGE_CODES, Page

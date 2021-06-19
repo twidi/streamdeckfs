@@ -1235,6 +1235,14 @@ When a page is displayed, the `ON_START` action is executed. And when the page i
 
 All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
 
+## Configuring deck events
+
+Like pages, decks can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the deck directory.
+
+When a deck is started, the `ON_START` action is executed. And when it is stopped, the `ON_END` action is executed.
+
+All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for deck events, except for `page` and `brightness`.
+
 
 # Pages
 
@@ -2290,7 +2298,7 @@ $ streamdeckfs delete-text ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
 
 ## list-events
 
-Will print the events of a page or a key.
+Will print the events of the deck, a page or a key.
 
 ```bsash
 streamdeckfs list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
@@ -2298,8 +2306,8 @@ streamdeckfs list-events SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
 
 with:
 
-- `PAGE`: the number or name of the page for which to list the events, or if `-k` is passed, where to find the key for which to list the events
-- `KEY`: the name of the key for which to list the events, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument to list events of a page
+- `PAGE`: the number or name of the page for which to list the events, or if `-k` is passed, where to find the key for which to list the events. Do not pass this argument to list events of the deck
+- `KEY`: the name of the key for which to list the events, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument to list events of a page or the deck
 - `DISABLED`: either `--without-disabled` (the default, to only list the events that can be rendered) or `--with-disabled` (to list all the events)
 
 Events are listed one per output line, with for each the same result as if `get-event-conf` were called. See `get-event-conf` for output examples.
@@ -2314,9 +2322,9 @@ streamdeckfs get-event-path SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 
 with:
 
-- `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
+- `PAGE`: the number or name of the page where to find the wanted event. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the wanted event
 
 Example:
 
@@ -2335,9 +2343,9 @@ streamdeckfs get-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 
 with:
 
-- `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
+- `PAGE`: the number or name of the page where to find the wanted event. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the wanted event
 
 Example:
 
@@ -2356,9 +2364,9 @@ streamdeckfs set-event-conf SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 
 
 with:
 
-- `PAGE`: the number or name of the page where to find the wanted event
-- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the wanted event
+- `PAGE`: the number or name of the page where to find the wanted event. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the wanted event
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2393,9 +2401,9 @@ streamdeckfs create-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -c OPTION1 VA
 
 with:
 
-- `PAGE`: the number or name of the page where to create the wanted event
-- `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the event to create
+- `PAGE`: the number or name of the page where to create the wanted event. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to create the wanted event, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) of the event to create
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
@@ -2421,12 +2429,12 @@ streamdeckfs copy-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk
 
 with:
 
-- `PAGE`: the number or name of the page where to find the event to copy
-- `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to copy
-- `TO_PAGE`: the number or the name of the page where to copy the event (`-tp` is for `--to-page`). Optional: if not given, will use the page of the event to copy
-- `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy. Do not pass this argument for a page event
-- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the new event. Optional: if not given, will use the same kind as the event to copy
+- `PAGE`: the number or name of the page where to find the event to copy. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the event to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the event to copy
+- `TO_PAGE`: the number or the name of the page where to copy the event (`-tp` is for `--to-page`). Optional: if not given, will use the page of the event to copy. Do not pass this argument for a deck event
+- `TO_KEY`: the name of the key where to copy the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to copy. Do not pass this argument for a page or deck event
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) of the new event. Optional: if not given, will use the same kind as the event to copy
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2451,12 +2459,12 @@ streamdeckfs move-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT -tp TO_PAGE -tk
 
 with:
 
-- `PAGE`: the number or name of the page where to find the event to move
-- `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to move
-- `TO_PAGE`: the number or the name of the page where to move the event (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page
-- `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move. Do not pass this argument for a page event
-- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) of the moved event. Optional: if not given, will use the same kind as the event to move
+- `PAGE`: the number or name of the page where to find the event to move. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the event to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the event to move
+- `TO_PAGE`: the number or the name of the page where to move the event (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page. Do not pass this argument for a deck event
+- `TO_KEY`: the name of the key where to move the event (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the event to move. Do not pass this argument for a page or deck event
+- `TO_EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) of the moved event. Optional: if not given, will use the same kind as the event to move
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2481,9 +2489,9 @@ streamdeckfs delete-event SERIAL_DIRECTORY -p PAGE -k KEY -e EVENT
 
 with:
 
-- `PAGE`: the number or name of the page where to find the event to delete
-- `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page event
-- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page event) or name of the event to delete
+- `PAGE`: the number or name of the page where to find the event to delete. Do not pass this argument for a deck event
+- `KEY`: the name of the key where to find the event to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck event
+- `EVENT`: the kind (`start`, `end`, `press`, `longpress`, or `release` for a key event, or `start` or `end` for a page or deck event) or name of the event to delete
 
 This command returns the path of the deleted event file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 

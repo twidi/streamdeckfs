@@ -15,17 +15,29 @@ from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
 
 from ..common import DEFAULT_BRIGHTNESS, Manager, file_flags, logger
-from .base import FILTER_DENY, Entity, versions_dict_factory
+from .base import (
+    FILE_NOT_AN_EVENT,
+    FILTER_DENY,
+    Entity,
+    WithEvents,
+    versions_dict_factory,
+)
 
 
 @dataclass(eq=False)
-class Deck(Entity):
+class Deck(WithEvents, Entity):
     is_dir = True
     current_page_file_name = ".current_page"
     set_current_page_file_name = ".set_current_page"
 
     device: StreamDeck
     scroll_activated: bool
+
+    @cached_property
+    def event_class(self):
+        from . import DeckEvent
+
+        return DeckEvent
 
     def __post_init__(self):
         super().__post_init__()
@@ -88,17 +100,8 @@ class Deck(Entity):
         Manager.add_watch(self.path, self)
         self.read_directory()
 
-    def run(self):
-        from .page import FIRST
-
-        self.is_running = True
-        self.device.set_key_callback(self.on_key_pressed)
-        self.go_to_page(
-            FIRST  # always display the first page first even if we'll load another one in `set_page_from_file`
-        )
-        self.set_page_from_file()
-
     def read_directory(self):
+        super().read_directory()
         if self.filters.get("page") != FILTER_DENY:
             from .page import Page
 
@@ -120,6 +123,11 @@ class Deck(Entity):
         if name == self.set_current_page_file_name:
             self.set_page_from_file()
             return None
+
+        if (
+            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
+        ) is not FILE_NOT_AN_EVENT:
+            return event_result
 
         if (page_filter := self.filters.get("page")) != FILTER_DENY:
             from .page import Page
@@ -414,14 +422,21 @@ class Deck(Entity):
         self.device.set_brightness(self.brightness)
 
     def render(self):
-        if not (page := self.current_page):
-            return
-        page.render()
+        from .page import FIRST
+
+        self.is_running = True
+        self.device.set_key_callback(self.on_key_pressed)
+        self.activate_events()
+        self.go_to_page(
+            FIRST  # always display the first page first even if we'll load another one in `set_page_from_file`
+        )
+        self.set_page_from_file()
 
     def unrender(self):
         for page_number in self.visible_pages:
             if page := self.pages.get(page_number):
                 page.unrender()
+        self.deactivate_events()
         for file in (self.current_page_state_file, self.set_current_page_state_file):
             try:
                 file.unlink()
@@ -431,6 +446,7 @@ class Deck(Entity):
             self.render_images_queue.put(None)
             self.render_images_thread.join(0.5)
             self.render_images_thread = self.render_images_queue = None
+        self.is_running = False
 
     def set_image(self, row, col, image):
         if self.render_images_thread is None:
@@ -463,3 +479,9 @@ class Deck(Entity):
                 "device_key_height": self.key_height,
             }
         )
+
+
+@dataclass(eq=False)
+class DeckContent(Entity):
+    parent_attr = "deck"
+    deck: "Deck"
