@@ -965,6 +965,7 @@ If you want many actions to be done when a key is, for example, pressed, the fil
 Each command is executed with the environment variables received by `streamdeckfs` when it started, plus some others:
 
 - `SDFS_EXECUTABLE`: executable to run `streamdeckfs` (the same used to run the current instance of `streamdeckfs`)
+- `SDFS_DEVICE_TYPE`: type of StreamDeck model
 - `SDFS_DEVICE_SERIAL`: serial number of the current StreamDeck
 - `SDFS_DEVICE_DIRECTORY`: configuration directory for the current StreamDeck
 - `SDFS_DEVICE_NB_ROWS`: number of rows of the current StreamDeck

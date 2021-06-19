@@ -5,6 +5,7 @@
 
 - Add `ON_START` and `ON_END` events for pages
 - Add `ON_START` and `ON_END` events for the deck
+- Add `SDFS_DEVICE_TYPE` env var
 
 
 ## Release `1.3` - *2021-06-18*

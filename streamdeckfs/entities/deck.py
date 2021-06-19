@@ -471,6 +471,7 @@ class Deck(WithEvents, Entity):
         return self.finalize_env_vars(
             {
                 "executable": Manager.get_executable(),
+                "device_type": self.device.info["class"].__name__,
                 "device_serial": self.serial,
                 "device_directory": self.path,
                 "device_nb_rows": self.nb_rows,

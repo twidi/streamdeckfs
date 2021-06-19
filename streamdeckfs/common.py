@@ -218,7 +218,7 @@ class Manager:
     @classmethod
     def write_deck_model(cls, directory, device_class):
         model_path = directory / ".model"
-        model_path.write_text(f"{device_class.__name__}")
+        model_path.write_text(device_class.__name__)
 
     @classmethod
     def get_info_from_model_file(cls, directory):
