@@ -1,6 +1,9 @@
 # Changelog
 
 
+## Release `1.5` - *IN PROGRESS*
+
+
 ## Release `1.4` - *2021-06-19*
 
 - Add `ON_START` and `ON_END` events for pages

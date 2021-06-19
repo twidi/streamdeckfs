@@ -151,7 +151,7 @@ class BaseEvent:
     def args_matching_filter(main, args, filter):
         if filter is None:
             return True
-        return main.get("find") == filter
+        return filter in (main.get("kind"), args.get("name"))
 
     @classmethod
     def find_reference_parent(cls, parent, ref_conf):
