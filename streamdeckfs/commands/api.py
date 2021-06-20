@@ -105,7 +105,11 @@ class FilterCommands:
             help='Pair of names and values to set for the configuration "-c name1 value1 -c name2 value2..."',
         ),
         "verbosity": click_log.simple_verbosity_option(
-            logger, default="WARNING", help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
+            logger,
+            "--verbosity",
+            default="WARNING",
+            help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG",
+            show_default=True,
         ),
         "link": cloup.option(
             "--link",
@@ -124,6 +128,15 @@ class FilterCommands:
 
     @classmethod
     def combine_options(cls):
+        cls.options["var"] = cloup.option(
+            "-v",
+            "--var",
+            "var_filter",
+            type=str,
+            required=True,
+            help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+            callback=cls.validate_var_name,
+        )
 
         optional_key_constraint = cloup.constraint(
             cons.If(cons.IsSet("key_filter"), then=cons.require_all).rephrased(
@@ -149,6 +162,7 @@ class FilterCommands:
         optional_page_filter = lambda func: cls.options["directory"](cls.options["optional_page"](func))
         optional_page_key_filter = lambda func: optional_page_filter(cls.options["optional_key"](func))
         options["event_filter"] = lambda func: optional_page_key_filter(cls.options["event"](func))
+        options["var_filter"] = lambda func: optional_page_key_filter(cls.options["var"](func))
 
         def set_command(name, option):
             cls.options[name] = option
@@ -239,12 +253,63 @@ class FilterCommands:
         cls.options["event_kind"] = make_event_kind_option(True)
         cls.options["to_event_kind"] = make_event_kind_option(False)
 
+        var_to_page_constraint = cloup.constraint(
+            cons.If(cons.IsSet("to_page_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tp' / '--to-page': A deck variable destination cannot be a page"
+            ),
+            ["page_filter"],
+        )
+        var_to_page = cloup.option(
+            "-tp",
+            "--to-page",
+            "to_page_filter",
+            type=str,
+            required=False,
+            help="The optional destination page number or a name. (only for a page or key variable, not for a deck variable)",
+        )
+        cls.options["var_to_page"] = lambda func: var_to_page_constraint(var_to_page(func))
 
+        var_deck_to_key_constraint = cloup.constraint(
+            cons.If(cons.AllSet("to_key_filter", "page_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tk' / '--to-key': A page variable destination cannot be a key"
+            ),
+            ["key_filter"],
+        )
+        var_page_to_key_constraint = cloup.constraint(
+            cons.If(cons.IsSet("to_key_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tk' / '--to-key': A deck variable destination cannot be a key"
+            ),
+            ["key_filter"],
+        )
+        var_to_key = cloup.option(
+            "-tk",
+            "--to-key",
+            "to_key_filter",
+            type=str,
+            required=False,
+            help='The optional destination key as "row,col" or a name. (only for a key variable, not for a deck or page variable)',
+        )
+        cls.options["var_to_key"] = lambda func: var_deck_to_key_constraint(
+            var_page_to_key_constraint(var_to_key(func))
+        )
+
+    @classmethod
+    def validate_var_name(cls, ctx, param, value):
+        if value is not None and not cls.validate_var_name_re.match(value):
+            raise click.BadParameter("Allowed characters for a variable name: 'A-Z', '0-9' and '_'")
         return value
+
+    validate_var_name_re = re.compile(r"^[A-Z0-9]+$")
 
     @staticmethod
     def get_deck(
-        directory, page_filter=None, key_filter=None, event_filter=None, layer_filter=None, text_line_filter=None
+        directory,
+        page_filter=None,
+        key_filter=None,
+        event_filter=None,
+        layer_filter=None,
+        text_line_filter=None,
+        var_filter=None,
     ):
         directory = Manager.normalize_deck_directory(directory, None)
         deck = Deck(
@@ -265,6 +330,8 @@ class FilterCommands:
             deck.filters["layer"] = layer_filter
         if text_line_filter is not None:
             deck.filters["text_line"] = text_line_filter
+        if var_filter is not None:
+            deck.filters["var"] = var_filter
         deck.on_create()
         return deck
 
@@ -295,6 +362,12 @@ class FilterCommands:
         if not (event := container.find_event(event_filter, allow_disabled=True)):
             Manager.exit(1, f"[{container}] Event `{event_filter}` not found")
         return event
+
+    @staticmethod
+    def find_var(container, var_filter):
+        if not (var := container.find_var(var_filter, allow_disabled=True)):
+            Manager.exit(1, f"[{container}] Variable `{var_filter}` not found")
+        return var
 
     @classmethod
     def get_args(cls, obj, resolve=True):
@@ -629,14 +702,19 @@ class FilterCommands:
         return cls.move_entity(text_line, to_key, {}, names_and_values, f"{to_key}, NEW TEXT LINE", dry_run=dry_run)
 
     @classmethod
-    def get_events_container(cls, directory, page_filter, key_filter):
-        deck = FC.get_deck(
-            directory,
-            page_filter=FILTER_DENY if page_filter is None else None,
-            key_filter=FILTER_DENY if (key_filter is None or page_filter is None) else None,
-            layer_filter=FILTER_DENY,
-            text_line_filter=FILTER_DENY,
-        )
+    def get_entity_container(cls, directory, page_filter, key_filter, kind):
+        assert kind in ("event", "var")
+        filtering = {
+            "page_filter": FILTER_DENY if page_filter is None else None,
+            "key_filter": FILTER_DENY if (key_filter is None or page_filter is None) else None,
+            "layer_filter": FILTER_DENY,
+            "text_line_filter": FILTER_DENY,
+        }
+        # we never set FILTER_DENY for `var_filter` because every kind of entity may need a var
+        if kind == "var":
+            filtering["event_filter"] = FILTER_DENY
+
+        deck = FC.get_deck(directory, **filtering)
         if page_filter is None:
             return deck
         page = FC.find_page(deck, page_filter)
@@ -674,6 +752,41 @@ class FilterCommands:
             {"kind": to_kind},
             names_and_values,
             f"{to_parent}, NEW EVENT {to_kind}",
+            dry_run=dry_run,
+        )
+
+    @classmethod
+    def create_var(cls, container, name, names_and_values, link, dry_run=False):
+        return cls.create_entity(
+            container.var_class,
+            container,
+            name,
+            {"name": name},
+            names_and_values,
+            link,
+            f"{container}, NEW VAR {name}",
+            dry_run=dry_run,
+        )
+
+    @classmethod
+    def copy_var(cls, var, to_parent, to_name, names_and_values, dry_run=False):
+        return cls.copy_entity(
+            var,
+            to_parent,
+            {"name": to_name},
+            names_and_values,
+            f"{to_parent}, NEW VAR {to_name}",
+            dry_run=dry_run,
+        )
+
+    @classmethod
+    def move_var(cls, var, to_parent, to_name, names_and_values, dry_run=False):
+        return cls.move_entity(
+            var,
+            to_parent,
+            {"name": to_name},
+            names_and_values,
+            f"{to_parent}, NEW VAR {to_name}",
             dry_run=dry_run,
         )
 
@@ -1381,7 +1494,7 @@ def delete_text(directory, page_filter, key_filter, text_line_filter, dry_run):
 @FC.options["verbosity"]
 def list_events(directory, page_filter, key_filter, with_disabled):
     """List the events of a deck, page, or key"""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     FC.list_content(container, container.events, with_disabled=with_disabled)
 
 
@@ -1390,7 +1503,7 @@ def list_events(directory, page_filter, key_filter, with_disabled):
 @FC.options["verbosity"]
 def get_event_path(directory, page_filter, key_filter, event_filter):
     """Get the path of an event of a deck, page, or key."""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
     print(event.path)
 
@@ -1400,7 +1513,7 @@ def get_event_path(directory, page_filter, key_filter, event_filter):
 @FC.options["verbosity"]
 def get_event_conf(directory, page_filter, key_filter, event_filter, names):
     """Get the configuration of an event of a deck, page, or key, in json."""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
     print(FC.get_args_as_json(event, names or None))
 
@@ -1411,7 +1524,7 @@ def get_event_conf(directory, page_filter, key_filter, event_filter, names):
 @FC.options["verbosity"]
 def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_values, dry_run):
     """Set the value of some entries of an event (of a deck, page, or key) configuration."""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
     print(FC.rename_entity(event, FC.get_update_args_filename(event, names_and_values), dry_run=dry_run)[1])
 
@@ -1425,7 +1538,7 @@ def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_v
 @FC.options["verbosity"]
 def create_event(directory, page_filter, key_filter, event_kind, names_and_values, link, dry_run):
     """Create a new event in a deck, page, or key, with configuration"""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     print(FC.create_event(container, event_kind, names_and_values, link, dry_run=dry_run))
 
 
@@ -1449,7 +1562,7 @@ def copy_event(
     dry_run,
 ):
     """Copy a deck event to the same directory, or a page event to the same page or another, or a key event to the same key or another"""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
 
     deck = container.deck
@@ -1495,7 +1608,7 @@ def move_event(
     dry_run,
 ):
     """Move a deck event into the same directory (kind must be different), or a page event to another page, or a key event to another key"""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
 
     deck = container.deck
@@ -1527,6 +1640,196 @@ def move_event(
 @FC.options["verbosity"]
 def delete_event(directory, page_filter, key_filter, event_filter, dry_run):
     """Delete an event in a deck, page, or key."""
-    container = FC.get_events_container(directory, page_filter, key_filter)
+    container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
     print(FC.delete_entity(event, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options["optional_page_key_filter"]
+@FC.options["disabled_flag"]
+@FC.options["verbosity"]
+def list_vars(directory, page_filter, key_filter, with_disabled):
+    """List the variables of a deck, page, or key"""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    FC.list_content(container, container.vars, with_disabled=with_disabled)
+
+
+@cli.command()
+@FC.options["var_filter"]
+@FC.options["verbosity"]
+def get_var_path(directory, page_filter, key_filter, var_filter):
+    """Get the path of a variable of a deck, page, or key."""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+    print(var.path)
+
+
+@cli.command()
+@FC.options["var_filter_with_names"]
+@FC.options["verbosity"]
+def get_var_conf(directory, page_filter, key_filter, var_filter, names):
+    """Get the configuration of a variable of a deck, page, or key, in json."""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+    print(FC.get_args_as_json(var, names or None))
+
+
+@cli.command()
+@FC.options["var_filter_with_names"]
+@FC.options["verbosity"]
+def get_var_value(directory, page_filter, key_filter, var_filter, names):
+    """Get the value of a variable of a deck, page, or key."""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+    if value := var.resolved_value:
+        print(value)
+
+
+@cli.command()
+@FC.options["var_filter_with_names_and_values"]
+@FC.options["dry_run"]
+@FC.options["verbosity"]
+def set_var_conf(directory, page_filter, key_filter, var_filter, names_and_values, dry_run):
+    """Set the value of some entries of a variable (of a deck, page, or key) configuration."""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+    print(FC.rename_entity(var, FC.get_update_args_filename(var, names_and_values), dry_run=dry_run)[1])
+
+
+@cli.command()
+@FC.options["optional_page_key_filter"]
+@cloup.option(
+    "-v",
+    "--var",
+    "var_name",
+    type=str,
+    required=True,
+    help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+    callback=FC.validate_var_name,
+)
+@FC.options["optional_names_and_values"]
+@FC.options["link"]
+@FC.options["dry_run"]
+@FC.options["verbosity"]
+def create_var(directory, page_filter, key_filter, var_name, names_and_values, link, dry_run):
+    """Create a new variable in a deck, page, or key, with configuration"""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    print(FC.create_var(container, var_name, names_and_values, link, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options["var_filter"]
+@FC.options["var_to_page"]
+@FC.options["var_to_key"]
+@cloup.option(
+    "-tv",
+    "--to-var",
+    "to_name",
+    required=False,
+    help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+    callback=FC.validate_var_name,
+)
+@FC.options["optional_names_and_values"]
+@FC.options["dry_run"]
+@FC.options["verbosity"]
+def copy_var(
+    directory,
+    page_filter,
+    key_filter,
+    var_filter,
+    to_page_filter,
+    to_key_filter,
+    to_name,
+    names_and_values,
+    dry_run,
+):
+    """Copy a deck variable to the same directory, or a page variable to the same page or another, or a key variable to the same key or another"""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+
+    deck = container.deck
+
+    if page_filter is None:  # deck var
+        to_parent = deck
+    else:
+        to_page = FC.find_page(deck, to_page_filter) if to_page_filter else var.page
+
+        if key_filter is None:  # page var
+            to_parent = to_page
+        else:  # key var
+            if to_key_filter:
+                to_parent = FC.find_key(to_page, to_key_filter)
+            elif to_page_filter:
+                to_parent = FC.find_key(to_page, "%s,%s" % var.key.key)
+            else:
+                to_parent = var.key
+
+    if not to_name:
+        to_name = var.name
+
+    print(FC.copy_var(var, to_parent, to_name, names_and_values, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options["var_filter"]
+@FC.options["var_to_page"]
+@FC.options["var_to_key"]
+@cloup.option(
+    "-tv",
+    "--to-var",
+    "to_name",
+    required=False,
+    help="The optional name of the new variable",
+    callback=FC.validate_var_name,
+)
+@FC.options["optional_names_and_values"]
+@FC.options["dry_run"]
+@FC.options["verbosity"]
+def move_var(
+    directory,
+    page_filter,
+    key_filter,
+    var_filter,
+    to_page_filter,
+    to_key_filter,
+    to_name,
+    names_and_values,
+    dry_run,
+):
+    """Move a deck variable into the same directory (kind must be different), or a page variable to another page, or a key variable to another key"""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+
+    deck = container.deck
+
+    if page_filter is None:  # deck var
+        to_parent = deck
+    else:
+        to_page = FC.find_page(deck, to_page_filter) if to_page_filter else var.page
+
+        if key_filter is None:  # page var
+            to_parent = to_page
+        else:  # key var
+            if to_key_filter:
+                to_parent = FC.find_key(to_page, to_key_filter)
+            elif to_page_filter:
+                to_parent = FC.find_key(to_page, "%s,%s" % var.key.key)
+            else:
+                to_parent = var.key
+
+    if not to_name:
+        to_name = var.name
+
+    print(FC.move_var(var, to_parent, to_name, names_and_values, dry_run=dry_run))
+
+
+@cli.command()
+@FC.options["var_filter"]
+@FC.options["dry_run"]
+@FC.options["verbosity"]
+def delete_var(directory, page_filter, key_filter, var_filter, dry_run):
+    """Delete a variable in a deck, page, or key."""
+    container = FC.get_entity_container(directory, page_filter, key_filter, "var")
+    var = FC.find_var(container, var_filter)
+    print(FC.delete_entity(var, dry_run=dry_run))

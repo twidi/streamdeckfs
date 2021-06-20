@@ -8,132 +8,26 @@
 #
 import re
 from dataclasses import dataclass
-from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageEnhance
 
-from ..common import Manager, logger
-from .base import RE_PARTS, InvalidArg
+from .base import RE_PARTS, Entity, EntityFile, InvalidArg
 from .key import KeyContent
 
 
 @dataclass(eq=False)
-class keyImagePart(KeyContent):
+class keyImagePart(KeyContent, EntityFile):
 
     no_margins = {"top": ("int", 0), "right": ("int", 0), "bottom": ("int", 0), "left": ("int", 0)}
 
-    filename_re_parts = KeyContent.filename_re_parts + [
-        re.compile(r"^(?P<arg>file)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),
-    ]
-
-    filename_file_parts = [
-        lambda args: f"file={file}" if (file := args.get("file")) else None,
-        lambda args: f"slash={slash}" if (slash := args.get("slash")) else None,
-        lambda args: f"semicolon={semicolon}" if (semicolon := args.get("semicolon")) else None,
-    ]
+    filename_re_parts = Entity.filename_re_parts + EntityFile.common_filename_re_parts
 
     def __str__(self):
         return f"{self.key}, {self.str}"
 
     def __post_init__(self):
         super().__post_init__()
-        self.mode = None
-        self.file = None
-        self.watched_directory = False
         self.compose_cache = None
-
-    @classmethod
-    def convert_args(cls, main, args):
-        final_args = super().convert_args(main, args)
-        final_args["mode"] = "content"
-        if "file" in args:
-            if args["file"] == "__inside__":
-                final_args["mode"] = "inside"
-            else:
-                final_args["mode"] = "file"
-                try:
-                    final_args["file"] = Path(cls.replace_special_chars(args["file"], args))
-                    try:
-                        final_args["file"] = final_args["file"].expanduser()
-                    except Exception:
-                        pass
-                except Exception:
-                    final_args["file"] = None
-        return final_args
-
-    def check_file_exists(self):
-        if not self.deck.is_running:
-            return
-        if self.mode == "file" and self.file and not self.file.exists():
-            logger.warning(f'[{self}] File "{self.file}" does not exist')
-        elif self.mode == "inside" and (path := self.get_inside_path()) and not path.exists():
-            logger.warning(f'[{self}] File "{path}" does not exist')
-
-    @classmethod
-    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
-        obj = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ("mode", "file"):
-            if key not in args:
-                continue
-            setattr(obj, key, args[key])
-        return obj
-
-    def start_watching_directory(self, directory):
-        if self.watched_directory and self.watched_directory != directory:
-            self.stop_watching_directory()
-        if not self.watched_directory:
-            self.watched_directory = directory
-            Manager.add_watch(directory, self)
-
-    def stop_watching_directory(self):
-        if watched_directory := self.watched_directory:
-            self.watched_directory = None
-            Manager.remove_watch(watched_directory, self)
-
-    def track_symlink_dir(self):
-        if not self.watched_directory and self.path.is_symlink():
-            self.start_watching_directory(self.path.resolve().parent)
-
-    def get_inside_path(self):
-        if self.mode != "inside":
-            return None
-        with self.resolved_path.open() as f:
-            path = Path(f.readline().strip())
-        if path:
-            try:
-                path = path.expanduser()
-            except Exception:
-                pass
-        return path
-
-    def get_file_path(self):
-        if self.mode == "inside":
-            path = self.get_inside_path()
-        elif self.file:
-            path = self.file
-
-        if not path:
-            self.stop_watching_directory()
-            return None
-
-        self.start_watching_directory(path.parent)
-
-        if not path.exists() or path.is_dir():
-            return None
-
-        return path
-
-    def on_file_change(self, directory, name, flags, modified_at=None):
-        path = directory / name
-        if (self.file and path == self.file) or (
-            not self.file and self.path.is_symlink() and path == self.path.resolve()
-        ):
-            self.on_changed()
-
-    def on_directory_removed(self, directory):
-        self.on_changed()
 
     def version_activated(self):
         super().version_activated()
@@ -143,7 +37,6 @@ class keyImagePart(KeyContent):
 
     def version_deactivated(self):
         super().version_deactivated()
-        self.stop_watching_directory()
         if self.disabled or self.key.disabled or self.page.disabled:
             return
         self.key.on_image_changed()

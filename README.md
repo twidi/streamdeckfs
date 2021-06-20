@@ -12,7 +12,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [API](#api)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api)
 
 # StreamDeckFS
 
@@ -1392,9 +1392,19 @@ And if you want to change the color of the close key, you add in your directory 
 This key represents a key rendered with a title on top, a small line as a separator, and a text in the central area that is wrapped and will scroll if it does not fit. The key itself is not meant to be used as a reference because each part must be configured, so you define your key directory as usual, and inside, you add three empty files `IMAGE;ref=ref:titled-text:separator;outline=COLOR` (with `COLOR` being the color you want for the separator), `TEXT;ref=ref:titled-text:title;text=TITLE` (with `TITLE` being the text you want for the title) and `TEXT;ref=ref:titled-text:content;text=TEXT` (with `TEXT` being the text you want in the central area, or you can set `file=__self__` instead of `text=...` and put the text in the file itself)
 
 
+# Variables
+
+`streamdeckfs` can be used as a store for the commands launched by its events. For this it uses files that can be in decks, pages or keys directories, that are named `VAR_NAME` with `NAME` a name of your choice (it must only contains capital letters from `A` to `Z`, digits from `0` to `9` and the character `_`).
+
+As for other kinds of objects, it can be disabled by adding `;disabled` (or `;disabled=true`, see [above](#disabled))
+
+The value of the variable will be read from the file itself, of from the `value` configuration option in the file name. For example the file `VAR_FOO;value=bar` defines a variable `FOO` having `bar` as value.
+
+Note that to read the value from another file, the [`file` configuration option as defined for the `TEXT*` files](#option-file-1) can also be used.
+
 # API
 
-As everything is done in file names (except sometimes for texts/images), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
+As everything is done in file names (except sometimes for texts/images/variables), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
 
 But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
 
@@ -1402,7 +1412,7 @@ But when you do it programmatically you need to know the exact path and name of 
 
 Note that before being able to use the API commands listed below, you must have run successfully at least once the `make-dirs` or `run` commands. This is needed to store information about the StreamDeck, because the API does not connect to it (it only touches files).
 
-With these commands you can, for a page, key, text, image, or event:
+With these commands you can, for a page, key, text, image, event or variable:
 
 - list them
 - get its path
@@ -1419,7 +1429,7 @@ The are all called the same way:
 streamdeckfs COMMAND SERIAL_DIRECTORY ARGUMENTS
 ```
 
-For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or rename the files if asked to
+For all these configuration commands, the `SERIAL_DIRECTORY`  is the one ending with the serial number of the StreamDeck for which you want to update the configuration. No connection will be done to the `StreamDeck` as the only thing these configuration commands do is to read the directories and files in this directory, extract the configuration and return what you asked, or create or rename the files if asked to
 
 ## get-deck-info
 
@@ -2381,7 +2391,7 @@ Example, to stop allowing repetition:
 $ streamdeckfs set-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press -c every ''
 ```
 
-Passing an empty string for the `every` configuration option removes it from the file name, as we can see just after by calling `get-event-path` and `get_event-conf`:
+Passing an empty string for the `every` configuration option removes it from the file name, as we can see just after by calling `get-event-path` and `get-event-conf`:
 
 ```bash
 $ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
@@ -2439,7 +2449,7 @@ with:
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
-You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same key, it is recommended to set a kind and name that are different than the source event.
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same page/key, it is recommended to set a kind and name that are different than the source event.
 
 This command returns the full path of the newly created event. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
@@ -2500,4 +2510,222 @@ Example:
 
 ```bash
 $ streamdeckfs delete-event ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -e press
+```
+
+## list-vars
+
+Will print the variables of the deck, a page or a key.
+
+```bsash
+streamdeckfs list-vars SERIAL_DIRECTORY -p PAGE -k KEY DISABLED
+```
+
+with:
+
+- `PAGE`: the number or name of the page for which to list the variables, or if `-k` is passed, where to find the key for which to list the variables. Do not pass this argument to list variables of the deck
+- `KEY`: the name of the key for which to list the variables, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument to list variables of a page or the deck
+- `DISABLED`: either `--without-disabled` (the default, to only list the variables that can be rendered) or `--with-disabled` (to list all the variables)
+
+Variables are listed one per output line, with for each the same result as if `get-var-conf` were called. See `get-var-conf` for output examples.
+
+## get-var-path
+
+Will print the full path of the asked variable.
+
+```bash
+streamdeckfs get-var-path SERIAL_DIRECTORY -p PAGE -k KEY -v VAR
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+
+Example:
+
+```bash
+$ streamdeckfs get-var-path ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/VAR_ALBUM
+```
+
+## get-var-conf
+
+Will print a JSON representation of the full configuration (including options inherited from references) of the asked variable.
+
+```bash
+streamdeckfs get-var-conf SERIAL_DIRECTORY -p PAGE -k KEY -v VAR
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+
+Example:
+
+```bash
+$ streamdeckfs get-var-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
+{"kind": "VAR", "name": "ALBUM"}
+```
+
+## get-var-value
+
+Will print the value of the asked variable.
+
+```bash
+streamdeckfs get-var-value SERIAL_DIRECTORY -p PAGE -k KEY -v VAR
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+
+If the variable exist but does not hold any value (no content, no `value` configuration option or no linked file), nothing will be printed (but no errors will be raised)
+
+Example:
+
+```bash
+$ streamdeckfs get-var-value ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
+Discovery
+```
+
+## set-var-conf
+
+Will update the configuration of the asked variable.
+
+```bash
+streamdeckfs set-var-conf SERIAL_DIRECTORY -p PAGE -k KEY -v VAR -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to update many configuration options. To remove a configuration option, pass an empty string for `VALUE`.
+
+This command returns the updated path of the variable. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
+
+Example, to set the value of a variable:
+
+```bash
+$ streamdeckfs set-var-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM -c value Discovery
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/VAR_ALBUM;value=Discovery
+```
+
+## create-var
+
+Will create a new variable.
+
+```
+streamdeckfs create-var SERIAL_DIRECTORY -p PAGE -k KEY -v VAR -c OPTION1 VALUE1 -c OPTION2 VALUE2 --link LINKED_FILE
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to create the wanted variable. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to create the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable to create (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `OPTION`: one option to set
+- `VALUE`: the value for the option
+- `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the full path of the newly created variable. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
+
+Example:
+
+```bash
+$ streamdeckfs create-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM -c value Homework
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/VAR_ALBUM;value=Homework
+```
+
+## copy-var
+
+Will make a copy of a variable, in the same key or another for a key variable, or in the same page or another for a page variable
+
+```
+streamdeckfs copy-var SERIAL_DIRECTORY -p PAGE -k KEY -v VAR -tp TO_PAGE -tk TO_KEY -tv TO_VAR -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the variable to copy. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the variable to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable to copy (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `TO_PAGE`: the number or the name of the page where to copy the variable (`-tp` is for `--to-page`). Optional: if not given, will use the page of the variable to copy. Do not pass this argument for a deck variable
+- `TO_KEY`: the name of the key where to copy the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to copy. Do not pass this argument for a page or deck variable
+- `TO_VAR`: the name of the new variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`) Optional: if not given, will use the same name as the variable to copy
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options. If the copy is in the same page/key, it is recommended to set a name that is different than the source variable.
+
+This command returns the full path of the newly created variable. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
+
+Example:
+
+```bash
+$ streamdeckfs copy-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM -tv ARTIST -c value 'Daft Punk'
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/VAR_ARTIST;value=Daft Punk
+```
+
+## move-var
+
+Will move a variable to another key for a key variable, or to another page for a page variable
+
+```
+streamdeckfs move-var SERIAL_DIRECTORY -p PAGE -k KEY -v VAR -tp TO_PAGE -tk TO_KEY -tv TO_VAR -c OPTION1 VALUE1 -c OPTION2 VALUE2
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the variable to move. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the variable to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable to move (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `TO_PAGE`: the number or the name of the page where to move the variable (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page. Do not pass this argument for a deck variable
+- `TO_KEY`: the name of the key where to move the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to move. Do not pass this argument for a page or deck variable
+- `TO_VAR`: the name of the moved variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`) Optional: if not given, will use the same name as the variable to move
+- `OPTION`: one option to update
+- `VALUE`: the value for the option
+
+You can have many `-c OPTION VALUE` parts to set many configuration options.
+
+This command returns the new full path of variable. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
+
+Example:
+
+```bash
+$ streamdeckfs move-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM -tv ARTIST -c value 'Daft Punk'
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/VAR_ARTIST;value=Daft Punk
+```
+
+## delete-var
+
+Will delete the asked variable file.
+
+```bash
+streamdeckfs delete-var SERIAL_DIRECTORY -p PAGE -k KEY -v VAR
+```
+
+with:
+
+- `PAGE`: the number or name of the page where to find the variable to delete. Do not pass this argument for a deck variable
+- `KEY`: the name of the key where to find the variable to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
+- `VAR`: the name of the variable to delete (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+
+This command returns the path of the deleted variable file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
+
+Example:
+
+```bash
+$ streamdeckfs delete-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
 ```

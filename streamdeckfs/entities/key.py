@@ -16,20 +16,13 @@ from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
 from ..common import Manager, file_flags, logger
-from .base import (
-    FILE_NOT_AN_EVENT,
-    FILTER_DENY,
-    Entity,
-    WithEvents,
-    versions_dict_factory,
-)
+from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
 from .page import PageContent
 
 
 @dataclass(eq=False)
-class Key(WithEvents, PageContent):
+class Key(EntityDir, PageContent):
 
-    is_dir = True
     path_glob = "KEY_ROW_*_COL_*"
     dir_template = "KEY_ROW_{row}_COL_{col}"
     main_path_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)(?:;|$)")
@@ -48,6 +41,18 @@ class Key(WithEvents, PageContent):
 
     key: Tuple[int, int]
 
+    @cached_property
+    def event_class(self):
+        from . import KeyEvent
+
+        return KeyEvent
+
+    @cached_property
+    def var_class(self):
+        from . import KeyVar
+
+        return KeyVar
+
     def __post_init__(self):
         super().__post_init__()
         self.compose_image_cache = None
@@ -55,12 +60,6 @@ class Key(WithEvents, PageContent):
         self.layers = versions_dict_factory()
         self.text_lines = versions_dict_factory()
         self.rendered_overlay = None
-
-    @cached_property
-    def event_class(self):
-        from . import KeyEvent
-
-        return KeyEvent
 
     @property
     def row(self):
@@ -189,10 +188,8 @@ class Key(WithEvents, PageContent):
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
             return
-        if (
-            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
-        ) is not FILE_NOT_AN_EVENT:
-            return event_result
+        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+            return result
         path = self.path / name
         if (layer_filter := self.deck.filters.get("layer")) != FILTER_DENY:
             from . import KeyImageLayer

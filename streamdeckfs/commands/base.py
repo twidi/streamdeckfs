@@ -31,7 +31,7 @@ common_options = {
     "optional_serial": cloup.argument("serial", nargs=-1, required=False),
     "optional_serials": cloup.argument("serials", nargs=-1, required=False),
     "verbosity": click_log.simple_verbosity_option(
-        logger, help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
+        logger, "--verbosity", help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
     ),
 }
 

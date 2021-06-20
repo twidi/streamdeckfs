@@ -15,18 +15,11 @@ from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
 
 from ..common import DEFAULT_BRIGHTNESS, Manager, file_flags, logger
-from .base import (
-    FILE_NOT_AN_EVENT,
-    FILTER_DENY,
-    Entity,
-    WithEvents,
-    versions_dict_factory,
-)
+from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
 
 
 @dataclass(eq=False)
-class Deck(WithEvents, Entity):
-    is_dir = True
+class Deck(EntityDir):
     current_page_file_name = ".current_page"
     set_current_page_file_name = ".set_current_page"
 
@@ -38,6 +31,12 @@ class Deck(WithEvents, Entity):
         from . import DeckEvent
 
         return DeckEvent
+
+    @cached_property
+    def var_class(self):
+        from . import DeckVar
+
+        return DeckVar
 
     def __post_init__(self):
         super().__post_init__()
@@ -124,10 +123,8 @@ class Deck(WithEvents, Entity):
             self.set_page_from_file()
             return None
 
-        if (
-            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
-        ) is not FILE_NOT_AN_EVENT:
-            return event_result
+        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+            return result
 
         if (page_filter := self.filters.get("page")) != FILTER_DENY:
             from .page import Page

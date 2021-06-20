@@ -16,7 +16,7 @@ from time import time
 
 from peak.util.proxies import ObjectWrapper
 
-from ..common import file_flags, logger
+from ..common import Manager, file_flags, logger
 
 RE_PARTS = {
     "0-100": r"0*(?:\d{1,2}?|100)",
@@ -45,10 +45,9 @@ class Entity:
     is_dir = False
     path_glob = None
     main_path_re = None
-    filename_re_parts = [
-        re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$"),
-        re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$"),
-    ]
+    filename_re_part_disabled = re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$")
+    filename_re_part_name = re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$")
+    filename_re_parts = [filename_re_part_disabled, filename_re_part_name]
     main_filename_part = None
     name_filename_part = lambda args: f'name={args["name"]}' if args.get("name") else None
     disabled_filename_part = lambda args: "disabled" if args.get("disabled", False) in (True, "true", None) else None
@@ -504,17 +503,138 @@ VersionProxyMostRecent = partial(VersionProxy, sort_key_func=lambda key_and_obj:
 versions_dict_factory = lambda: defaultdict(VersionProxyMostRecent)
 
 
-class FILE_NOT_AN_EVENT:
+@dataclass(eq=False)
+class EntityFile(Entity):
+
+    common_filename_re_parts = [
+        re.compile(r"^(?P<arg>file)=(?P<value>.+)$"),
+        re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
+        re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),
+    ]
+
+    filename_file_parts = [
+        lambda args: f"file={file}" if (file := args.get("file")) else None,
+        lambda args: f"slash={slash}" if (slash := args.get("slash")) else None,
+        lambda args: f"semicolon={semicolon}" if (semicolon := args.get("semicolon")) else None,
+    ]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.mode = None
+        self.file = None
+        self.watched_directory = False
+
+    @classmethod
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
+        final_args["mode"] = "content"
+        if "file" in args:
+            if args["file"] == "__inside__":
+                final_args["mode"] = "inside"
+            else:
+                final_args["mode"] = "file"
+                try:
+                    final_args["file"] = Path(cls.replace_special_chars(args["file"], args))
+                    try:
+                        final_args["file"] = final_args["file"].expanduser()
+                    except Exception:
+                        pass
+                except Exception:
+                    final_args["file"] = None
+        return final_args
+
+    def check_file_exists(self):
+        if not self.deck.is_running:
+            return
+        if self.mode == "file" and self.file and not self.file.exists():
+            logger.warning(f'[{self}] File "{self.file}" does not exist')
+        elif self.mode == "inside" and (path := self.get_inside_path()) and not path.exists():
+            logger.warning(f'[{self}] File "{path}" does not exist')
+
+    @classmethod
+    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
+        obj = super().create_from_args(path, parent, identifier, args, path_modified_at)
+        for key in ("mode", "file"):
+            if key not in args:
+                continue
+            setattr(obj, key, args[key])
+        return obj
+
+    def start_watching_directory(self, directory):
+        if self.watched_directory and self.watched_directory != directory:
+            self.stop_watching_directory()
+        if not self.watched_directory:
+            self.watched_directory = directory
+            Manager.add_watch(directory, self)
+
+    def stop_watching_directory(self):
+        if watched_directory := self.watched_directory:
+            self.watched_directory = None
+            Manager.remove_watch(watched_directory, self)
+
+    def track_symlink_dir(self):
+        if not self.watched_directory and self.path.is_symlink():
+            self.start_watching_directory(self.path.resolve().parent)
+
+    def get_inside_path(self):
+        if self.mode != "inside":
+            return None
+        with self.resolved_path.open() as f:
+            path = Path(f.readline().strip())
+        if path:
+            try:
+                path = path.expanduser()
+            except Exception:
+                pass
+        return path
+
+    def get_file_path(self):
+        if self.mode == "inside":
+            path = self.get_inside_path()
+        elif self.file:
+            path = self.file
+
+        if not path:
+            self.stop_watching_directory()
+            return None
+
+        self.start_watching_directory(path.parent)
+
+        if not path.exists() or path.is_dir():
+            return None
+
+        return path
+
+    def on_file_change(self, directory, name, flags, modified_at=None):
+        path = directory / name
+        if (self.file and path == self.file) or (
+            not self.file and self.path.is_symlink() and path == self.path.resolve()
+        ):
+            self.on_changed()
+
+    def on_directory_removed(self, directory):
+        self.on_changed()
+
+    def version_deactivated(self):
+        super().version_deactivated()
+        self.stop_watching_directory()
+
+
+class NOT_HANDLED:
     pass
 
 
-class WithEvents:
+@dataclass(eq=False)
+class EntityDir(Entity):
+    is_dir = True
 
     event_class = None
+    var_class = None
 
     def __post_init__(self):
         super().__post_init__()
         self.events = versions_dict_factory()
+        self.vars = versions_dict_factory()
 
     @property
     def resolved_events(self):
@@ -533,6 +653,9 @@ class WithEvents:
         for event_versions in self.events.values():
             for event in event_versions.all_versions:
                 event.on_delete()
+        for var_versions in self.vars.values():
+            for var in var_versions.all_versions:
+                var.on_delete()
         super().on_delete()
 
     def activate_events(self):
@@ -550,6 +673,9 @@ class WithEvents:
             self.resolved_events, event_filter, str, allow_disabled=allow_disabled
         )
 
+    def find_var(self, var_filter, allow_disabled=False):
+        return self.var_class.find_by_identifier_or_name(self.vars, var_filter, str, allow_disabled=allow_disabled)
+
     def read_directory(self):
         if self.deck.filters.get("event") != FILTER_DENY:
             for event_file in sorted(self.path.glob(self.event_class.path_glob)):
@@ -558,6 +684,14 @@ class WithEvents:
                     event_file.name,
                     file_flags.CREATE | (file_flags.ISDIR if event_file.is_dir() else 0),
                     entity_class=self.event_class,
+                )
+        if self.deck.filters.get("var") != FILTER_DENY:
+            for var_file in sorted(self.path.glob(self.var_class.path_glob)):
+                self.on_file_change(
+                    self.path,
+                    var_file.name,
+                    file_flags.CREATE | (file_flags.ISDIR if var_file.is_dir() else 0),
+                    entity_class=self.var_class,
                 )
 
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
@@ -582,4 +716,21 @@ class WithEvents:
                     )
                 elif ref_conf:
                     self.event_class.add_waiting_reference(self, path, ref_conf)
-        return FILE_NOT_AN_EVENT
+        if (var_filter := self.deck.filters.get("var")) != FILTER_DENY:
+            if not entity_class or entity_class is self.var_class:
+                main, args = self.var_class.parse_filename(name, self)[2:]
+                path = self.path / name
+                if main:
+                    if var_filter is not None and not self.var_class.args_matching_filter(main, args, var_filter):
+                        return None
+                    return self.on_child_entity_change(
+                        path=path,
+                        flags=flags,
+                        entity_class=self.var_class,
+                        data_identifier=main["name"],
+                        args=args,
+                        ref_conf=None,
+                        ref=None,
+                        modified_at=modified_at,
+                    )
+        return NOT_HANDLED

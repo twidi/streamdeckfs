@@ -6,23 +6,31 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+
+# import order is important so we want to handle this order manually here
+# isort:skip_file
+
 __all__ = [
     "FILTER_DENY",
     "PAGE_CODES",
     "Deck",
     "DeckEvent",
+    "DeckVar",
     "Page",
     "PageEvent",
+    "PageVar",
     "Key",
     "KeyEvent",
+    "KeyVar",
     "KeyImageLayer",
     "KeyTextLine",
 ]
 
 from .base import FILTER_DENY
 from .deck import Deck
+from .page import PAGE_CODES, Page
+from .key import Key
+from .var import DeckVar, KeyVar, PageVar
 from .event import DeckEvent, KeyEvent, PageEvent
 from .image import KeyImageLayer
-from .key import Key
-from .page import PAGE_CODES, Page
 from .text import KeyTextLine

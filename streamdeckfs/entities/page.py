@@ -12,13 +12,7 @@ from dataclasses import dataclass
 from cached_property import cached_property
 
 from ..common import Manager, file_flags
-from .base import (
-    FILE_NOT_AN_EVENT,
-    FILTER_DENY,
-    Entity,
-    WithEvents,
-    versions_dict_factory,
-)
+from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
 from .deck import DeckContent
 
 FIRST = "__first__"
@@ -30,9 +24,8 @@ PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 
 
 @dataclass(eq=False)
-class Page(WithEvents, DeckContent):
+class Page(EntityDir, DeckContent):
 
-    is_dir = True
     path_glob = "PAGE_*"
     dir_template = "PAGE_{page}"
     main_path_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)")
@@ -48,6 +41,12 @@ class Page(WithEvents, DeckContent):
         from . import PageEvent
 
         return PageEvent
+
+    @cached_property
+    def var_class(self):
+        from . import PageVar
+
+        return PageVar
 
     def __post_init__(self):
         super().__post_init__()
@@ -91,10 +90,8 @@ class Page(WithEvents, DeckContent):
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if directory != self.path:
             return
-        if (
-            event_result := super().on_file_change(directory, name, flags, modified_at, entity_class)
-        ) is not FILE_NOT_AN_EVENT:
-            return event_result
+        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+            return result
         path = self.path / name
         if (key_filter := self.deck.filters.get("key")) != FILTER_DENY:
             from .key import Key
