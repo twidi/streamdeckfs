@@ -15,6 +15,8 @@ from random import randint
 
 import click
 import click_log
+import cloup
+import cloup.constraints as cons
 
 from ..common import Manager, logger
 from ..entities import FILTER_DENY, PAGE_CODES, Deck
@@ -25,14 +27,14 @@ NoneType = type(None)
 
 class FilterCommands:
     options = {
-        "directory": click.argument(
+        "directory": cloup.argument(
             "directory", type=click.Path(file_okay=False, dir_okay=True, resolve_path=True, exists=True)
         ),
-        "page": click.option("-p", "--page", "page_filter", type=str, required=True, help="A page number or a name"),
-        "optional_page": click.option(
+        "page": cloup.option("-p", "--page", "page_filter", type=str, required=True, help="A page number or a name"),
+        "optional_page": cloup.option(
             "-p", "--page", "page_filter", type=str, required=False, help="An optional page number or name"
         ),
-        "to_page": click.option(
+        "to_page": cloup.option(
             "-tp",
             "--to-page",
             "to_page_filter",
@@ -40,10 +42,10 @@ class FilterCommands:
             required=False,
             help="The optional destination page number or a name",
         ),
-        "key": click.option(
+        "key": cloup.option(
             "-k", "--key", "key_filter", type=str, required=True, help='A key as "row,col" or a name'
         ),
-        "to_key": click.option(
+        "to_key": cloup.option(
             "-tk",
             "--to-key",
             "to_key_filter",
@@ -51,7 +53,7 @@ class FilterCommands:
             required=False,
             help='The optional destination key as "row,col" or a name',
         ),
-        "layer": click.option(
+        "layer": cloup.option(
             "-l",
             "--layer",
             "layer_filter",
@@ -59,7 +61,7 @@ class FilterCommands:
             required=False,
             help="A layer number (do not pass it to use the default image) or name",
         ),  # if not given we'll use ``-1``
-        "text_line": click.option(
+        "text_line": cloup.option(
             "-l",
             "--line",
             "text_line_filter",
@@ -67,7 +69,7 @@ class FilterCommands:
             required=False,
             help="A text line (do not pass it to use the default text) or name",
         ),  # if not given we'll use ``-1``
-        "event": click.option(
+        "event": cloup.option(
             "-e",
             "--event",
             "event_filter",
@@ -75,7 +77,7 @@ class FilterCommands:
             required=True,
             help="An event kind ([press|longpress|release|start|end] for a key event, or [start|end] for a deck or page event) or name",
         ),
-        "names": click.option(
+        "names": cloup.option(
             "-c",
             "--conf",
             "names",
@@ -84,7 +86,7 @@ class FilterCommands:
             required=False,
             help='Names to get the values from the configuration "-c name1 -c name2..."',
         ),
-        "names_and_values": click.option(
+        "names_and_values": cloup.option(
             "-c",
             "--conf",
             "names_and_values",
@@ -93,7 +95,7 @@ class FilterCommands:
             required=True,
             help='Pair of names and values to set for the configuration "-c name1 value1 -c name2 value2..."',
         ),
-        "optional_names_and_values": click.option(
+        "optional_names_and_values": cloup.option(
             "-c",
             "--conf",
             "names_and_values",
@@ -105,17 +107,17 @@ class FilterCommands:
         "verbosity": click_log.simple_verbosity_option(
             logger, default="WARNING", help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
         ),
-        "link": click.option(
+        "link": cloup.option(
             "--link",
             type=click.Path(file_okay=True, dir_okay=False, resolve_path=True, exists=True),
             help="Create a link to this file instead of an empty file",
         ),
-        "dry_run": click.option(
+        "dry_run": cloup.option(
             "--dry-run",
             is_flag=True,
             help="Only validate arguments and return what would have been returned by the command but without touching anything",
         ),
-        "disabled_flag": click.option(
+        "disabled_flag": cloup.option(
             "--with-disabled/--without-disabled", "with_disabled", default=False, help="Include disabled ones or not"
         ),
     }
@@ -123,15 +125,21 @@ class FilterCommands:
     @classmethod
     def combine_options(cls):
 
-        cls.options["optional_key"] = click.option(
+        optional_key_constraint = cloup.constraint(
+            cons.If(cons.IsSet("key_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-k' / '--key': Key cannot be passed if page is not passed"
+            ),
+            ["page_filter"],
+        )
+        optional_key = cloup.option(
             "-k",
             "--key",
             "key_filter",
             type=str,
             required=False,
             help='An optional key as "row,col" or name',
-            callback=cls.validate_key_filter_with_page_filter,
         )
+        cls.options["optional_key"] = lambda func: optional_key_constraint(optional_key(func))
 
         options = {}
         options["page_filter"] = lambda func: cls.options["directory"](cls.options["page"](func))
@@ -157,53 +165,81 @@ class FilterCommands:
         cls.options["optional_page_key_filter"] = optional_page_key_filter
 
         cls.options["to_page_to_key"] = lambda func: cls.options["to_page"](cls.options["to_key"](func))
-        cls.options["event_to_page"] = click.option(
+
+        event_to_page_constraint = cloup.constraint(
+            cons.If(cons.IsSet("to_page_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tp' / '--to-page': A deck event destination cannot be a page"
+            ),
+            ["page_filter"],
+        )
+        event_to_page = cloup.option(
             "-tp",
             "--to-page",
             "to_page_filter",
             type=str,
             required=False,
             help="The optional destination page number or a name. (only for a page or key event, not for a deck event)",
-            callback=cls.validate_to_page_event_destination,
         )
-        cls.options["event_to_key"] = click.option(
+        cls.options["event_to_page"] = lambda func: event_to_page_constraint(event_to_page(func))
+
+        event_deck_to_key_constraint = cloup.constraint(
+            cons.If(cons.AllSet("to_key_filter", "page_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tk' / '--to-key': A page event destination cannot be a key"
+            ),
+            ["key_filter"],
+        )
+        event_page_to_key_constraint = cloup.constraint(
+            cons.If(cons.IsSet("to_key_filter"), then=cons.require_all).rephrased(
+                error="Invalid value for '-tk' / '--to-key': A deck event destination cannot be a key"
+            ),
+            ["key_filter"],
+        )
+        event_to_key = cloup.option(
             "-tk",
             "--to-key",
             "to_key_filter",
             type=str,
             required=False,
             help='The optional destination key as "row,col" or a name. (only for a key event, not for a deck or page event)',
-            callback=cls.validate_to_key_event_destination,
+        )
+        cls.options["event_to_key"] = lambda func: event_deck_to_key_constraint(
+            event_page_to_key_constraint(event_to_key(func))
         )
 
-    @staticmethod
-    def validate_event_kind(ctx, param, value):
-        if ctx.params.get("key_filter") is None and value is not None and value not in ("start", "end"):
-            if ctx.params.get("page_filter") is None:
-                raise click.BadParameter("For a deck event, only [start|end] are valid")
-            else:
-                raise click.BadParameter("For a page event, only [start|end] are valid")
-        return value
+        def make_event_kind_option(create_mode):
+            arg_name = "event_kind" if create_mode else "to_kind"
+            short_arg = "-e" if create_mode else "-te"
+            long_arg = "--event" if create_mode else "--to-event"
+            key_event_kind = (
+                cons.Equal(arg_name, "press") | cons.Equal(arg_name, "longpress") | cons.Equal(arg_name, "release")
+            )
+            deck_constraint = cloup.constraint(
+                cons.If(~cons.IsSet("page_filter") & key_event_kind, then=cons.require_all).rephrased(
+                    error=f"Invalid value for '{short_arg}' / '{long_arg}': For a deck event, only [start|end] are valid"
+                ),
+                ["key_filter"],
+            )
+            page_constraint = cloup.constraint(
+                cons.If(cons.IsSet("page_filter") & key_event_kind, then=cons.require_all).rephrased(
+                    error=f"Invalid value for '{short_arg}' / '{long_arg}': For a page event, only [start|end] are valid"
+                ),
+                ["key_filter"],
+            )
+            option = cloup.option(
+                short_arg,
+                long_arg,
+                arg_name,
+                type=click.Choice(["press", "longpress", "release", "start", "end"]),
+                required=create_mode,
+                help=("The kind of event to create" if create_mode else "The optional kind of the new event")
+                + " (only [start|end] for a deck or page event)",
+            )
+            return lambda func: deck_constraint(page_constraint(option(func)))
 
-    @staticmethod
-    def validate_to_key_event_destination(ctx, param, value):
-        if ctx.params.get("key_filter") is None and value is not None:
-            if ctx.params.get("page_filter") is None:
-                raise click.BadParameter("A deck event destination cannot be a key")
-            else:
-                raise click.BadParameter("A page event destination cannot be a key")
-        return value
+        cls.options["event_kind"] = make_event_kind_option(True)
+        cls.options["to_event_kind"] = make_event_kind_option(False)
 
-    @staticmethod
-    def validate_to_page_event_destination(ctx, param, value):
-        if ctx.params.get("page_filter") is None and value is not None:
-            raise click.BadParameter("A deck event destination cannot be a page")
-        return value
 
-    @staticmethod
-    def validate_key_filter_with_page_filter(ctx, param, value):
-        if ctx.params.get("page_filter") is None and value is not None:
-            raise click.BadParameter("Key cannot be passed if page is not passed")
         return value
 
     @staticmethod
@@ -255,9 +291,9 @@ class FilterCommands:
         return text_line
 
     @staticmethod
-    def find_event(key, event_filter):
-        if not (event := key.find_event(event_filter, allow_disabled=True)):
-            Manager.exit(1, f"[{key}] Event `{event_filter}` not found")
+    def find_event(container, event_filter):
+        if not (event := container.find_event(event_filter, allow_disabled=True)):
+            Manager.exit(1, f"[{container}] Event `{event_filter}` not found")
         return event
 
     @classmethod
@@ -607,11 +643,16 @@ class FilterCommands:
         return page if key_filter is None else FC.find_key(page, key_filter)
 
     @classmethod
-    def create_event(cls, key, kind, names_and_values, link, dry_run=False):
-        from ..entities import KeyEvent
-
+    def create_event(cls, container, kind, names_and_values, link, dry_run=False):
         return cls.create_entity(
-            KeyEvent, key, kind, {"kind": kind}, names_and_values, link, f"{key}, NEW EVENT {kind}", dry_run=dry_run
+            container.event_class,
+            container,
+            kind,
+            {"kind": kind},
+            names_and_values,
+            link,
+            f"{container}, NEW EVENT {kind}",
+            dry_run=dry_run,
         )
 
     @classmethod
@@ -694,7 +735,7 @@ def get_current_page(directory):
 
 @cli.command()
 @FC.options["directory"]
-@click.option(
+@cloup.option(
     "-p",
     "--page",
     "page_filter",
@@ -702,7 +743,7 @@ def get_current_page(directory):
     required=True,
     help="A page number or a name, or one of " + ", ".join(f'"{page_code}"' for page_code in PAGE_CODES),
 )
-@click.option("--overlay/--no-overlay", "overlay", default=False, help="Set page as an overlay or not")
+@cloup.option("--overlay/--no-overlay", "overlay", default=False, help="Set page as an overlay or not")
 @FC.options["verbosity"]
 def set_current_page(directory, page_filter, overlay):
     """Set the current page"""
@@ -811,7 +852,7 @@ If no available page match the request, a error will be raised."""
 
 @cli.command()
 @FC.options["directory"]
-@click.option(
+@cloup.option(
     "-p",
     "--page",
     type=str,
@@ -836,7 +877,7 @@ def create_page(directory, page, names_and_values, dry_run):
 
 @cli.command()
 @FC.options["page_filter"]
-@click.option(
+@cloup.option(
     "-tp",
     "--to-page",
     "to_page_number",
@@ -863,7 +904,7 @@ def copy_page(directory, page_filter, to_page_number, names_and_values, dry_run)
 
 @cli.command()
 @FC.options["page_filter"]
-@click.option(
+@cloup.option(
     "-tp",
     "--to-page",
     "to_page_number",
@@ -973,7 +1014,7 @@ If no available key match the request, a error will be raised."""
 
 @cli.command()
 @FC.options["page_filter"]
-@click.option(
+@cloup.option(
     "-k",
     "--key",
     type=str,
@@ -997,7 +1038,7 @@ def create_key(directory, page_filter, key, names_and_values, dry_run):
 @cli.command()
 @FC.options["key_filter"]
 @FC.options["to_page"]
-@click.option(
+@cloup.option(
     "-tk",
     "--to-key",
     "to_key",
@@ -1022,7 +1063,7 @@ def copy_key(directory, page_filter, key_filter, to_page_filter, to_key, names_a
 @cli.command()
 @FC.options["key_filter"]
 @FC.options["to_page"]
-@click.option(
+@cloup.option(
     "-tk",
     "--to-key",
     "to_key",
@@ -1377,15 +1418,7 @@ def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_v
 
 @cli.command()
 @FC.options["optional_page_key_filter"]
-@click.option(
-    "-e",
-    "--event",
-    "event_kind",
-    type=click.Choice(["press", "longpress", "release", "start", "end"]),
-    required=True,
-    help="The kind of event to create (only [start|end] for a deck or page event)",
-    callback=FC.validate_event_kind,
-)
+@FC.options["event_kind"]
 @FC.options["optional_names_and_values"]
 @FC.options["link"]
 @FC.options["dry_run"]
@@ -1400,15 +1433,7 @@ def create_event(directory, page_filter, key_filter, event_kind, names_and_value
 @FC.options["event_filter"]
 @FC.options["event_to_page"]
 @FC.options["event_to_key"]
-@click.option(
-    "-te",
-    "--to-event",
-    "to_kind",
-    type=click.Choice(["press", "longpress", "release", "start", "end"]),
-    required=False,
-    help="The optional kind of the new event (only [start|end] for a deck or page event)",
-    callback=FC.validate_event_kind,
-)
+@FC.options["to_event_kind"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
 @FC.options["verbosity"]
@@ -1423,7 +1448,7 @@ def copy_event(
     names_and_values,
     dry_run,
 ):
-    """Copy an deck event to the same directory, or a page event to the same page or another, or a key event to the same key or another"""
+    """Copy a deck event to the same directory, or a page event to the same page or another, or a key event to the same key or another"""
     container = FC.get_events_container(directory, page_filter, key_filter)
     event = FC.find_event(container, event_filter)
 
@@ -1454,15 +1479,7 @@ def copy_event(
 @FC.options["event_filter"]
 @FC.options["event_to_page"]
 @FC.options["event_to_key"]
-@click.option(
-    "-te",
-    "--to-event",
-    "to_kind",
-    type=click.Choice(["press", "longpress", "release", "start", "end"]),
-    required=False,
-    help="The optional kind of the new event (only [start|end] for a deck or page event)",
-    callback=FC.validate_event_kind,
-)
+@FC.options["to_event_kind"]
 @FC.options["optional_names_and_values"]
 @FC.options["dry_run"]
 @FC.options["verbosity"]

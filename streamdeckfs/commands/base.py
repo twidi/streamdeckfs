@@ -8,11 +8,12 @@
 #
 import click
 import click_log
+import cloup
 
 from ..common import PLATFORM, SUPPORTED_PLATFORMS, Manager, logger
 
 
-class NaturalOrderGroup(click.Group):
+class NaturalOrderGroup(cloup.Group):
     def list_commands(self, ctx):
         return self.commands.keys()
 
@@ -20,15 +21,15 @@ class NaturalOrderGroup(click.Group):
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
-@click.group(cls=NaturalOrderGroup, context_settings=CONTEXT_SETTINGS)
+@cloup.group(cls=NaturalOrderGroup, context_settings=CONTEXT_SETTINGS)
 def cli():
     if not SUPPORTED_PLATFORMS.get(PLATFORM):
         return Manager.exit(1, f"{PLATFORM} is not supported yet")
 
 
 common_options = {
-    "optional_serial": click.argument("serial", nargs=-1, required=False),
-    "optional_serials": click.argument("serials", nargs=-1, required=False),
+    "optional_serial": cloup.argument("serial", nargs=-1, required=False),
+    "optional_serials": cloup.argument("serials", nargs=-1, required=False),
     "verbosity": click_log.simple_verbosity_option(
         logger, help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
     ),
