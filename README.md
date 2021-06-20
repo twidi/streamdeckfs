@@ -1402,6 +1402,8 @@ The value of the variable will be read from the file itself, of from the `value`
 
 Note that to read the value from another file, the [`file` configuration option as defined for the `TEXT*` files](#option-file-1) can also be used.
 
+When getting the value of a variable, we use "cascading": if the variable is not defined in the asked directory, it will be looked for in the parent directory (page, then deck, for a key variable, or deck for a page variable). It allows to have a "default value" at a upper level, that is overridden at a lower one.
+
 # API
 
 As everything is done in file names (except sometimes for texts/images/variables), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
@@ -2583,6 +2585,9 @@ with:
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
 - `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+
+
+The variable does not need to be in the wanted key or page to be retrieved, as long as it is in one of its parent (the page or the deck when asking for a key variable, or the deck when asking for a page variable)
 
 If the variable exist but does not hold any value (no content, no `value` configuration option or no linked file), nothing will be printed (but no errors will be raised)
 

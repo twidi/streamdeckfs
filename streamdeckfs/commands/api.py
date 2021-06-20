@@ -1681,9 +1681,20 @@ def get_var_conf(directory, page_filter, key_filter, var_filter, names):
 def get_var_value(directory, page_filter, key_filter, var_filter, names):
     """Get the value of a variable of a deck, page, or key."""
     container = FC.get_entity_container(directory, page_filter, key_filter, "var")
-    var = FC.find_var(container, var_filter)
-    if value := var.resolved_value:
-        print(value)
+    try:
+        var = container.get_var(var_filter)
+    except KeyError:
+        lookup_places = []
+        if key_filter is not None:
+            lookup_places.append("key")
+        if page_filter is not None:
+            lookup_places.append("page")
+        lookup_places.append("deck")
+        Manager.exit(1, f"[{container}] Variable `{var_filter}` not found. Looked in: {', '.join(lookup_places)}")
+    else:
+        logger.debug(f"Variable found in [{container}]")
+        if value := var.resolved_value:
+            print(value)
 
 
 @cli.command()

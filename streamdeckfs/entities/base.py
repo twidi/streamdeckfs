@@ -734,3 +734,10 @@ class EntityDir(Entity):
                         modified_at=modified_at,
                     )
         return NOT_HANDLED
+
+    def get_var(self, name):
+        if var := self.vars.get(name):
+            return var
+        if parent := self.parent:
+            return parent.get_var(name)
+        raise KeyError(name)
