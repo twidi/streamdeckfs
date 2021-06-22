@@ -27,7 +27,8 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-VAR_RE = re.compile(r"(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)")
+VAR_RE = re.compile(r'(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)(?:="(?P<equal_value>[^"]+)")?')
+VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
@@ -127,6 +128,8 @@ class Entity:
     def replace_var(cls, match, vars):
         data = match.groupdict()
         value = vars[data["name"]].resolved_value
+        if data["equal_value"]:
+            value = "true" if value == data["equal_value"] else "false"
         if data["not"]:
             value = cls.negated[value]
         return value
@@ -151,7 +154,7 @@ class Entity:
 
             if conf_part:
                 if matches := VAR_RE.findall(conf_part):
-                    var_names = {name for negate, name in matches}
+                    var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
                     try:
                         # will raise KeyError if var not defined
                         vars = {name: parent.get_var(name) for name in var_names}

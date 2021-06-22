@@ -1410,13 +1410,40 @@ Variables can be used in filenames for pages, keys, images, texts... and vars th
 
 Say you have a key directory containing an empty file named `VAR_FOO;value=bar`, or a file named `VAR_FOO` containing `bar`.  You can then have a text file `TEXT;text=$VAR_FOO` and the text `bar` will be displayed. Cascading is respected: if the `VAR` file is not found in the key directory, it will be looked for in the page directory or the deck directory.
 
-If the variable value is `true` or `false`, it's possible to negate this by preceding the `$VAR_*` by a `!`. Useful for the `disabled` configuration option, so it's possible to activate a layer and deactivate another with a single variable. Use it like this: `TEXT;text=foo;disabled=!$VAR_SHOW_TEXT` (here, if the variable `VAR_SHOW_TEXT` as `true` for value, `disabled` will be set to `not true`, so `false`, so the text will be shown). Note that if `!` is used for a variable that contains something else than `true` or `false`, the file defining it won't be displayed.
 
 Variables can be created, updated or deleted while `streamdeckfs` is running and these updates will be reflected as expected (in the previous example, if you rename `VAR_FOO;value=bar` to `VAR_FOO;value=BAR`, the key will be automatically updated to display `BAR`)
 
 If a file name contains a variable that cannot be found, this file will be ignored until the variable file is available.
 
 When a command is triggered following an event (for example a key press), all variables available to this event will be passed as environment variable (previxed by `SDFS_`, so in our example we'll have `SDFS_VAR_FOO`, containing the value `BAR`)
+
+## Variables logic
+
+When using variables in a file name, you can apply some logic to it.
+
+### Negate
+
+If the variable value is `true` or `false`, it's possible to negate this by preceding the `$VAR_*` by a `!`. Useful for the `disabled` configuration option, so it's possible to activate a layer and deactivate another with a single variable. Use it like this: `TEXT;text=foo;disabled=!$VAR_SHOW_TEXT` (here, if the variable `VAR_SHOW_TEXT` as `true` for value, `disabled` will be set to `not true`, so `false`, so the text will be shown). Note that if `!` is used for a variable that contains something else than `true` or `false`, the file defining it won't be displayed.
+
+### Equality
+
+If a configuration option needs a boolean (`true` or `false`), you can use equality between a variable and a value to get this result. The format is `$VAR_XXX="VALUE"`. Note the `=` and the value between double quotes (`"`). For example `TEXT;text=OFF;disabled=$VAR_ACTIVE="yes"` won't display the text "OFF" if the `VAR_ACTIVE` variable has "yes" for value.
+
+You can combine this with the negate operator (`!`). For example `TEXT;text=ON;disabled=!$VAR_ACTIVE="yes"` will display the text "ON" if the `VAR_ACTIVE` variable has "yes" for value.
+
+Note that the value cannot contain a semicolon as it will be seen as the end of the current configuration option.
+
+Here is an example showing how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
+
+```
+TEXT;text=1;fit;disabled=!$VAR_STATE="state_one"
+TEXT;text=2;fit;disabled=!$VAR_STATE="state_two"
+TEXT;text=3;fit;disabled=!$VAR_STATE="state_three"
+VAR_STATE;value=state_$VAR_STATE_VALUE
+VAR_STATE_VALUE;value=one
+```
+
+This example will display `1`, with the current value of `VAR_STATE_VALUE`.
 
 # API
 
