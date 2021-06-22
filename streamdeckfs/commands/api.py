@@ -9,7 +9,6 @@
 import json
 import re
 import shutil
-from copy import deepcopy
 from pathlib import Path
 from random import randint
 
@@ -19,7 +18,7 @@ import cloup
 import cloup.constraints as cons
 
 from ..common import Manager, logger
-from ..entities import FILTER_DENY, PAGE_CODES, Deck
+from ..entities import FILTER_DENY, PAGE_CODES, VAR_RE, Deck
 from .base import cli, validate_positive_integer
 
 NoneType = type(None)
@@ -370,59 +369,76 @@ class FilterCommands:
         return var
 
     @classmethod
-    def get_args(cls, obj, resolve=True):
-        return obj.get_resovled_raw_args() if resolve else obj.get_raw_args()
-
-    @classmethod
-    def get_args_as_json(cls, obj, only_names=None):
-        main, args = cls.get_args(obj)
+    def get_args_as_json(cls, entity, only_names=None):
+        main, args = entity.get_resovled_raw_args()
         data = main | args
         if only_names is not None:
             data = {k: v for k, v in data.items() if k in only_names}
         return json.dumps(data)
 
-    @staticmethod
-    def compose_filename(obj, main, args):
-        return obj.compose_filename(main, args)
-
     @classmethod
-    def validate_names_and_values(cls, obj, main_args, names_and_values, msg_name_part):
+    def validate_names_and_values(cls, entity, main_args, names_and_values, error_msg_name_part):
         args = {}
         removed_args = set()
-        base_filename = cls.compose_filename(obj, main_args, {})
+        base_filename = entity.compose_main_part(main_args)
         for (name, value) in names_and_values:
             if ";" in name:
-                Manager.exit(1, f"[{msg_name_part}] Configuration name `{name}` is not valid")
+                Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
             if ";" in value:
-                Manager.exit(1, f"[{msg_name_part}] Configuration value for `{name}` is not valid")
+                Manager.exit(1, f"[{error_msg_name_part}] Configuration value for `{name}` is not valid")
             if name in main_args:
-                Manager.exit(1, f"[{msg_name_part}] Configuration name `{name}` cannot be changed")
+                Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` cannot be changed")
 
             if not value:
                 removed_args.add(name)
+            elif VAR_RE.search(value):
+                # if the value contains a variable, we only check the name
+                if name not in entity.allowed_args:
+                    if "." not in name:
+                        Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
+                    else:
+                        main_name = name.split(".", 1)[0]
+                        if main_name not in entity.allowed_partial_args or not entity.allowed_partial_args[
+                            main_name
+                        ].match(name):
+                            Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
+                args[name] = value
             else:
+                # check name and value
+                filename = base_filename + f";{name}={value}"
                 try:
-                    args[name] = obj.raw_parse_filename(base_filename + f";{name}={value}", obj.path.parent)[1][name]
+                    args[name] = entity.raw_parse_filename(filename, entity.path.parent).args[name]
                 except KeyError:
-                    Manager.exit(1, f"[{msg_name_part}] Configuration `{name} {value}` is not valid")
+                    Manager.exit(1, f"[{error_msg_name_part}] Configuration `{name} {value}` is not valid")
         return args, removed_args
 
     @classmethod
-    def update_args(cls, obj, names_and_values, msg_name_part=None):
-        main, args = cls.get_args(obj, resolve=False)
-        final_args = deepcopy(args)
+    def update_filename(cls, entity, names_and_values, main_override=None, error_msg_name_part=None):
+        parts = entity.path.name.split(";")
+        main_part = parts.pop(0)
+        main = entity.main_part_re.match(main_part).groupdict()
+        if main_override:
+            main |= main_override
+            main_part = entity.compose_main_part(main)
         updated_args, removed_args = cls.validate_names_and_values(
-            obj, main, names_and_values, obj if msg_name_part is None else msg_name_part
+            entity, main, names_and_values, error_msg_name_part or entity
         )
-        final_args |= updated_args
-        for key in removed_args:
-            final_args.pop(key, None)
-        return main, final_args
-
-    @classmethod
-    def get_update_args_filename(cls, obj, names_and_values):
-        main, args = cls.update_args(obj, names_and_values)
-        return cls.compose_filename(obj, main, args)
+        final_parts = [main_part]
+        seen_names = set()
+        for part in parts:
+            name, *__, value = part.partition("=")
+            if name in seen_names:
+                continue
+            seen_names.add(name)
+            if name in removed_args:
+                continue
+            if name not in updated_args:
+                final_parts.append(part)
+                continue
+            final_parts.append(f"{name}={updated_args.pop(name)}")
+        for name, value in updated_args.items():
+            final_parts.append(f"{name}={value}")
+        return ";".join(final_parts)
 
     @classmethod
     def rename_entity(cls, entity, new_filename=None, new_path=None, dry_run=False):
@@ -445,22 +461,22 @@ class FilterCommands:
         return entity.path
 
     @classmethod
-    def check_new_path(cls, path, is_dir, msg_name_part):
+    def check_new_path(cls, path, is_dir, error_msg_name_part):
         if path.exists():
             Manager.exit(
                 1,
-                f'[{msg_name_part}] Cannot create {"directory" if is_dir else "file"} "{path}" because it already exists',
+                f'[{error_msg_name_part}] Cannot create {"directory" if is_dir else "file"} "{path}" because it already exists',
             )
 
     @classmethod
     def create_entity(
-        cls, entity_class, parent, identifier, main_args, names_and_values, link, msg_name_part, dry_run=False
+        cls, entity_class, parent, identifier, main_args, names_and_values, link, error_msg_name_part, dry_run=False
     ):
-        entity_filename = entity_class.compose_filename(main_args, {})
+        entity_filename = entity_class.compose_main_part(main_args)
         entity = entity_class(**entity_class.get_create_base_args(parent.path / entity_filename, parent, identifier))
-        args = cls.validate_names_and_values(entity, main_args, names_and_values, msg_name_part)[0]
-        path = parent.path / entity.compose_filename(main_args, args)
-        cls.check_new_path(path, entity_class.is_dir, msg_name_part)
+        filename = cls.update_filename(entity, names_and_values, None, error_msg_name_part)
+        path = parent.path / filename
+        cls.check_new_path(path, entity_class.is_dir, error_msg_name_part)
         if not dry_run:
             if entity_class.is_dir:
                 path.mkdir()
@@ -471,11 +487,10 @@ class FilterCommands:
         return path
 
     @classmethod
-    def copy_entity(cls, entity, parent, main_override, names_and_values, msg_name_part, dry_run=False):
-        main, args = cls.update_args(entity, names_and_values, msg_name_part)
-        main |= main_override
-        path = parent.path / cls.compose_filename(entity, main, args)
-        cls.check_new_path(path, entity.is_dir, msg_name_part)
+    def copy_entity(cls, entity, parent, main_override, names_and_values, error_msg_name_part, dry_run=False):
+        filename = cls.update_filename(entity, names_and_values, main_override, error_msg_name_part)
+        path = parent.path / filename
+        cls.check_new_path(path, entity.is_dir, error_msg_name_part)
         if not dry_run:
             if entity.is_dir:
                 shutil.copytree(entity.path, path, symlinks=True)
@@ -484,11 +499,10 @@ class FilterCommands:
         return path
 
     @classmethod
-    def move_entity(cls, entity, parent, main_override, names_and_values, msg_name_part, dry_run=False):
-        main, args = cls.update_args(entity, names_and_values, msg_name_part)
-        main |= main_override
-        path = parent.path / cls.compose_filename(entity, main, args)
-        cls.check_new_path(path, entity.is_dir, msg_name_part)
+    def move_entity(cls, entity, parent, main_override, names_and_values, error_msg_name_part, dry_run=False):
+        filename = cls.update_filename(entity, names_and_values, main_override, error_msg_name_part)
+        path = parent.path / filename
+        cls.check_new_path(path, entity.is_dir, error_msg_name_part)
         if not dry_run:
             cls.rename_entity(entity, new_path=path)
         return path
@@ -792,19 +806,19 @@ class FilterCommands:
 
     @classmethod
     def iter_content(cls, entity, content, with_disabled):
-        for identifier, obj in sorted([(identifier, obj) for identifier, obj in content.items()]):
-            if not obj and not with_disabled:
+        for identifier, entity in sorted([(identifier, entity) for identifier, entity in content.items()]):
+            if not entity and not with_disabled:
                 continue
             if with_disabled:
-                for version in obj.all_versions:
+                for version in entity.all_versions:
                     yield version
             else:
-                yield obj
+                yield entity
 
     @classmethod
     def list_content(cls, entity, content, with_disabled):
-        for obj in cls.iter_content(entity, content, with_disabled):
-            print(FC.get_args_as_json(obj))
+        for entity in cls.iter_content(entity, content, with_disabled):
+            print(FC.get_args_as_json(entity))
 
 
 FC = FilterCommands
@@ -1270,7 +1284,7 @@ def set_image_conf(directory, page_filter, key_filter, layer_filter, names_and_v
         ),
         layer_filter,
     )
-    print(FC.rename_entity(layer, FC.get_update_args_filename(layer, names_and_values), dry_run=dry_run)[1])
+    print(FC.rename_entity(layer, FC.update_filename(layer, names_and_values), dry_run=dry_run)[1])
 
 
 @cli.command()
@@ -1407,7 +1421,7 @@ def set_text_conf(directory, page_filter, key_filter, text_line_filter, names_an
         ),
         text_line_filter,
     )
-    print(FC.rename_entity(text_line, FC.get_update_args_filename(text_line, names_and_values), dry_run=dry_run)[1])
+    print(FC.rename_entity(text_line, FC.update_filename(text_line, names_and_values), dry_run=dry_run)[1])
 
 
 @cli.command()
@@ -1526,7 +1540,7 @@ def set_event_conf(directory, page_filter, key_filter, event_filter, names_and_v
     """Set the value of some entries of an event (of a deck, page, or key) configuration."""
     container = FC.get_entity_container(directory, page_filter, key_filter, "event")
     event = FC.find_event(container, event_filter)
-    print(FC.rename_entity(event, FC.get_update_args_filename(event, names_and_values), dry_run=dry_run)[1])
+    print(FC.rename_entity(event, FC.update_filename(event, names_and_values), dry_run=dry_run)[1])
 
 
 @cli.command()
@@ -1705,7 +1719,7 @@ def set_var_conf(directory, page_filter, key_filter, var_filter, names_and_value
     """Set the value of some entries of a variable (of a deck, page, or key) configuration."""
     container = FC.get_entity_container(directory, page_filter, key_filter, "var")
     var = FC.find_var(container, var_filter)
-    print(FC.rename_entity(var, FC.get_update_args_filename(var, names_and_values), dry_run=dry_run)[1])
+    print(FC.rename_entity(var, FC.update_filename(var, names_and_values), dry_run=dry_run)[1])
 
 
 @cli.command()

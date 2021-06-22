@@ -130,18 +130,20 @@ class Deck(EntityDir):
             from .page import Page
 
             if not entity_class or entity_class is Page:
-                ref_conf, ref, main, args = Page.parse_filename(name, self)
-                if main:
-                    if page_filter is not None and not Page.args_matching_filter(main, args, page_filter):
+                if (parsed := Page.parse_filename(name, self)).main:
+                    if page_filter is not None and not Page.args_matching_filter(
+                        parsed.main, parsed.args, page_filter
+                    ):
                         return None
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=Page,
-                        data_identifier=main["page"],
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
+                        data_identifier=parsed.main["page"],
+                        args=parsed.args,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
 
@@ -477,6 +479,12 @@ class Deck(EntityDir):
                 "device_key_height": self.key_height,
             }
         )
+
+    def iterate_vars_holders(self):
+        yield from super().iterate_vars_holders()
+        for page in self.iter_all_children_versions(self.pages):
+            yield page
+            yield from page.iterate_vars_holders()
 
 
 @dataclass(eq=False)

@@ -11,16 +11,35 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageEnhance
 
-from .base import RE_PARTS, Entity, EntityFile, InvalidArg
+from .base import RE_PARTS, EntityFile, InvalidArg
 from .key import KeyContent
 
 
 @dataclass(eq=False)
-class keyImagePart(KeyContent, EntityFile):
+class KeyImagePart(KeyContent, EntityFile):
 
     no_margins = {"top": ("int", 0), "right": ("int", 0), "bottom": ("int", 0), "left": ("int", 0)}
 
-    filename_re_parts = Entity.filename_re_parts + EntityFile.common_filename_re_parts
+    allowed_args = EntityFile.allowed_args | {
+        "opacity": re.compile(r"^(?P<arg>opacity)=(?P<value>" + RE_PARTS["0-100"] + ")$"),
+        "margin": re.compile(
+            r"^(?P<arg>margin)=(?P<top>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<right>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<bottom>-?"
+            + RE_PARTS["% | number"]
+            + "),(?P<left>-?"
+            + RE_PARTS["% | number"]
+            + ")$"
+        ),
+        "margin.": re.compile(
+            r"^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?" + RE_PARTS["% | number"] + ")$"
+        ),
+    }
+    allowed_partial_args = EntityFile.allowed_partial_args | {
+        "margin": re.compile(r"^margin\.(?:[0123]|top|right|bottom|left)$"),
+    }
 
     def __str__(self):
         return f"{self.key}, {self.str}"
@@ -87,30 +106,18 @@ class keyImagePart(KeyContent, EntityFile):
 
 
 @dataclass(eq=False)
-class KeyImageLayer(keyImagePart):
+class KeyImageLayer(KeyImagePart):
     path_glob = "IMAGE*"
-    main_path_re = re.compile(r"^(?P<kind>IMAGE)(?:;|$)")
-    filename_re_parts = keyImagePart.filename_re_parts + [
-        re.compile(r"^(?P<arg>layer)=(?P<value>\d+)$"),
-        re.compile(
+    main_part_re = re.compile(r"^(?P<kind>IMAGE)$")
+    main_part_compose = lambda args: "IMAGE"
+
+    allowed_args = KeyImagePart.allowed_args | {
+        "layer": re.compile(r"^(?P<arg>layer)=(?P<value>\d+)$"),
+        "ref": re.compile(  # we'll use -1 if no layer given
             r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<layer>.*)$"
-        ),  # we'll use -1 if no layer given
-        re.compile(r"^(?P<arg>colorize)=(?P<value>" + RE_PARTS["color"] + ")$"),
-        re.compile(
-            r"^(?P<arg>margin)=(?P<top>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<right>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<bottom>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<left>-?"
-            + RE_PARTS["% | number"]
-            + ")$"
         ),
-        re.compile(
-            r"^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?" + RE_PARTS["% | number"] + ")$"
-        ),
-        re.compile(
+        "colorize": re.compile(r"^(?P<arg>colorize)=(?P<value>" + RE_PARTS["color"] + ")$"),
+        "crop": re.compile(
             r"^(?P<arg>crop)=(?P<left>"
             + RE_PARTS["% | number"]
             + "),(?P<top>"
@@ -121,11 +128,14 @@ class KeyImageLayer(keyImagePart):
             + RE_PARTS["% | number"]
             + ")$"
         ),
-        re.compile(r"^(?P<arg>crop\.(?:[0123]|left|top|right|bottom))=(?P<value>" + RE_PARTS["% | number"] + ")$"),
-        re.compile(r"^(?P<arg>opacity)=(?P<value>" + RE_PARTS["0-100"] + ")$"),
-        re.compile(r"^(?P<arg>rotate)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
-        re.compile(r"^(?P<arg>draw)=(?P<value>line|rectangle|fill|points|polygon|ellipse|arc|chord|pieslice)$"),
-        re.compile(
+        "crop.": re.compile(
+            r"^(?P<arg>crop\.(?:[0123]|left|top|right|bottom))=(?P<value>" + RE_PARTS["% | number"] + ")$"
+        ),
+        "rotate": re.compile(r"^(?P<arg>rotate)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
+        "draw": re.compile(
+            r"^(?P<arg>draw)=(?P<value>line|rectangle|fill|points|polygon|ellipse|arc|chord|pieslice)$"
+        ),
+        "coords": re.compile(
             r"^(?P<arg>coords)=(?P<value>-?"
             + RE_PARTS["% | number"]
             + ",-?"
@@ -136,48 +146,21 @@ class KeyImageLayer(keyImagePart):
             + RE_PARTS["% | number"]
             + ")*)$"
         ),
-        re.compile(r"^(?P<arg>coords\.\d+)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
-        re.compile(r"^(?P<arg>outline)=(?P<value>" + RE_PARTS["color & alpha?"] + ")$"),
-        re.compile(r"^(?P<arg>fill)=(?P<value>" + RE_PARTS["color & alpha?"] + ")$"),
-        re.compile(r"^(?P<arg>width)=(?P<value>\d+)$"),
-        re.compile(r"^(?P<arg>radius)=(?P<value>\d+)$"),
-        re.compile(r"^(?P<arg>angles)=(?P<value>-?" + RE_PARTS["% | number"] + ",-?" + RE_PARTS["% | number"] + ")$"),
-        re.compile(r"^(?P<arg>angles\.[12])=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
-    ]
-    main_filename_part = lambda args: "IMAGE"
-    filename_parts = (
-        [
-            lambda args: f"layer={layer}" if (layer := args.get("layer")) else None,
-            keyImagePart.name_filename_part,
-            lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("layer") or ""}'
-            if (ref := args.get("ref"))
-            else None,
-        ]
-        + keyImagePart.filename_file_parts
-        + [
-            lambda args: f"draw={draw}" if (draw := args.get("draw")) else None,
-            lambda args: f"coords={coords}" if (coords := args.get("coords")) else None,
-            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("coords.")],
-            lambda args: f"outline={color}" if (color := args.get("outline")) else None,
-            lambda args: f"fill={color}" if (color := args.get("fill")) else None,
-            lambda args: f"width={width}" if (width := args.get("width")) else None,
-            lambda args: f"radius={radius}" if (radius := args.get("radius")) else None,
-            lambda args: f"angles={angles}" if (angles := args.get("angles")) else None,
-            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("angles.")],
-            lambda args: f'crop={crop["left"]},{crop["top"]},{crop["right"]},{crop["bottom"]}'
-            if (crop := args.get("crop"))
-            else None,
-            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("crop.")],
-            lambda args: f"colorize={color}" if (color := args.get("colorize")) else None,
-            lambda args: f"rotate={rotate}" if (rotate := args.get("rotate")) else None,
-            lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}'
-            if (margin := args.get("margin"))
-            else None,
-            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("margin.")],
-            lambda args: f"opacity={opacity}" if (opacity := args.get("opacity")) else None,
-            keyImagePart.disabled_filename_part,
-        ]
-    )
+        "coords.": re.compile(r"^(?P<arg>coords\.\d+)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
+        "outline": re.compile(r"^(?P<arg>outline)=(?P<value>" + RE_PARTS["color & alpha?"] + ")$"),
+        "fill": re.compile(r"^(?P<arg>fill)=(?P<value>" + RE_PARTS["color & alpha?"] + ")$"),
+        "width": re.compile(r"^(?P<arg>width)=(?P<value>\d+)$"),
+        "radius": re.compile(r"^(?P<arg>radius)=(?P<value>\d+)$"),
+        "angles": re.compile(
+            r"^(?P<arg>angles)=(?P<value>-?" + RE_PARTS["% | number"] + ",-?" + RE_PARTS["% | number"] + ")$"
+        ),
+        "angles.": re.compile(r"^(?P<arg>angles\.[01])=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
+    }
+    allowed_partial_args = KeyImagePart.allowed_partial_args | {
+        "crop": re.compile(r"^crop\.(?:[0123]|top|right|bottom|left)$"),
+        "coords": re.compile(r"^coords\.\d+$"),
+        "angles": re.compile(r"^angles\.[01]$"),
+    }
 
     identifier_attr = "layer"
     parent_container_attr = "layers"
@@ -302,12 +285,12 @@ class KeyImageLayer(keyImagePart):
             pass
         return args.get("name") == filter
 
-    def on_changed(self):
-        super().on_changed()
+    def on_file_content_changed(self):
+        super().on_file_content_changed()
         self.compose_cache = None
         self.key.on_image_changed()
         for reference in self.referenced_by:
-            reference.on_changed()
+            reference.on_file_content_changed()
 
     @property
     def resolved_image_path(self):

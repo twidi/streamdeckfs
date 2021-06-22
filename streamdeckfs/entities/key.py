@@ -16,7 +16,14 @@ from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
 from ..common import Manager, file_flags, logger
-from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
+from .base import (
+    FILTER_DENY,
+    NOT_HANDLED,
+    Entity,
+    EntityDir,
+    ParseFilenameResult,
+    versions_dict_factory,
+)
 from .page import PageContent
 
 
@@ -24,17 +31,12 @@ from .page import PageContent
 class Key(EntityDir, PageContent):
 
     path_glob = "KEY_ROW_*_COL_*"
-    dir_template = "KEY_ROW_{row}_COL_{col}"
-    main_path_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)(?:;|$)")
-    filename_re_parts = PageContent.filename_re_parts + [
-        re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$"),  # we'll use current row,col if no key given
-    ]
-    main_filename_part = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
-    filename_parts = [
-        PageContent.name_filename_part,
-        lambda args: f'ref={ref.get("page")}:{ref["key"]}' if (ref := args.get("ref")) else None,
-        PageContent.disabled_filename_part,
-    ]
+    main_part_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)$")
+    main_part_compose = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
+
+    allowed_args = EntityDir.allowed_args | {
+        "ref": re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$"),  # we'll use current row,col if no key given
+    }
 
     identifier_attr = "key"
     parent_container_attr = "keys"
@@ -94,16 +96,16 @@ class Key(EntityDir, PageContent):
 
     @classmethod
     def parse_filename(cls, name, parent):
-        ref_conf, ref, main, args = super().parse_filename(name, parent)
-        if main is not None:
+        parsed = super().parse_filename(name, parent)
+        if (main := parsed.main) is not None:
             if (
                 main["row"] < 1
                 or main["row"] > parent.deck.nb_rows
                 or main["col"] < 1
                 or main["col"] > parent.deck.nb_cols
             ):
-                return None, None, None, None
-        return ref_conf, ref, main, args
+                return ParseFilenameResult()
+        return parsed
 
     def on_create(self):
         super().on_create()
@@ -138,12 +140,10 @@ class Key(EntityDir, PageContent):
 
     def on_delete(self):
         Manager.remove_watch(self.path, self)
-        for layer_versions in self.layers.values():
-            for layer in layer_versions.all_versions:
-                layer.on_delete()
-        for text_line_versions in self.text_lines.values():
-            for text_line in text_line_versions.all_versions:
-                text_line.on_delete()
+        for layer in self.iter_all_children_versions(self.layers):
+            layer.on_delete()
+        for text_line in self.iter_all_children_versions(self.text_lines):
+            text_line.on_delete()
         super().on_delete()
 
     @classmethod
@@ -195,44 +195,46 @@ class Key(EntityDir, PageContent):
             from . import KeyImageLayer
 
             if not entity_class or entity_class is KeyImageLayer:
-                ref_conf, ref, main, args = KeyImageLayer.parse_filename(name, self)
-                if main:
-                    if layer_filter is not None and not KeyImageLayer.args_matching_filter(main, args, layer_filter):
+                if (parsed := KeyImageLayer.parse_filename(name, self)).main:
+                    if layer_filter is not None and not KeyImageLayer.args_matching_filter(
+                        parsed.main, parsed.args, layer_filter
+                    ):
                         return None
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=KeyImageLayer,
-                        data_identifier=args["layer"],
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
+                        data_identifier=parsed.args["layer"],
+                        args=parsed.args,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
-                elif ref_conf:
-                    KeyImageLayer.add_waiting_reference(self, path, ref_conf)
+                elif parsed.ref_conf:
+                    KeyImageLayer.add_waiting_reference(self, path, parsed.ref_conf)
         if (text_line_filter := self.deck.filters.get("text_line")) != FILTER_DENY:
             from . import KeyTextLine
 
             if not entity_class or entity_class is KeyTextLine:
-                ref_conf, ref, main, args = KeyTextLine.parse_filename(name, self)
-                if main:
+                if (parsed := KeyTextLine.parse_filename(name, self)).main:
                     if text_line_filter is not None and not KeyTextLine.args_matching_filter(
-                        main, args, text_line_filter
+                        parsed.main, parsed.args, text_line_filter
                     ):
                         return None
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=KeyTextLine,
-                        data_identifier=args["line"],
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
+                        data_identifier=parsed.args["line"],
+                        args=parsed.args,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
-                elif ref_conf:
-                    KeyTextLine.add_waiting_reference(self, path, ref_conf)
+                elif parsed.ref_conf:
+                    KeyTextLine.add_waiting_reference(self, path, parsed.ref_conf)
 
     def on_directory_removed(self, directory):
         pass
@@ -327,14 +329,14 @@ class Key(EntityDir, PageContent):
         visible, overlay_level, key_below, key_above = key_visibility = self.deck.get_key_visibility(
             self.page.number, self.key
         )
-        if visible and self.has_content():
+        if (has_content := self.has_content()) and visible:
             self.deck.set_image(self.row, self.col, self.compose_image(overlay_level))
             for text_line in self.resolved_text_lines.values():
                 if text_line:
                     text_line.start_scroller()
             self.activate_events()
             self.rendered_overlay = overlay_level
-        elif not self.page.is_visible:
+        elif not has_content:
             self.unrender(key_visibility=key_visibility)
 
     def unrender(self, clear_image=True, key_visibility=None):
@@ -467,12 +469,12 @@ class KeyContent(Entity):
 
     @classmethod
     def iter_waiting_references_for_key(cls, check_key):
-        for path, (parent, ref_conf) in check_key.waiting_child_references.get(cls, {}).items():
+        for path, (parent, ref_conf) in check_key.children_waiting_for_references.get(cls, {}).items():
             yield check_key, path, parent, ref_conf
-        for path, (parent, ref_conf) in check_key.page.waiting_child_references.get(cls, {}).items():
+        for path, (parent, ref_conf) in check_key.page.children_waiting_for_references.get(cls, {}).items():
             if (key := check_key.page.find_key(ref_conf["key"])) and key.key == check_key.key:
                 yield key, path, parent, ref_conf
-        for path, (parent, ref_conf) in check_key.deck.waiting_child_references.get(cls, {}).items():
+        for path, (parent, ref_conf) in check_key.deck.children_waiting_for_references.get(cls, {}).items():
             if (
                 (page := check_key.deck.find_page(ref_conf["page"]))
                 and page.number == check_key.page.number

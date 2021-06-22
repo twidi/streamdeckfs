@@ -14,7 +14,7 @@ from cached_property import cached_property
 
 from ..common import DEFAULT_BRIGHTNESS, Manager, logger
 from ..threads import Delayer, Repeater
-from .base import RE_PARTS, Entity, InvalidArg
+from .base import RE_PARTS, Entity, EntityFile, InvalidArg, file_char_allowed_args
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -23,39 +23,32 @@ LONGPRESS_DURATION_MIN = 300  # in ms
 
 
 @dataclass(eq=False)
-class BaseEvent:
+class BaseEvent(EntityFile):
     run_modes = {"path", "command", "inside"}
     non_run_args = set()
     repeat_allowed_for = {"start"}
 
     path_glob = "ON_*"
-    common_filename_re_parts = [
-        # if the process must be detached from ours (ie launch and forget)
-        re.compile(r"^(?P<flag>detach)(?:=(?P<value>false|true))?$"),
-        # delay before launching action
-        re.compile(r"^(?P<arg>wait)=(?P<value>\d+)$"),
-        # repeat every, max times (ignored if not press/start)
-        re.compile(r"^(?P<arg>every)=(?P<value>\d+)$"),
-        re.compile(r"^(?P<arg>max-runs)=(?P<value>\d+)$"),
-        # action run
-        re.compile(r"^(?P<arg>command)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),
-        # do not run many times the same command at the same time
-        re.compile(r"^(?P<flag>unique)(?:=(?P<value>false|true))?$"),
-    ]
-    main_filename_part = lambda args: f'ON_{args["kind"].upper()}'
+    main_part_re = re.compile(r"^ON_(?P<kind>START|END)$")
+    main_part_compose = lambda args: f'ON_{args["kind"].upper()}'
 
-    common_filename_parts = [
-        lambda args: f"command={command}" if (command := args.get("command")) else None,
-        lambda args: f"slash={slash}" if (slash := args.get("slash")) else None,
-        lambda args: f"semicolon={semicolon}" if (semicolon := args.get("semicolon")) else None,
-        lambda args: f"wait={wait}" if (wait := args.get("wait")) else None,
-        lambda args: f"every={every}" if (every := args.get("every")) else None,
-        lambda args: f"max-runs={max_runs}" if (max_runs := args.get("max-runs")) else None,
-        lambda args: "detach" if args.get("detach", False) in (True, "true", None) else None,
-        lambda args: "unique" if args.get("unique", False) in (True, "true", None) else None,
-    ]
+    allowed_args = (
+        Entity.allowed_args
+        | {
+            # if the process must be detached from ours (ie launch and forget)
+            "detach": re.compile(r"^(?P<flag>detach)(?:=(?P<value>false|true))?$"),
+            # delay before launching action
+            "wait": re.compile(r"^(?P<arg>wait)=(?P<value>\d+)$"),
+            # repeat every, max times (ignored if not press/start)
+            "every": re.compile(r"^(?P<arg>every)=(?P<value>\d+)$"),
+            "max-runs": re.compile(r"^(?P<arg>max-runs)=(?P<value>\d+)$"),
+            # action run
+            "command": re.compile(r"^(?P<arg>command)=(?P<value>.+)$"),
+            # do not run many times the same command at the same time
+            "unique": re.compile(r"^(?P<flag>unique)(?:=(?P<value>false|true))?$"),
+        }
+        | file_char_allowed_args
+    )
 
     identifier_attr = "kind"
     parent_container_attr = "events"
@@ -260,7 +253,7 @@ class BaseEvent:
             detach=self.detach,
             shell=shell,
             done_event=self.ended_running,
-            env=self.env_vars,
+            env=self.env_vars | self.finalize_env_vars(self.get_available_vars_values(), "VAR_"),
         ):
             self.pids.append(pid)
         return True
@@ -345,13 +338,6 @@ class BaseEvent:
 
 @dataclass(eq=False)
 class DeckEvent(BaseEvent, DeckContent):
-    filename_re_parts = Entity.filename_re_parts + BaseEvent.common_filename_re_parts
-
-    main_path_re = re.compile(r"^ON_(?P<kind>START|END)(?:;|$)")
-    filename_parts = (
-        [KeyContent.name_filename_part] + BaseEvent.common_filename_parts + [KeyContent.disabled_filename_part]
-    )
-
     @classmethod
     def find_reference_parent(cls, parent, ref_conf):
         return ref_conf, None
@@ -369,26 +355,10 @@ class DeckEvent(BaseEvent, DeckContent):
 
 @dataclass(eq=False)
 class PageEvent(BaseEvent, PageContent):
-    filename_re_parts = (
-        Entity.filename_re_parts
-        + [
-            # reference
-            re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<event>.*)$"),  # we'll use current kind if no event given
-        ]
-        + BaseEvent.common_filename_re_parts
-    )
-
-    main_path_re = re.compile(r"^ON_(?P<kind>START|END)(?:;|$)")
-    filename_parts = (
-        [
-            KeyContent.name_filename_part,
-            lambda args: f'ref={ref.get("page")}:{ref["event"]}' if (ref := args.get("ref")) else None,
-        ]
-        + BaseEvent.common_filename_parts
-        + [
-            KeyContent.disabled_filename_part,
-        ]
-    )
+    allowed_args = BaseEvent.allowed_args | {
+        # reference
+        "ref": re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<event>.*)$"),  # we'll use current kind if no event given
+    }
 
     @classmethod
     def find_reference_parent(cls, parent, ref_conf):
@@ -410,52 +380,25 @@ class KeyEvent(BaseEvent, KeyContent):
     non_run_args = {"page", "brightness"}
     repeat_allowed_for = BaseEvent.repeat_allowed_for | {"press"}
 
-    filename_re_parts = (
-        Entity.filename_re_parts
-        + [
-            # reference
-            re.compile(
-                r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>.*)$"  # we'll use current kind if no event given
-            )
-        ]
-        + BaseEvent.common_filename_re_parts
-        + [
-            # max duration a key must be pressed to run the action, only for press
-            re.compile(r"^(?P<arg>duration-max)=(?P<value>\d+)$"),
-            # min duration a key must be pressed to run the action, only for longpress/release
-            re.compile(r"^(?P<arg>duration-min)=(?P<value>\d+)$"),
-            # action brightness
-            re.compile(
-                r"^(?P<arg>brightness)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>"
-                + RE_PARTS["0-100"]
-                + ")$"
-            ),
-            # action page
-            re.compile(r"^(?P<arg>page)=(?P<value>.+)$"),
-            re.compile(r"^(?P<flag>overlay)(?:=(?P<value>false|true))?$"),
-        ]
-    )
-    main_path_re = re.compile(r"^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START|END)(?:;|$)")
+    main_part_re = re.compile(r"^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START|END)$")
 
-    filename_parts = (
-        [
-            KeyContent.name_filename_part,
-            lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref["event"]}'
-            if (ref := args.get("ref"))
-            else None,
-            lambda args: f'brightness={brightness.get("brightness_operation", "")}{brightness["brightness_level"]}'
-            if (brightness := args.get("brightness"))
-            else None,
-            lambda args: f"page={page}" if (page := args.get("page")) else None,
-            lambda args: "overlay" if args.get("overlay", False) in (True, "true", None) else None,
-        ]
-        + BaseEvent.common_filename_parts
-        + [
-            lambda args: f"duration-min={duration_min}" if (duration_min := args.get("duration-min")) else None,
-            lambda args: f"duration-max={duration_max}" if (duration_max := args.get("duration-max")) else None,
-            KeyContent.disabled_filename_part,
-        ]
-    )
+    allowed_args = BaseEvent.allowed_args | {
+        # reference
+        "ref": re.compile(  # we'll use current kind if no event given
+            r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<event>.*)$"
+        ),
+        # max duration a key must be pressed to run the action, only for press
+        "duration-max": re.compile(r"^(?P<arg>duration-max)=(?P<value>\d+)$"),
+        # min duration a key must be pressed to run the action, only for longpress/release
+        "duration-min": re.compile(r"^(?P<arg>duration-min)=(?P<value>\d+)$"),
+        # action brightness
+        "brightness": re.compile(
+            r"^(?P<arg>brightness)=(?P<brightness_operation>[+-=]?)(?P<brightness_level>" + RE_PARTS["0-100"] + ")$"
+        ),
+        # action page
+        "page": re.compile(r"^(?P<arg>page)=(?P<value>.+)$"),
+        "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>false|true))?$"),
+    }
 
     def __post_init__(self):
         super().__post_init__()

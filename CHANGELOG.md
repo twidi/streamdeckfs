@@ -3,7 +3,7 @@
 
 ## Release `1.5` - *IN PROGRESS*
 
-- Add variables as files in decks, pages and keys directories
+- Add variables as files in decks, pages and keys directories, usable in configuration values
 
 
 ## Release `1.4` - *2021-06-19*

@@ -27,9 +27,8 @@ PAGE_CODES = (FIRST, BACK, PREVIOUS, NEXT)
 class Page(EntityDir, DeckContent):
 
     path_glob = "PAGE_*"
-    dir_template = "PAGE_{page}"
-    main_path_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)(?:;|$)")
-    main_filename_part = lambda args: f'PAGE_{args["page"]}'
+    main_part_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)$")
+    main_part_compose = lambda args: f'PAGE_{args["page"]}'
 
     identifier_attr = "number"
     parent_container_attr = "pages"
@@ -72,9 +71,8 @@ class Page(EntityDir, DeckContent):
 
     def on_delete(self):
         Manager.remove_watch(self.path, self)
-        for key_versions in self.keys.values():
-            for key in key_versions.all_versions:
-                key.on_delete()
+        for key in self.iter_all_children_versions(self.keys):
+            key.on_delete()
         super().on_delete()
 
     def read_directory(self):
@@ -97,22 +95,22 @@ class Page(EntityDir, DeckContent):
             from .key import Key
 
             if not entity_class or entity_class is Key:
-                ref_conf, ref, main, args = Key.parse_filename(name, self)
-                if main:
-                    if key_filter is not None and not Key.args_matching_filter(main, args, key_filter):
+                if (parsed := Key.parse_filename(name, self)).main:
+                    if key_filter is not None and not Key.args_matching_filter(parsed.main, parsed.args, key_filter):
                         return None
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=Key,
-                        data_identifier=(main["row"], main["col"]),
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
+                        data_identifier=(parsed.main["row"], parsed.main["col"]),
+                        args=parsed.args,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
-                elif ref_conf:
-                    Key.add_waiting_reference(self, path, ref_conf)
+                elif parsed.ref_conf:
+                    Key.add_waiting_reference(self, path, parsed.ref_conf)
 
     def on_directory_removed(self, directory):
         pass
@@ -221,6 +219,12 @@ class Page(EntityDir, DeckContent):
             }
         )
 
+    def iterate_vars_holders(self):
+        yield from super().iterate_vars_holders()
+        for key in self.iter_all_children_versions(self.keys):
+            yield key
+            yield from key.iterate_vars_holders()
+
 
 @dataclass(eq=False)
 class PageContent(Entity):
@@ -244,8 +248,8 @@ class PageContent(Entity):
 
     @classmethod
     def iter_waiting_references_for_page(cls, check_page):
-        for path, (parent, ref_conf) in check_page.waiting_child_references.get(cls, {}).items():
+        for path, (parent, ref_conf) in check_page.children_waiting_for_references.get(cls, {}).items():
             yield check_page, path, parent, ref_conf
-        for path, (parent, ref_conf) in check_page.deck.waiting_child_references.get(cls, {}).items():
+        for path, (parent, ref_conf) in check_page.deck.children_waiting_for_references.get(cls, {}).items():
             if (page := check_page.deck.find_page(ref_conf["page"])) and page.number == check_page.number:
                 yield page, path, parent, ref_conf

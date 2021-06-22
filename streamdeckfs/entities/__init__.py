@@ -13,6 +13,7 @@
 __all__ = [
     "FILTER_DENY",
     "PAGE_CODES",
+    "VAR_RE",
     "Deck",
     "DeckEvent",
     "DeckVar",
@@ -26,7 +27,7 @@ __all__ = [
     "KeyTextLine",
 ]
 
-from .base import FILTER_DENY
+from .base import FILTER_DENY, VAR_RE
 from .deck import Deck
 from .page import PAGE_CODES, Page
 from .key import Key

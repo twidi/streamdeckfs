@@ -12,7 +12,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api)
 
 # StreamDeckFS
 
@@ -986,6 +986,8 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_PRESSED_AT`: for key press related events (ie not `ON_START` or `ON_END`), the moment the key was pressed, as a timestamp (with decimals)
 - `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START` or `ON_END`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
 
+Note that all [variables](#variables) will also be passed as environment variables.
+
 Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
 Now let see the different events, then how they can be configured:
@@ -1403,6 +1405,16 @@ The value of the variable will be read from the file itself, of from the `value`
 Note that to read the value from another file, the [`file` configuration option as defined for the `TEXT*` files](#option-file-1) can also be used.
 
 When getting the value of a variable, we use "cascading": if the variable is not defined in the asked directory, it will be looked for in the parent directory (page, then deck, for a key variable, or deck for a page variable). It allows to have a "default value" at a upper level, that is overridden at a lower one.
+
+Variables can be used in filenames for pages, keys, images, texts... and vars themselves, and will be remplaced when needed.
+
+Say you have a key directory containing an empty file named `VAR_FOO;value=bar`, or a file named `VAR_FOO` containing `bar`.  You can then have a text file `TEXT;text=$VAR_FOO` and the text `bar` will be displayed. Cascading is respected: if the `VAR` file is not found in the key directory, it will be looked for in the page directory or the deck directory.
+
+Variables can be created, updated or deleted while `streamdeckfs` is running and these updates will be reflected as expected (in the previous example, if you rename `VAR_FOO;value=bar` to `VAR_FOO;value=BAR`, the key will be automatically updated to display `BAR`)
+
+If a file name contains a variable that cannot be found, this file will be ignored until the variable file is available.
+
+When a command is triggered following an event (for example a key press), all variables available to this event will be passed as environment variable (previxed by `SDFS_`, so in our example we'll have `SDFS_VAR_FOO`, containing the value `BAR`)
 
 # API
 

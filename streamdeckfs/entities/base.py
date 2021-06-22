@@ -7,7 +7,7 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import re
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
@@ -27,6 +27,8 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
+VAR_RE = re.compile(r"\$VAR_([A-Z0-9_]+)")
+
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
 
@@ -39,19 +41,28 @@ class InvalidArg(Exception):
     pass
 
 
+RawParseFilenameResult = namedtuple(
+    "RawParseFilenameResult", ["main", "args", "used_vars"], defaults=[None, None, None]
+)
+ParseFilenameResult = namedtuple(
+    "ParseFilenameResult", ["ref_conf", "ref", "main", "args", "used_vars"], defaults=[None, None, None, None, None]
+)
+
+
 @dataclass(eq=False)
 class Entity:
 
     is_dir = False
+
     path_glob = None
-    main_path_re = None
-    filename_re_part_disabled = re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$")
-    filename_re_part_name = re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$")
-    filename_re_parts = [filename_re_part_disabled, filename_re_part_name]
-    main_filename_part = None
-    name_filename_part = lambda args: f'name={args["name"]}' if args.get("name") else None
-    disabled_filename_part = lambda args: "disabled" if args.get("disabled", False) in (True, "true", None) else None
-    filename_parts = [name_filename_part, disabled_filename_part]
+    main_part_re = None
+    main_part_compose = None
+
+    allowed_args = {
+        "disabled": re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$"),
+        "name": re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$"),
+    }
+    allowed_partial_args = {}
 
     unnamed = "__unnamed__"
 
@@ -70,7 +81,8 @@ class Entity:
         self.ref_conf = None
         self._reference = None
         self.referenced_by = set()
-        self.waiting_child_references = {}
+        self.children_waiting_for_references = {}
+        self._used_vars = set()
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -84,51 +96,60 @@ class Entity:
 
     @reference.setter
     def reference(self, ref):
+        if self._reference:
+            self._reference.referenced_by.discard(self)
         self._reference = ref
         if ref:
             ref.referenced_by.add(self)
-        else:
-            ref.referenced_by.discard(self)
+
+    @property
+    def used_vars(self):
+        return self._used_vars
+
+    @used_vars.setter
+    def used_vars(self, vars):
+        for var in self.used_vars:
+            var.used_by.discard(self)
+        self._used_vars = vars or {}
+        for var in vars:
+            var.used_by.add(self)
 
     @classmethod
-    def compose_filename_part(cls, part, args):
-        try:
-            return part(args)
-        except Exception:
-            return None
+    def compose_main_part(cls, args):
+        return cls.main_part_compose(args)
 
     @classmethod
-    def compose_filename_parts(cls, main, args):
-        main_part = cls.compose_filename_part(cls.main_filename_part, main)
-        args_parts = []
-        for part in cls.filename_parts:
-            if (arg_part := cls.compose_filename_part(part, args)) is not None:
-                if isinstance(arg_part, list):
-                    args_parts.extend(arg_part)
-                else:
-                    args_parts.append(arg_part)
-        return main_part, args_parts
-
-    @classmethod
-    def compose_filename(cls, main, args):
-        main_part, args_parts = cls.compose_filename_parts(main, args)
-        return ";".join([main_part] + args_parts)
-
-    @classmethod
-    def raw_parse_filename(cls, name, parent):
+    def raw_parse_filename(cls, name, parent, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
 
-        if name not in cls.parse_cache:
+        if name in cls.parse_cache:
+            if not (parse_cache := cls.parse_cache[name]).used_vars or use_cache_if_vars:
+                return parse_cache
 
-            main_part, *parts = name.split(";")
-            if not (match := cls.main_path_re.match(main_part)):
-                main, args = None, None
-            else:
-                main = match.groupdict()
-                args = {}
+        used_vars = set()
+
+        main_part, *__, conf_part = name.partition(";")
+        if not (match := cls.main_part_re.match(main_part)):
+            main, args = None, None
+        else:
+            main = match.groupdict()
+            args = {}
+
+            if conf_part:
+                if var_names := VAR_RE.findall(conf_part):
+                    try:
+                        vars = {name: parent.get_var(name) for name in var_names}
+                    except KeyError:
+                        parent.add_waiting_for_vars(cls, name, set(var_names))
+                        return RawParseFilenameResult()  # we don't cache the result
+
+                    conf_part = VAR_RE.sub(lambda match: vars[match.group(1)].resolved_value, conf_part)
+                    used_vars = vars.values()
+
+                parts = conf_part.split(";")
                 for part in parts:
-                    for regex in cls.filename_re_parts:
+                    for regex in cls.allowed_args.values():
                         if match := regex.match(part):
                             values = match.groupdict()
                             is_flag = "flag" in values and "arg" not in values and len(values) == 2
@@ -142,12 +163,12 @@ class Entity:
                                     values = values in (None, "true")
                             args[arg_name] = values
 
-            cls.parse_cache[name] = (main, args)
-
+        cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars)
         return cls.parse_cache[name]
 
     def get_raw_args(self):
-        return self.raw_parse_filename(self.path.name, self.path.parent)
+        parse_cache = self.raw_parse_filename(self.path.name, self.path.parent, use_cache_if_vars=True)
+        return parse_cache.main, parse_cache.args
 
     def get_resovled_raw_args(self):
         main, args = map(deepcopy, self.get_raw_args())
@@ -158,20 +179,21 @@ class Entity:
 
     @classmethod
     def parse_filename(cls, name, parent):
-        main, args = map(deepcopy, cls.raw_parse_filename(name, parent))
+        main, args, used_vars = cls.raw_parse_filename(name, parent)
+        main, args = map(deepcopy, (main, args))
         if main is None or args is None:
-            return None, None, None, None
+            return ParseFilenameResult()
 
         ref_conf = ref = None
-        if ref_conf := cls.parse_cache[name][1].get("ref"):
+        if ref_conf := args.get("ref"):
             if "key_same_page" in ref_conf:
                 ref_conf["key"] = ref_conf.pop("key_same_page")
             ref_conf, ref = cls.find_reference(parent, ref_conf, main, args)
             if not ref:
-                return ref_conf, None, None, None
+                return ParseFilenameResult(ref_conf)
             ref_main, ref_args = ref.get_resovled_raw_args()
             if ref_main is None or ref_args is None:
-                return ref_conf, None, None, None
+                return ParseFilenameResult(ref_conf)
 
             main = ref_main | main
 
@@ -235,11 +257,11 @@ class Entity:
             main = cls.convert_main_args(main)
             if main is not None:
                 if (args := cls.convert_args(main, args)) is not None:
-                    return ref_conf, ref, main, args
+                    return ParseFilenameResult(ref_conf, ref, main, args, used_vars)
         except InvalidArg as exc:
             logger.error(f"[{parent}] [{name}] {exc}")
 
-        return ref_conf, None, None, None
+        return ParseFilenameResult(ref_conf)
 
     @classmethod
     def convert_main_args(cls, args):
@@ -317,21 +339,20 @@ class Entity:
 
     @classmethod
     def add_waiting_reference(cls, parent, path, ref_conf):
-        cls.get_waiting_reference_holder(parent.deck, ref_conf).waiting_child_references.setdefault(cls, {})[path] = (
-            parent,
-            ref_conf,
-        )
+        ref_holder = cls.get_waiting_reference_holder(parent.deck, ref_conf)
+        ref_holder.children_waiting_for_references.setdefault(cls, {})[path] = (parent, ref_conf)
 
     @classmethod
     def remove_waiting_reference(cls, deck, path, ref_conf):
-        cls.get_waiting_reference_holder(deck, ref_conf).waiting_child_references.setdefault(cls, {}).pop(path, None)
+        ref_holder = cls.get_waiting_reference_holder(deck, ref_conf)
+        ref_holder.children_waiting_for_references.setdefault(cls, {}).pop(path, None)
 
     def get_waiting_references(self):
         return []
 
     def on_create(self):
         for path, parent, ref_conf in self.get_waiting_references():
-            if parent.on_file_change(
+            if not path.exists() or parent.on_file_change(
                 parent.path,
                 path.name,
                 file_flags.CREATE | (file_flags.ISDIR if self.is_dir else 0),
@@ -339,14 +360,16 @@ class Entity:
             ):
                 self.remove_waiting_reference(self.deck, path, ref_conf)
 
-    def on_changed(self):
+    def on_file_content_changed(self):
         pass
 
     def on_delete(self):
         for ref in list(self.referenced_by):
             ref.on_reference_deleted()
-        if self.reference:
-            self.reference.referenced_by.remove(self)
+        self.reference = None
+        self.used_vars = set()
+        if (parse_cache := self.__class__.parse_cache.get(self.name)) and parse_cache.used_vars:
+            self.__class__.parse_cache.pop(self.name, None)
 
     def on_reference_deleted(self):
         if self.reference:
@@ -354,8 +377,13 @@ class Entity:
         self.on_delete()
         self.parent_container[self.identifier].remove_version(self.path)
 
+    def on_var_deleted(self):
+        self.parent.add_waiting_for_vars(self.__class__, self.path.name, {var.name for var in self.used_vars})
+        self.on_delete()
+        self.parent_container[self.identifier].remove_version(self.path)
+
     def on_child_entity_change(
-        self, path, flags, entity_class, data_identifier, args, ref_conf, ref, modified_at=None
+        self, path, flags, entity_class, data_identifier, args, ref_conf, ref, used_vars, modified_at=None
     ):
         data_dict = getattr(self, entity_class.parent_container_attr)
 
@@ -379,15 +407,19 @@ class Entity:
 
         if entity := data_dict[data_identifier].get_version(path):
             entity.path_modified_at = modified_at
-            entity.on_changed()
+            entity.on_file_content_changed()
             return False
 
         entity = entity_class.create_from_args(
             path=path, parent=self, identifier=data_identifier, args=args, path_modified_at=modified_at
         )
+
         if ref:
             entity.reference = ref
             entity.ref_conf = ref_conf
+
+        entity.used_vars = used_vars
+
         data_dict[data_identifier].add_version(path, entity)
         entity.on_create()
         return True
@@ -442,8 +474,12 @@ class Entity:
         )
 
     @staticmethod
-    def finalize_env_vars(env_vars):
-        return {f"SDFS_{key.upper()}": str(value) for key, value in env_vars.items() if value is not None}
+    def finalize_env_vars(env_vars, post_prefix=None):
+        return {
+            f"SDFS_{post_prefix or ''}{key.upper()}": str(value)
+            for key, value in env_vars.items()
+            if value is not None
+        }
 
 
 class VersionProxy(ObjectWrapper):
@@ -503,14 +539,21 @@ VersionProxyMostRecent = partial(VersionProxy, sort_key_func=lambda key_and_obj:
 versions_dict_factory = lambda: defaultdict(VersionProxyMostRecent)
 
 
+file_char_allowed_args = {
+    "slash": re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
+    "semicolon": re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),
+}
+
+
 @dataclass(eq=False)
 class EntityFile(Entity):
-
-    common_filename_re_parts = [
-        re.compile(r"^(?P<arg>file)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>slash)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>semicolon)=(?P<value>.+)$"),
-    ]
+    allowed_args = (
+        Entity.allowed_args
+        | file_char_allowed_args
+        | {
+            "file": re.compile(r"^(?P<arg>file)=(?P<value>.+)$"),
+        }
+    )
 
     filename_file_parts = [
         lambda args: f"file={file}" if (file := args.get("file")) else None,
@@ -605,19 +648,25 @@ class EntityFile(Entity):
 
         return path
 
-    def on_file_change(self, directory, name, flags, modified_at=None):
+    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         path = directory / name
         if (self.file and path == self.file) or (
             not self.file and self.path.is_symlink() and path == self.path.resolve()
         ):
-            self.on_changed()
+            self.on_file_content_changed()
 
     def on_directory_removed(self, directory):
-        self.on_changed()
+        self.on_file_content_changed()
 
     def version_deactivated(self):
         super().version_deactivated()
         self.stop_watching_directory()
+
+    def get_var(self, name):
+        return self.parent.get_var(name)
+
+    def get_available_vars_values(self, exclude=None):
+        return self.parent.get_available_vars_values(exclude)
 
 
 class NOT_HANDLED:
@@ -635,6 +684,7 @@ class EntityDir(Entity):
         super().__post_init__()
         self.events = versions_dict_factory()
         self.vars = versions_dict_factory()
+        self.children_waiting_for_vars = {}
 
     @property
     def resolved_events(self):
@@ -650,12 +700,10 @@ class EntityDir(Entity):
         return events
 
     def on_delete(self):
-        for event_versions in self.events.values():
-            for event in event_versions.all_versions:
-                event.on_delete()
-        for var_versions in self.vars.values():
-            for var in var_versions.all_versions:
-                var.on_delete()
+        for event in self.iter_all_children_versions(self.events):
+            event.on_delete()
+        for var in self.iter_all_children_versions(self.vars):
+            var.on_delete()
         super().on_delete()
 
     def activate_events(self):
@@ -697,47 +745,82 @@ class EntityDir(Entity):
     def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
         if (event_filter := self.deck.filters.get("event")) != FILTER_DENY:
             if not entity_class or entity_class is self.event_class:
-                ref_conf, ref, main, args = self.event_class.parse_filename(name, self)
                 path = self.path / name
-                if main:
+                if (parsed := self.event_class.parse_filename(name, self)).main:
                     if event_filter is not None and not self.event_class.args_matching_filter(
-                        main, args, event_filter
+                        parsed.main, parsed.args, event_filter
                     ):
                         return None
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=self.event_class,
-                        data_identifier=main["kind"],
-                        args=args,
-                        ref_conf=ref_conf,
-                        ref=ref,
+                        data_identifier=parsed.main["kind"],
+                        args=parsed.args,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
-                elif ref_conf:
-                    self.event_class.add_waiting_reference(self, path, ref_conf)
+                elif parsed.ref_conf:
+                    self.event_class.add_waiting_reference(self, path, parsed.ref_conf)
         if (var_filter := self.deck.filters.get("var")) != FILTER_DENY:
             if not entity_class or entity_class is self.var_class:
-                main, args = self.var_class.parse_filename(name, self)[2:]
-                path = self.path / name
-                if main:
-                    if var_filter is not None and not self.var_class.args_matching_filter(main, args, var_filter):
+                if (parsed := self.var_class.parse_filename(name, self)).main:
+                    if var_filter is not None and not self.var_class.args_matching_filter(
+                        parsed.main, parsed.args, var_filter
+                    ):
                         return None
+                    path = self.path / name
                     return self.on_child_entity_change(
                         path=path,
                         flags=flags,
                         entity_class=self.var_class,
-                        data_identifier=main["name"],
-                        args=args,
+                        data_identifier=parsed.main["name"],
+                        args=parsed.args,
                         ref_conf=None,
                         ref=None,
+                        used_vars=parsed.used_vars,
                         modified_at=modified_at,
                     )
         return NOT_HANDLED
+
+    def iter_all_children_versions(self, content):
+        for versions in content.values():
+            yield from versions.all_versions
 
     def get_var(self, name):
         if var := self.vars.get(name):
             return var
         if parent := self.parent:
             return parent.get_var(name)
+
         raise KeyError(name)
+
+    def get_available_vars_values(self, exclude=None):
+        if not exclude:
+            exclude = set()
+        result = {}
+        for name, var in self.vars.items():
+            if name in exclude or not var:
+                continue
+            exclude.add(name)
+            result[name] = var.resolved_value
+        if parent := self.parent:
+            result |= parent.get_available_vars_values(exclude=exclude)
+        return result
+
+    def add_waiting_for_vars(self, entity_class, name, var_names):
+        self.children_waiting_for_vars[name] = (entity_class, var_names)
+
+    def remove_waiting_for_vars(self, name):
+        self.children_waiting_for_vars.pop(name, None)
+
+    def get_waiting_for_vars(self, for_var_name=None):
+        for name, (entity_class, var_names) in list(self.children_waiting_for_vars.items()):
+            if for_var_name and for_var_name not in var_names:
+                continue
+            yield entity_class, name, var_names
+
+    def iterate_vars_holders(self):
+        yield self

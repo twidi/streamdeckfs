@@ -10,7 +10,8 @@
 import re
 from dataclasses import dataclass
 
-from .base import Entity, EntityFile, InvalidArg
+from ..common import file_flags
+from .base import EntityFile, InvalidArg
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -19,17 +20,14 @@ from .page import PageContent
 @dataclass(eq=False)
 class BaseVar(EntityFile):
     path_glob = "VAR_*"
-    main_path_re = re.compile(r"^(?P<kind>VAR)_(?P<name>[A-Z0-9_]+)(?:;|$)")
-    filename_re_parts = EntityFile.common_filename_re_parts + [
-        # no `name` arg, we already have it in main
-        re.compile(r"^(?P<arg>value)=(?P<value>.+)$"),
-        Entity.filename_re_part_disabled,
-    ]
-    main_filename_part = lambda args: f'VAR_{args["name"]}'
-    filename_parts = EntityFile.filename_file_parts + [
-        lambda args: f"value={value}" if (value := args.get("value")) else None,
-        Entity.disabled_filename_part,
-    ]
+    main_part_re = re.compile(r"^(?P<kind>VAR)_(?P<name>[A-Z0-9_]+)$")
+    main_part_compose = lambda args: f'VAR_{args["name"]}'
+
+    allowed_args = EntityFile.allowed_args | {
+        "value": re.compile(r"^(?P<arg>value)=(?P<value>.+)$"),
+    }
+    # no `name` arg, we already have it in main
+    allowed_args.pop("name")
 
     identifier_attr = "name"
     parent_container_attr = "vars"
@@ -37,6 +35,8 @@ class BaseVar(EntityFile):
     def __post_init__(self):
         super().__post_init__()
         self.value = None
+        self.cached_value = None
+        self.used_by = set()
 
     @property
     def str(self):
@@ -71,20 +71,91 @@ class BaseVar(EntityFile):
 
     @property
     def resolved_value(self):
-        if self.value is None:
+        if self.cached_value is not None:
+            return self.cached_value
+        if self.value:
+            self.cached_value = self.value
+        else:
             if self.mode == "content":
                 self.track_symlink_dir()
                 try:
-                    self.value = self.resolved_path.read_text().strip()
+                    self.cached_value = self.resolved_path.read_text().strip()
                 except Exception:
                     pass
             elif self.mode in ("file", "inside"):
                 if path := self.get_file_path():
                     try:
-                        self.value = path.read_text().strip()
+                        self.cached_value = path.read_text().strip()
                     except Exception:
                         pass
-        return self.value
+        return self.cached_value
+
+    def iterate_children_dirs(self):
+        return []
+
+    def activate(self, root=None):
+        if root is None:
+            root = self.parent
+        for vars_holder in root.iterate_vars_holders():
+            for entity_class, name, var_names in vars_holder.get_waiting_for_vars(self.name):
+                path = vars_holder.path / name
+                if not path.exists() or vars_holder.on_file_change(
+                    vars_holder.path,
+                    name,
+                    file_flags.CREATE | (file_flags.ISDIR if path.is_dir() else 0),
+                    entity_class=entity_class,
+                ):
+                    vars_holder.remove_waiting_for_vars(name)
+
+    def deactivate(self, root=None):
+        for entity in list(self.used_by):
+            if root is not None and not entity.path.is_relative_to(root.path):
+                continue
+            entity.on_var_deleted()
+
+    def version_activated(self):
+        super().version_activated()
+        # if we have a variable at a upper level with the same name,
+        # (our parent is the one holding us, so we want our grand-parent)
+        if grand_parent := self.parent.parent:
+            try:
+                grand_parent_var = grand_parent.get_var(self.name)
+            except KeyError:
+                pass
+            else:
+                # then we deactivate it, but only for our current var holder (our parent)
+                grand_parent_var.deactivate(self.parent)
+
+    def on_create(self):
+        super().on_create()
+        self.activate()
+
+    def on_delete(self):
+        super().on_delete()
+        self.deactivate()
+
+    def version_deactivated(self):
+        super().version_deactivated()
+        # if we have one at a upper level with the same name,
+        # (our parent is the one holding us, so we want our grand-parent)
+        if grand_parent := self.parent.parent:
+            try:
+                grand_parent_var = grand_parent.get_var(self.name)
+            except KeyError:
+                pass
+            else:
+                # then we use it to re-render the var just unrendered
+                grand_parent_var.activate()
+
+    def on_file_content_changed(self):
+        super().on_file_content_changed()
+        current_value = self.cached_value
+        self.cached_value = None
+        new_value = self.resolved_value
+        if new_value != current_value:
+            for entity in list(self.used_by):
+                entity.on_var_deleted()
+            self.activate()
 
 
 @dataclass(eq=False)

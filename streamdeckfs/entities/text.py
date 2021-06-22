@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 from ..common import ASSETS_PATH, RENDER_IMAGE_DELAY
 from ..threads import Repeater
 from .base import RE_PARTS, InvalidArg
-from .image import keyImagePart
+from .image import KeyImagePart
 
 TextPart = namedtuple("TextPart", ["kind", "text", "width", "height"], defaults=[None, None, None, None])
 TextLine = namedtuple("TextLine", ["parts", "width", "height"])
@@ -31,69 +31,27 @@ EMOJI_TYPES = {"\uFE0F", "\uFE0E"}  # emoji variant, text variant
 
 
 @dataclass(eq=False)
-class KeyTextLine(keyImagePart):
+class KeyTextLine(KeyImagePart):
     path_glob = "TEXT*"
-    main_path_re = re.compile(r"^(?P<kind>TEXT)(?:;|$)")
-    filename_re_parts = keyImagePart.filename_re_parts + [
-        re.compile(r"^(?P<arg>line)=(?P<value>\d+)$"),
-        re.compile(
+    main_part_re = re.compile(r"^(?P<kind>TEXT)$")
+    main_part_compose = lambda args: "TEXT"
+
+    allowed_args = KeyImagePart.allowed_args | {
+        "line": re.compile(r"^(?P<arg>line)=(?P<value>\d+)$"),
+        "ref": re.compile(
             r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$"  # we'll use -1 if no line given
         ),
-        re.compile(r"^(?P<arg>text)=(?P<value>.+)$"),
-        re.compile(r"^(?P<arg>size)=(?P<value>" + RE_PARTS["% | number"] + ")$"),
-        re.compile(r"^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$"),
-        re.compile(r"^(?P<flag>italic)(?:=(?P<value>false|true))?$"),
-        re.compile(r"^(?P<arg>align)(?:=(?P<value>left|center|right))?$"),
-        re.compile(r"^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$"),
-        re.compile(r"^(?P<arg>color)=(?P<value>" + RE_PARTS["color"] + ")$"),
-        re.compile(r"^(?P<arg>opacity)=(?P<value>" + RE_PARTS["0-100"] + ")$"),
-        re.compile(r"^(?P<flag>wrap)(?:=(?P<value>false|true))?$"),
-        re.compile(r"^(?P<flag>fit)(?:=(?P<value>false|true))?$"),
-        re.compile(
-            r"^(?P<arg>margin)=(?P<top>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<right>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<bottom>-?"
-            + RE_PARTS["% | number"]
-            + "),(?P<left>-?"
-            + RE_PARTS["% | number"]
-            + ")$"
-        ),
-        re.compile(
-            r"^(?P<arg>margin\.(?:[0123]|top|right|bottom|left))=(?P<value>-?" + RE_PARTS["% | number"] + ")$"
-        ),
-        re.compile(r"^(?P<arg>scroll)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
-    ]
-    main_filename_part = lambda args: "TEXT"
-    filename_parts = (
-        [
-            lambda args: f"line={line}" if (line := args.get("line")) else None,
-            keyImagePart.name_filename_part,
-            lambda args: f'ref={ref.get("page") or ""}:{ref.get("key") or ref.get("key_same_page") or ""}:{ref.get("text_line") or ""}'
-            if (ref := args.get("ref"))
-            else None,
-        ]
-        + keyImagePart.filename_file_parts
-        + [
-            lambda args: f"text={text}" if (text := args.get("text")) else None,
-            lambda args: f"size={size}" if (size := args.get("size")) else None,
-            lambda args: f"weight={weight}" if (weight := args.get("weight")) else None,
-            lambda args: "italic" if args.get("italic", False) in (True, "true", None) else None,
-            lambda args: f"color={color}" if (color := args.get("color")) else None,
-            lambda args: f"align={align}" if (align := args.get("align")) else None,
-            lambda args: f"valign={valign}" if (valign := args.get("valign")) else None,
-            lambda args: f'margin={margin["top"]},{margin["right"]},{margin["bottom"]},{margin["left"]}'
-            if (margin := args.get("margin"))
-            else None,
-            lambda args: [f"{key}={value}" for key, value in args.items() if key.startswith("margin.")],
-            lambda args: f"opacity={opacity}" if (opacity := args.get("opacity")) else None,
-            lambda args: f"scroll={scroll}" if (scroll := args.get("scroll")) else None,
-            lambda args: "wrap" if args.get("wrap", False) in (True, "true", None) else None,
-            lambda args: "fit" if args.get("fit", False) in (True, "true", None) else None,
-            keyImagePart.disabled_filename_part,
-        ]
-    )
+        "text": re.compile(r"^(?P<arg>text)=(?P<value>.+)$"),
+        "size": re.compile(r"^(?P<arg>size)=(?P<value>" + RE_PARTS["% | number"] + ")$"),
+        "weight": re.compile(r"^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$"),
+        "italic": re.compile(r"^(?P<flag>italic)(?:=(?P<value>false|true))?$"),
+        "align": re.compile(r"^(?P<arg>align)(?:=(?P<value>left|center|right))?$"),
+        "valign": re.compile(r"^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$"),
+        "color": re.compile(r"^(?P<arg>color)=(?P<value>" + RE_PARTS["color"] + ")$"),
+        "wrap": re.compile(r"^(?P<flag>wrap)(?:=(?P<value>false|true))?$"),
+        "fit": re.compile(r"^(?P<flag>fit)(?:=(?P<value>false|true))?$"),
+        "scroll": re.compile(r"^(?P<arg>scroll)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
+    }
 
     fonts_path = ASSETS_PATH / "fonts"
     font_cache = {}
@@ -497,15 +455,15 @@ class KeyTextLine(keyImagePart):
             nb_forced_wrap,
         )
 
-    def on_changed(self):
-        super().on_changed()
+    def on_file_content_changed(self):
+        super().on_file_content_changed()
         self.stop_scroller()
         if self.mode != "text":
             self.text = None
         self._complete_image = self.compose_cache = None
         self.key.on_image_changed()
         for reference in self.referenced_by:
-            reference.on_changed()
+            reference.on_file_content_changed()
 
     def compose(self):
         if not self.scrollable:
