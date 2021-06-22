@@ -27,7 +27,7 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-VAR_RE = re.compile(r"\$VAR_([A-Z0-9_]+)")
+VAR_RE = re.compile(r"(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)")
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
@@ -118,6 +118,19 @@ class Entity:
     def compose_main_part(cls, args):
         return cls.main_part_compose(args)
 
+    negated = {
+        "false": "true",
+        "true": "false",
+    }
+
+    @classmethod
+    def replace_var(cls, match, vars):
+        data = match.groupdict()
+        value = vars[data["name"]].resolved_value
+        if data["not"]:
+            value = cls.negated[value]
+        return value
+
     @classmethod
     def raw_parse_filename(cls, name, parent, use_cache_if_vars=False):
         if cls.parse_cache is None:
@@ -137,14 +150,17 @@ class Entity:
             args = {}
 
             if conf_part:
-                if var_names := VAR_RE.findall(conf_part):
+                if matches := VAR_RE.findall(conf_part):
+                    var_names = {name for negate, name in matches}
                     try:
+                        # will raise KeyError if var not defined
                         vars = {name: parent.get_var(name) for name in var_names}
+                        # will raise KeyError if wanted to negate a value not in true/false
+                        conf_part = VAR_RE.sub(partial(cls.replace_var, vars=vars), conf_part)
                     except KeyError:
                         parent.add_waiting_for_vars(cls, name, set(var_names))
                         return RawParseFilenameResult()  # we don't cache the result
 
-                    conf_part = VAR_RE.sub(lambda match: vars[match.group(1)].resolved_value, conf_part)
                     used_vars = vars.values()
 
                 parts = conf_part.split(";")

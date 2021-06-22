@@ -1410,6 +1410,8 @@ Variables can be used in filenames for pages, keys, images, texts... and vars th
 
 Say you have a key directory containing an empty file named `VAR_FOO;value=bar`, or a file named `VAR_FOO` containing `bar`.  You can then have a text file `TEXT;text=$VAR_FOO` and the text `bar` will be displayed. Cascading is respected: if the `VAR` file is not found in the key directory, it will be looked for in the page directory or the deck directory.
 
+If the variable value is `true` or `false`, it's possible to negate this by preceding the `$VAR_*` by a `!`. Useful for the `disabled` configuration option, so it's possible to activate a layer and deactivate another with a single variable. Use it like this: `TEXT;text=foo;disabled=!$VAR_SHOW_TEXT` (here, if the variable `VAR_SHOW_TEXT` as `true` for value, `disabled` will be set to `not true`, so `false`, so the text will be shown). Note that if `!` is used for a variable that contains something else than `true` or `false`, the file defining it won't be displayed.
+
 Variables can be created, updated or deleted while `streamdeckfs` is running and these updates will be reflected as expected (in the previous example, if you rename `VAR_FOO;value=bar` to `VAR_FOO;value=BAR`, the key will be automatically updated to display `BAR`)
 
 If a file name contains a variable that cannot be found, this file will be ignored until the variable file is available.
