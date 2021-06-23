@@ -5,6 +5,7 @@
 
 - Add variables as files in decks, pages and keys directories, usable in configuration values
 - API to read/change brightness
+- Change the way pages are opened as overlay (configured from the page itself, not the event)
 
 
 ## Release `1.4` - *2021-06-19*

@@ -1222,9 +1222,17 @@ It must be defined like this: `page=PAGE` with:
 
 See the `Pages` section below to know more about how pages work.
 
+## Configuring page events
+
+Like keys, pages can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the page directory.
+
+When a page is displayed, the `ON_START` action is executed. And when the page is removed (by opening a new page (but not an overlay), going back to the previous one, or when `streamdeckfs` is terminated), the `ON_END` action is executed.
+
+All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
+
 ### Option "overlay"
 
-The `overlay` flag goes with the `page` configuration option and allows opening the wanted page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website. 
+The `overlay` flag allows opening wanted page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website. 
 
 It must be defined like this:
 
@@ -1233,16 +1241,8 @@ It must be defined like this:
 
 Examples:
 
-- `ON_PRESS;page=50;overlay` or `ON_PRESS;overlay=true` will open the page number 50 as an overlay
-- `ON_PRESS;page=50;overlay=false` or `ON_PRESS;page=50` will open the page number 50 without any key of the current page being visible
-
-## Configuring page events
-
-Like keys, pages can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the page directory.
-
-When a page is displayed, the `ON_START` action is executed. And when the page is removed (by opening a new page (but not an overlay), going back to the previous one, or when `streamdeckfs` is terminated), the `ON_END` action is executed.
-
-All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
+- `PAGE_50;overlay` or `PAGE=50;overlay=true` will make the page number 50 open as an overlay
+- `PAGE_50;overlay=false` or `PAGE_50` will make the page number 50 open without any key of the current page being visible
 
 ## Configuring deck events
 
@@ -1269,7 +1269,7 @@ A page can also have a name: `PAGE_NUMBER;name=NAME`, and then this name is avai
 
 In a page directory, you only need to define the key you need, not all, in the format `KEY_ROW_XX_COL_YY`. If a key directory exists but has no images/texts/events (or only disabled ones), it will be ignored.
 
-Page navigation history is kept so you can easily go back to the previous page seen. It's helpful, for example, for overlays. Let's take the first example about the "microphone overlay". Let's say you have a directory `PAGE_60;name=microphone`; you would have a key with the long press event to display this overlay defined like this: `ON_LONGPRESS;page=microphone;overlay`, and in this `PAGE_60;name=microphone` directory, you would have a key to close this overlay (i.e., go back to the previous page), like this: `ON_PRESS;page=__back__`. Until you press this key, as this page is opened as an overlay, you would see the keys of this new page as regular keys and the others from the page below, still visible but darker and without any effect when pressing them.
+Page navigation history is kept so you can easily go back to the previous page seen. It's helpful, for example, for overlays. Let's take the first example about the "microphone overlay". Let's say you have a directory `PAGE_60;name=microphone;overlay`; you would have a key with the long press event to display this overlay defined like this: `ON_LONGPRESS;page=microphone`, and in this `PAGE_60;name=microphone;overlay` directory, you would have a key to close this overlay (i.e., go back to the previous page), like this: `ON_PRESS;page=__back__`. Until you press this key, as this page is opened as an overlay, you would see the keys of this new page as regular keys and the others from the page below, still visible but darker and without any effect when pressing them.
 
 Pages are numbered, but it's not at all mandatory to have consecutive numbers unless you want to, for example to use the `page=__next__` and `page=__previous__` configuration options for your key event because they only work for consecutive pages.
 
@@ -1625,7 +1625,7 @@ $ streamdeckfs get-current-page ~/streamdeck-data/MYDECKSERIAL
 Will make the asked page the active one.
 
 ```bash
-streamdeckfs set-current-page SERIAL_DIRECTORY PAGE OVERLAY
+streamdeckfs set-current-page SERIAL_DIRECTORY PAGE
 ```
 
 with:
@@ -1635,7 +1635,6 @@ with:
 	- `__previous__` to go to the previous page number (i.e., the actual page number minus 1)
 	- `__next__` to go to the following page number (i.e., the actual page number plus 1)
 	- `__back__` to go to the previous page that was displayed before the current one
-- `OVERLAY`: either `--overlay` or `--no-overlay` (the default) to open the wanted page as an overlay over the current one. Have no effect if `PAGE` is `__back__`.
 
 Example, to open the spotify page:
 

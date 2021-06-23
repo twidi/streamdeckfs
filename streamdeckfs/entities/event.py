@@ -404,28 +404,22 @@ class KeyEvent(BaseEvent, KeyContent):
         ),
         # action page
         "page": re.compile(r"^(?P<arg>page)=(?P<value>.+)$"),
-        "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>false|true))?$"),
     }
 
     def __post_init__(self):
         super().__post_init__()
         self.brightness_level = ("=", DEFAULT_BRIGHTNESS)
         self.page_ref = None
-        self.overlay = False
         self.duration_max = None
         self.duration_min = None
 
     @classmethod
     def convert_args(cls, main, args):
-        from .page import BACK
-
         final_args = super().convert_args(main, args)
 
         if args.get("page"):
             final_args["mode"] = "page"
             final_args["page_ref"] = args["page"]
-            if "page_ref" != BACK and "overlay" in args:
-                final_args["overlay"] = args["overlay"]
         elif args.get("brightness"):
             final_args["mode"] = "brightness"
             final_args["brightness_level"] = (
@@ -448,7 +442,6 @@ class KeyEvent(BaseEvent, KeyContent):
             event.brightness_level = args["brightness_level"]
         elif event.mode == "page":
             event.page_ref = args["page_ref"]
-            event.overlay = args.get("overlay", False)
         if event.kind == "press":
             if args.get("duration-max"):
                 event.duration_max = args["duration-max"]
@@ -489,7 +482,7 @@ class KeyEvent(BaseEvent, KeyContent):
         if self.mode == "brightness":
             self.deck.set_brightness(*self.brightness_level)
         elif self.mode == "page":
-            self.deck.go_to_page(self.page_ref, self.overlay)
+            self.deck.go_to_page(self.page_ref)
         else:
             return super()._run()
 

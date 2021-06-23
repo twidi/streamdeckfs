@@ -30,6 +30,10 @@ class Page(EntityDir, DeckContent):
     main_part_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)$")
     main_part_compose = lambda args: f'PAGE_{args["page"]}'
 
+    allowed_args = EntityDir.allowed_args | {
+        "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>false|true))?$"),
+    }
+
     identifier_attr = "number"
     parent_container_attr = "pages"
 
@@ -49,6 +53,7 @@ class Page(EntityDir, DeckContent):
 
     def __post_init__(self):
         super().__post_init__()
+        self.overlay = False
         self.keys = versions_dict_factory()
 
     @property
@@ -59,10 +64,22 @@ class Page(EntityDir, DeckContent):
         return f"{self.deck}, {self.str}"
 
     @classmethod
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
+        final_args["overlay"] = args.get("overlay", False)
+        return final_args
+
+    @classmethod
     def convert_main_args(cls, args):
         args = super().convert_main_args(args)
         args["page"] = int(args["page"])
         return args
+
+    @classmethod
+    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
+        page = super().create_from_args(path, parent, identifier, args, path_modified_at)
+        page.overlay = args.get("overlay")
+        return page
 
     def on_create(self):
         super().on_create()
@@ -198,7 +215,7 @@ class Page(EntityDir, DeckContent):
             return
         self.render()
         if self.deck.is_running and not self.deck.current_page_number:
-            self.deck.go_to_page(self.number, None)
+            self.deck.go_to_page(self.number)
 
     def version_deactivated(self):
         is_current_page_number = self.deck.current_page_number == self.number
@@ -207,7 +224,7 @@ class Page(EntityDir, DeckContent):
             return
         self.unrender()
         if is_current_page_number:
-            self.deck.go_to_page(BACK, None)
+            self.deck.go_to_page(BACK)
 
     @cached_property
     def env_vars(self):

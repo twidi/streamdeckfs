@@ -193,16 +193,14 @@ class Deck(EntityDir):
                 break
         return page, transparent
 
-    def go_to_page(self, page_ref, transparent=False):
+    def go_to_page(self, page_ref):
         try:
-            self._go_to_page(page_ref, transparent)
+            self._go_to_page(page_ref)
         finally:
             self.write_current_page_info()
 
-    def _go_to_page(self, page_ref, transparent=False):
+    def _go_to_page(self, page_ref):
         from .page import BACK, FIRST, NEXT, PREVIOUS
-
-        transparent = bool(transparent)
 
         logger.debug(f"[{self}] Asking to go to page {page_ref} (current={self.current_page_number})")
 
@@ -212,7 +210,7 @@ class Deck(EntityDir):
         current = (self.current_page_number, self.current_page_is_transparent)
 
         if isinstance(page_ref, int):
-            if (page_ref, transparent) == current:
+            if page_ref == current[0]:
                 return
             if not (page := self.pages.get(page_ref)):
                 return
@@ -246,8 +244,9 @@ class Deck(EntityDir):
         elif not (page := self.find_page(page_ref, allow_disabled=False)):
             return
 
-        if (page.number, transparent) == current:
+        if page.number == current[0]:
             return
+        transparent = page.overlay
 
         if page.number in self.visible_pages and page_ref != BACK:
             logger.error(f"[{self}] Page [{page.str}] is already opened")
@@ -304,14 +303,8 @@ class Deck(EntityDir):
         if not self.set_current_page_state_file.exists():
             return
         try:
-            page_info = json.loads(self.set_current_page_state_file.read_text().strip())
-            if set(page_info.keys()) != {"page", "is_overlay"}:
-                raise ValueError
-            if not isinstance(page_ref := page_info["page"], str) or not isinstance(
-                transparent := page_info["is_overlay"], bool
-            ):
-                raise ValueError
-            self.go_to_page(page_ref, transparent)
+            page_ref = self.set_current_page_state_file.read_text().strip()
+            self.go_to_page(page_ref)
         except Exception:
             pass
         try:

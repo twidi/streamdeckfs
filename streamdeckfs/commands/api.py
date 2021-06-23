@@ -876,9 +876,8 @@ def get_current_page(directory):
     required=True,
     help="A page number or a name, or one of " + ", ".join(f'"{page_code}"' for page_code in PAGE_CODES),
 )
-@cloup.option("--overlay/--no-overlay", "overlay", default=False, help="Set page as an overlay or not")
 @FC.options["verbosity"]
-def set_current_page(directory, page_filter, overlay):
+def set_current_page(directory, page_filter):
     """Set the current page"""
     if page_filter not in PAGE_CODES:
         FC.find_page(
@@ -891,12 +890,11 @@ def set_current_page(directory, page_filter, overlay):
             ),
             page_filter,
         )
-    page_info = {"page": page_filter, "is_overlay": overlay}
     path = Path(directory) / Deck.set_current_page_file_name
     try:
         if path.exists():
             path.unlink()
-        path.write_text(json.dumps(page_info))
+        path.write_text(page_filter)
     except Exception:
         Manager.exit(1, f'Unable to write current page information into directory "{directory}"')
 
