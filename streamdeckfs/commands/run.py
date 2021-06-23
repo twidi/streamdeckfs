@@ -6,6 +6,7 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+import logging
 import signal
 import threading
 from time import sleep
@@ -94,7 +95,10 @@ def run(serials, directory, scroll):
     end_event = threading.Event()
 
     def end(signum, frame):
-        logger.info(f"Ending ({signal.strsignal(signum)})...")
+        if logger.level == logging.DEBUG:
+            logger.info(f"Ending ({signal.strsignal(signum)})...")
+        else:
+            logger.info("Ending.")
         signal.signal(signal.SIGTERM, sigterm_handler)
         signal.signal(signal.SIGINT, sigint_handler)
         end_event.set()

@@ -14,6 +14,7 @@ import sys
 import threading
 from pathlib import Path
 from queue import Empty
+from subprocess import DEVNULL
 from time import sleep, time
 
 import click_log
@@ -36,6 +37,25 @@ SUPPORTED_PLATFORMS = {
 PLATFORM = platform.system()
 
 LIBRARY_NAME = "streamdeckfs"
+
+
+class ColorFormatter(click_log.ColorFormatter):
+    # NOT thanks to click-log that does not format when there is an exception info
+    # https://github.com/click-contrib/click-log/blob/0d72a212ae7a45ab890d6e88a690679f8b946937/click_log/core.py#L35
+    def formatMessage(self, record):
+        try:
+            exc_info, record.exc_info = record.exc_info, None
+            return click_log.ColorFormatter.format(self, record)
+        finally:
+            record.exc_info = exc_info
+
+    def format(self, record):
+        return logging.Formatter.format(self, record)
+
+
+click_log.core._default_handler.formatter = ColorFormatter()
+
+
 logger = logging.getLogger(LIBRARY_NAME)
 click_log.basic_config(logger)
 
@@ -394,10 +414,14 @@ class Manager:
             cls.start_processes_checker()
 
         base_str = f'[PROCESS] Launching `{command}`{" (in detached mode)" if detach else ""}'
-        logger.info(f"{base_str}...")
+        logger.debug(f"{base_str}...")
         try:
             process = psutil.Popen(
-                command, start_new_session=bool(detach), shell=bool(shell), env=(os.environ | env) if env else None
+                command,
+                start_new_session=bool(detach),
+                shell=bool(shell),
+                env=(os.environ | env) if env else None,
+                stderr=None if logger.level == logging.DEBUG else DEVNULL,
             )
             cls.processes[process.pid] = {
                 "pid": process.pid,
@@ -410,7 +434,7 @@ class Manager:
             logger.info(f"{base_str} [ok PID={process.pid}]")
             return None if detach else process.pid
         except Exception:
-            logger.exception(f"{base_str} [failed]")
+            logger.error(f"{base_str} [failed]", exc_info=logger.level == logging.DEBUG)
             return None
 
     @classmethod
@@ -444,7 +468,7 @@ class Manager:
         if not cls.check_process_running(pid, process_info):
             return
         base_str = f"[PROCESS {pid}] Terminating `{process_info['command']}`"
-        logger.info(f"{base_str}...")
+        logger.debug(f"{base_str}...")
         gone, alive = cls.kill_proc_tree(pid, timeout=5)
         if alive:
             # TODO: handle the remaining processes

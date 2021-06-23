@@ -6,6 +6,7 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+import logging
 import re
 import threading
 from dataclasses import dataclass
@@ -224,7 +225,7 @@ class BaseEvent(EntityFile):
         try:
             return self._run()
         except Exception:
-            logger.exception(f"[{self}] Failure while running the command")
+            logger.error(f"[{self}] Failure while running the command", exc_info=logger.level == logging.DEBUG)
         return True
 
     def _run(self):
@@ -232,9 +233,12 @@ class BaseEvent(EntityFile):
             return
         if self.unique and not self.ended_running.is_set():
             if self.kind != "start":
-                logger.warning(
-                    f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
-                )
+                if logger.level == logging.DEBUG:
+                    logger.warning(
+                        f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
+                    )
+                else:
+                    logger.warning(f"[{self}] Still running. Execution skipped.")
             return True
         if self.mode == "path":
             command = self.resolved_path
@@ -291,7 +295,10 @@ class BaseEvent(EntityFile):
                 try:
                     Manager.terminate_process(pid)
                 except Exception:
-                    logger.exception(f"[{self}] Failure while stopping the command (pid {pid})")
+                    logger.error(
+                        f"[{self}] Failure while stopping the command [PID={pid}]",
+                        exc_info=logger.level == logging.DEBUG,
+                    )
 
     @property
     def is_stoppable(self):
@@ -467,7 +474,7 @@ class KeyEvent(BaseEvent, KeyContent):
         if thread.did_run():
             # already aborted
             self.stop_duration_waiter()
-            logger.info(f"[{self}] ABORTED (pressed more than {self.duration_max}ms)")
+            logger.debug(f"[{self}] ABORTED (pressed more than {self.duration_max}ms)")
             return
         self.stop_duration_waiter()
         # if it was stopped, it's by the release button during the duration_max time, so we know the

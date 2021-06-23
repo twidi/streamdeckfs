@@ -1739,13 +1739,15 @@ def get_var_value(directory, page_filter, key_filter, var_filter, names):
     try:
         var = container.get_var(var_filter)
     except UnavailableVar:
-        lookup_places = []
-        if key_filter is not None:
-            lookup_places.append("key")
-        if page_filter is not None:
-            lookup_places.append("page")
-        lookup_places.append("deck")
-        Manager.exit(1, f"[{container}] Variable `{var_filter}` not found. Looked in: {', '.join(lookup_places)}")
+        lookup_entities = [container]
+        if parent := container.parent:
+            lookup_entities.append(parent)
+            if parent := parent.parent:
+                lookup_entities.append(parent)
+        Manager.exit(
+            1,
+            f"[{container}] Variable `{var_filter}` not found. Looked in: {', '.join(('[%s]' % entity for entity in lookup_entities))}",
+        )
     else:
         logger.debug(f"Variable found in [{container}]")
         if value := var.resolved_value:

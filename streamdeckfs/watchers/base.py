@@ -6,6 +6,7 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+import logging
 from pathlib import Path
 from time import time
 
@@ -220,9 +221,10 @@ class BaseFilesWatcher:
         try:
             watch_id = self._set_watch(directory, watch_mode)
         except Exception as exc:
-            logger.exception(
-                f'[{self.thread_name}] Could not watch directory "{directory}" in mode "{watch_mode}": {exc}'
-            )
+            if logger.level == logging.DEBUG:
+                logger.exception(
+                    f'[{self.thread_name}] Could not watch directory "{directory}" in mode "{watch_mode}": {exc}'
+                )
         else:
             self.WatchedDirectory.on_watch_set(directory, watch_id)
 
@@ -234,7 +236,8 @@ class BaseFilesWatcher:
         try:
             self._remove_watch(watch_id)
         except Exception as exc:
-            logger.exception(f'[{self.thread_name}] Could not remove watch "{watch_id}": {exc}')
+            if logger.level == logging.DEBUG:
+                logger.exception(f'[{self.thread_name}] Could not remove watch "{watch_id}": {exc}')
         else:
             self.WatchedDirectory.on_watch_removed(watch_id)
 

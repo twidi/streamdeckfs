@@ -979,6 +979,7 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_DEVICE_KEY_WIDTH`: width, in pixels, of a key on the current Streamdeck
 - `SDFS_DEVICE_KEY_HEIGHT`: height, in pixels, of a key on the current Streamdeck
 - `SDFS_DEVICE_BRIGHTNESS`: the brightness (integer from 0 to 100) of the current StreamDeck
+- `SDFS_VERBOSITY`: the verbosity level (one of `CRITICAL`, `ERROR`, `WARNING`, `INFO` or `DEBUG`)
 - `SDFS_PAGE`: number of the page from which the event was triggered
 - `SDFS_PAGE_NAME`: name, if defined, of the page from which the event was triggered
 - `SDFS_PAGE_DIRECTORY`: directory configuration of the page from which the event was triggered

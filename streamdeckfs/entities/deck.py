@@ -7,6 +7,7 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import json
+import logging
 import threading
 from dataclasses import dataclass
 from queue import SimpleQueue
@@ -511,6 +512,7 @@ class Deck(EntityDir):
                 "device_key_width": self.key_width,
                 "device_key_height": self.key_height,
                 "device_brightness": self.brightness,
+                "verbosity": logging.getLevelName(logger.level),
             }
         )
 

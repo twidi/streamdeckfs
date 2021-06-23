@@ -6,6 +6,7 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+import logging
 import re
 from dataclasses import dataclass
 from time import time
@@ -297,14 +298,16 @@ class Key(EntityDir, PageContent):
                                     continue
                                 rendered_layer, position_x, position_y, mask = composed
                             except Exception:
-                                logger.exception(f"[{layer}] Layer could not be rendered")
+                                logger.error(
+                                    f"[{layer}] Layer could not be rendered", exc_info=logger.level == logging.DEBUG
+                                )
                                 continue  # we simply ignore a layer that couldn't be created
                             final_image.paste(rendered_layer, (position_x, position_y), mask)
                         self.compose_image_cache = final_image, PILHelper.to_native_format(
                             self.deck.device, final_image
                         )
             except Exception:
-                logger.exception(f"[{self}] Image could not be rendered")
+                logger.error(f"[{self}] Image could not be rendered", exc_info=logger.level == logging.DEBUG)
                 self.compose_image_cache = None, None
 
         if overlay_level and (image := self.compose_image_cache[0]):
@@ -397,7 +400,7 @@ class Key(EntityDir, PageContent):
         if not (press_event := events.get("press")):
             logger.debug(f"[{self}] PRESSED. IGNORED (event not configured)")
             return
-        logger.info(f"[{press_event}] PRESSED.")
+        logger.debug(f"[{press_event}] PRESSED.")
         press_event.wait_run_and_repeat(on_press=True)
 
     def released(self):
@@ -415,11 +418,11 @@ class Key(EntityDir, PageContent):
                 logger.debug(f"[{self}] RELEASED{str_delay_part}. IGNORED (event not configured)")
                 return
             if release_event.duration_min and (duration is None or duration < release_event.duration_min):
-                logger.info(
+                logger.debug(
                     f"[{release_event}] RELEASED{str_delay_part}. ABORTED (not pressed long enough, less than {release_event.duration_min}ms"
                 )
             else:
-                logger.info(f"[{release_event}] RELEASED{str_delay_part}.")
+                logger.debug(f"[{release_event}] RELEASED{str_delay_part}.")
                 release_event.wait_run_and_repeat()
         finally:
             self.pressed_at = None
