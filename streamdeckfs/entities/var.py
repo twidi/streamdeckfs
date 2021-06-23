@@ -54,7 +54,7 @@ class BaseVar(EntityFile):
 
         del final_args["name"]
         if "value" in args:
-            final_args["value"] = args["value"]
+            final_args["value"] = cls.replace_special_chars(args["value"], args)
         return final_args
 
     @classmethod

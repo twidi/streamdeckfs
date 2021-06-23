@@ -1400,7 +1400,7 @@ This key represents a key rendered with a title on top, a small line as a separa
 
 As for other kinds of objects, it can be disabled by adding `;disabled` (or `;disabled=true`, see [above](#disabled))
 
-The value of the variable will be read from the file itself, of from the `value` configuration option in the file name. For example the file `VAR_FOO;value=bar` defines a variable `FOO` having `bar` as value.
+The value of the variable will be read from the file itself, of from the `value` configuration option in the file name. For example the file `VAR_FOO;value=bar` defines a variable `FOO` having `bar` as value. When read from the `value` configuration option, if you want semicolon `;` or slash `/` you must use `^` or `\\` (or specify the characters to use via the [semicolon](#option-semicolon) and [slash](#option-slash) configuration options (like for paths in texts/images `file` and events `command` options).
 
 Note that to read the value from another file, the [`file` configuration option as defined for the `TEXT*` files](#option-file-1) can also be used.
 
@@ -1431,7 +1431,7 @@ If a configuration option needs a boolean (`true` or `false`), you can use equal
 
 You can combine this with the negate operator (`!`). For example `TEXT;text=ON;disabled=!$VAR_ACTIVE="yes"` will display the text "ON" if the `VAR_ACTIVE` variable has "yes" for value.
 
-Note that the value cannot contain a semicolon as it will be seen as the end of the current configuration option.
+Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
 
 Here is an example showing how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
 
