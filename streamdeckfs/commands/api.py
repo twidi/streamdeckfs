@@ -292,6 +292,12 @@ class FilterCommands:
             var_page_to_key_constraint(var_to_key(func))
         )
 
+    @staticmethod
+    def validate_brightness_level(ctx, param, value):
+        if 0 <= value <= 100:
+            return value
+        raise click.BadParameter(f"{value} must be between 0 and 100 (inclusive)")
+
     @classmethod
     def validate_var_name(cls, ctx, param, value):
         if value is not None and not cls.validate_var_name_re.match(value):
@@ -893,6 +899,41 @@ def set_current_page(directory, page_filter, overlay):
         path.write_text(json.dumps(page_info))
     except Exception:
         Manager.exit(1, f'Unable to write current page information into directory "{directory}"')
+
+
+@cli.command()
+@FC.options["directory"]
+@FC.options["verbosity"]
+def get_brightness(directory):
+    """Get the current deck brightness"""
+    try:
+        path = Path(directory) / Deck.current_brightness_file_name
+        print(int(path.read_text().strip()))
+    except Exception:
+        Manager.exit(1, f'Unable to read current brightness information from directory "{directory}"')
+
+
+@cli.command()
+@FC.options["directory"]
+@cloup.option(
+    "-b",
+    "--brightness",
+    "level",
+    type=int,
+    required=True,
+    help="Brightness level, from 0 (no light) to 100 (brightest)",
+    callback=FC.validate_brightness_level,
+)
+@FC.options["verbosity"]
+def set_brightness(directory, level):
+    """Set the deck brightness"""
+    path = Path(directory) / Deck.current_brightness_file_name
+    try:
+        if path.exists():
+            path.unlink()
+        path.write_text(str(level))
+    except Exception:
+        Manager.exit(1, f'Unable to write brightness information into directory "{directory}"')
 
 
 @cli.command()

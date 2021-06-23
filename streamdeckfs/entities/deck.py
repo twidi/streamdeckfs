@@ -22,6 +22,7 @@ from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_fac
 class Deck(EntityDir):
     current_page_file_name = ".current_page"
     set_current_page_file_name = ".set_current_page"
+    current_brightness_file_name = ".current_brightness"
 
     device: StreamDeck
     scroll_activated: bool
@@ -75,6 +76,7 @@ class Deck(EntityDir):
         self.directory_removed = False
         self.current_page_state_file = self.path / self.current_page_file_name
         self.set_current_page_state_file = self.path / self.set_current_page_file_name
+        self.current_brightness_state_file = self.path / self.current_brightness_file_name
 
     @property
     def str(self):
@@ -121,6 +123,10 @@ class Deck(EntityDir):
 
         if name == self.set_current_page_file_name:
             self.set_page_from_file()
+            return None
+
+        if name == self.current_brightness_file_name:
+            self.set_brightness_from_file()
             return None
 
         if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
@@ -312,6 +318,31 @@ class Deck(EntityDir):
         except Exception:
             pass
 
+    def write_current_brightness_info(self):
+        if self.brightness != self.read_current_brightness_info():
+            try:
+                self.current_brightness_state_file.write_text(str(self.brightness))
+            except Exception:
+                pass
+
+    def read_current_brightness_info(self):
+        try:
+            return int(self.current_brightness_state_file.read_text().strip())
+        except Exception:
+            return None
+
+    def set_brightness_from_file(self, minimum=0):
+        try:
+            if not self.current_brightness_state_file.exists():
+                raise FileNotFoundError
+            if (brightness := self.read_current_brightness_info()) is None:
+                raise ValueError
+            self.set_brightness("=", brightness)
+        except Exception:
+            self.write_current_brightness_info()
+        if self.brightness < minimum:
+            self.set_brightness("=", minimum)
+
     def is_page_visible(self, page_or_number):
         number = page_or_number if isinstance(page_or_number, int) else page_or_number.number
         return self.current_page_number == number or number in self.visible_pages
@@ -419,10 +450,12 @@ class Deck(EntityDir):
             return
         logger.info(f"[{self}] Changing brightness from {old_brightness} to {self.brightness}")
         self.device.set_brightness(self.brightness)
+        self.write_current_brightness_info()
 
     def render(self):
         from .page import FIRST
 
+        self.set_brightness_from_file(minimum=5)
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
         self.activate_events()
@@ -477,6 +510,7 @@ class Deck(EntityDir):
                 "device_nb_cols": self.nb_cols,
                 "device_key_width": self.key_width,
                 "device_key_height": self.key_height,
+                "device_brightness": self.brightness,
             }
         )
 

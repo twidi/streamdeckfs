@@ -964,6 +964,10 @@ There can be only one of each event for each key. If the same `ON_XXX` is define
 
 If you want many actions to be done when a key is, for example, pressed, the file can be a bash script with many commands, periods of sleep, etc.
 
+Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
+
+
+### Environment variables
 Each command is executed with the environment variables received by `streamdeckfs` when it started, plus some others:
 
 - `SDFS_EXECUTABLE`: executable to run `streamdeckfs` (the same used to run the current instance of `streamdeckfs`)
@@ -974,6 +978,7 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_DEVICE_NB_COLS`: number of cols of the current StreamDeck
 - `SDFS_DEVICE_KEY_WIDTH`: width, in pixels, of a key on the current Streamdeck
 - `SDFS_DEVICE_KEY_HEIGHT`: height, in pixels, of a key on the current Streamdeck
+- `SDFS_DEVICE_BRIGHTNESS`: the brightness (integer from 0 to 100) of the current StreamDeck
 - `SDFS_PAGE`: number of the page from which the event was triggered
 - `SDFS_PAGE_NAME`: name, if defined, of the page from which the event was triggered
 - `SDFS_PAGE_DIRECTORY`: directory configuration of the page from which the event was triggered
@@ -989,8 +994,6 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START` or `ON_END`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
 
 Note that all [variables](#variables) will also be passed as environment variables.
-
-Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
 Now let see the different events, then how they can be configured:
 
@@ -1566,6 +1569,39 @@ Example:
 ```bash
 $ streamdeckfs get-deck-info ~/streamdeck-data/MYDECKSERIAL
 {'model': 'StreamDeckXL', 'nb_rows': 4, 'nb_cols': 8, 'key_width': 96, 'key_height': 96}
+```
+
+## get-brightness
+
+Will print the current brightness (integer from 0 to 100).
+
+```bash
+streamdeckfs get-brightness SERIAL_DIRECTORY
+```
+
+Example:
+
+```bash
+$ streamdeckfs get-brightness ~/streamdeck-data/MYDECKSERIAL
+30
+```
+
+## set-brightness
+
+Will update the brightness.
+
+```bash
+streamdeckfs set-brightness SERIAL_DIRECTORY -b BRIGHTNESS
+```
+
+with:
+
+- `BRIGHTNESS`: the wanted brightness, as an integer between 0 and 100 (both included)
+
+Example:
+
+```bash
+$ streamdeckfs set-brightness ~/streamdeck-data/MYDECKSERIAL -b 50
 ```
 
 ## get-current-page
