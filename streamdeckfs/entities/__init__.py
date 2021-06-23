@@ -25,9 +25,10 @@ __all__ = [
     "KeyVar",
     "KeyImageLayer",
     "KeyTextLine",
+    "UnavailableVar",
 ]
 
-from .base import FILTER_DENY, VAR_RE
+from .base import FILTER_DENY, VAR_RE, UnavailableVar
 from .deck import Deck
 from .page import PAGE_CODES, Page
 from .key import Key

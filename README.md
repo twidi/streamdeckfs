@@ -26,6 +26,8 @@ It provides numerous features:
 - image composition, with layers, drawings, and texts, with, for all of them, many configuration options
 - advanced key management (on press, release, long press, repeat, delay, and more)
 - references (explained later, but see this as a way to have templates, or to repeat keys on pages, or have many times the same key with a few differences)
+- variables with (small) logic and cascading
+- api
 
 `streamdeckfs` will look at the directory passed on the command line and read all the configuration from directories and files.
 
@@ -1417,7 +1419,23 @@ If a file name contains a variable that cannot be found, this file will be ignor
 
 When a command is triggered following an event (for example a key press), all variables available to this event will be passed as environment variable (previxed by `SDFS_`, so in our example we'll have `SDFS_VAR_FOO`, containing the value `BAR`)
 
-## Variables logic
+## Placements
+
+A variable can be used:
+
+- in the file/directory name , and it's not limited to the value of an option configuration, as the configuration parsing will be done after replacing the variables. So `TEXT;$VAR_TEXT_STYLE` is possible, with for example `VAR_TEXT_STYLE;value=color=red^fit^wrap` (here the default semicolon replacement is used, but if the value was in the content of the `VAR_TEXT_STYLE` file, the real `;` characters could have been used)
+
+- in a variable `value` configuration option, because a variable can depend on another variable (as long as their is no circular dependency)
+
+- in the content of a `TEXT` or `VAR` file
+
+- in the paths defined in the content of `TEXT`, `IMAGE`, or `VAR` files when configured with `file=__inside__`, or `ON_` (events) files when configured with `command=__inside__`
+
+A variable cannot be used:
+
+- in the right side of the "[equality](#equality)" rule (the part between the `"`)
+
+## Logic
 
 When using variables in a file name, you can apply some logic to it.
 
@@ -1433,7 +1451,9 @@ You can combine this with the negate operator (`!`). For example `TEXT;text=ON;d
 
 Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
 
-Here is an example showing how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
+### Examples
+
+The first example below shows how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
 
 ```
 TEXT;text=1;fit;disabled=!$VAR_STATE="state_one"
@@ -1443,7 +1463,66 @@ VAR_STATE;value=state_$VAR_STATE_VALUE
 VAR_STATE_VALUE;value=one
 ```
 
-This example will display `1`, with the current value of `VAR_STATE_VALUE`.
+This example will display `1`, with the current value of `VAR_STATE_VALUE` (`one`).
+
+The second example below shows how a variable can be used for many configurations options at once (`VAR_TEXT_STYLE`), and that how variables can be set in the content of files.
+
+
+The files are:
+
+```
+TEXT;$VAR_TEXT_STYLE
+VAR_FULLNAME
+VAR_FIRSTNAME
+VAR_LASTNAME
+VAR_TEXT_STYLE
+```
+
+And their content:
+
+- `TEXT;$VAR_TEXT_STYLE`:
+
+```
+Hello
+$VAR_FULLNAME!
+```
+
+- `VAR_FULLNAME`
+
+```
+$VAR_FIRSTNAME $VAR_LASTNAME
+```
+
+- `VAR_FIRSTNAME`
+
+```
+Foo
+```
+
+- `VAR_LASTNAME`
+
+```
+Bar
+```
+
+- `VAR_TEXT_STYLE`
+
+```
+color=red;fit;wrap
+```
+
+This will show the text "Hello Foo Bar" in red on the key.
+
+
+The third example below shows how to use a variable in a path. Here we want to change the icon displayed depending on a variable.
+
+We have two files:
+
+- an image file named `IMAGE;colorize=white;file=__inside__` containing `/path/to/icons/$VAR_ICON.png`
+- a variable file named `VAR_ICON` containg `thumbs-up`
+
+An external script can then change the content of the `VAR_ICON` file to update the key.
+
 
 # API
 

@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 
 from ..common import file_flags
-from .base import EntityFile, InvalidArg
+from .base import EntityFile, InvalidArg, UnavailableVar
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -88,6 +88,7 @@ class BaseVar(EntityFile):
                         self.cached_value = path.read_text().strip()
                     except Exception:
                         pass
+        self.cached_value = self.replace_vars_in_content(self.cached_value)
         return self.cached_value
 
     def iterate_children_dirs(self):
@@ -120,7 +121,7 @@ class BaseVar(EntityFile):
         if grand_parent := self.parent.parent:
             try:
                 grand_parent_var = grand_parent.get_var(self.name)
-            except KeyError:
+            except UnavailableVar:
                 pass
             else:
                 # then we deactivate it, but only for our current var holder (our parent)
@@ -141,7 +142,7 @@ class BaseVar(EntityFile):
         if grand_parent := self.parent.parent:
             try:
                 grand_parent_var = grand_parent.get_var(self.name)
-            except KeyError:
+            except UnavailableVar:
                 pass
             else:
                 # then we use it to re-render the var just unrendered

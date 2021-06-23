@@ -18,7 +18,7 @@ import cloup
 import cloup.constraints as cons
 
 from ..common import Manager, logger
-from ..entities import FILTER_DENY, PAGE_CODES, VAR_RE, Deck
+from ..entities import FILTER_DENY, PAGE_CODES, VAR_RE, Deck, UnavailableVar
 from .base import cli, validate_positive_integer
 
 NoneType = type(None)
@@ -1697,7 +1697,7 @@ def get_var_value(directory, page_filter, key_filter, var_filter, names):
     container = FC.get_entity_container(directory, page_filter, key_filter, "var")
     try:
         var = container.get_var(var_filter)
-    except KeyError:
+    except UnavailableVar:
         lookup_places = []
         if key_filter is not None:
             lookup_places.append("key")

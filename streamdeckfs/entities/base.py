@@ -42,6 +42,10 @@ class InvalidArg(Exception):
     pass
 
 
+class UnavailableVar(Exception):
+    pass
+
+
 RawParseFilenameResult = namedtuple(
     "RawParseFilenameResult", ["main", "args", "used_vars"], defaults=[None, None, None]
 )
@@ -109,9 +113,9 @@ class Entity:
 
     @used_vars.setter
     def used_vars(self, vars):
-        for var in self.used_vars:
+        for var in self._used_vars:
             var.used_by.discard(self)
-        self._used_vars = vars or {}
+        self._used_vars = vars or set()
         for var in vars:
             var.used_by.add(self)
 
@@ -135,6 +139,23 @@ class Entity:
         return value
 
     @classmethod
+    def replace_vars(cls, value, filename, parent):
+        if matches := VAR_RE.findall(value):
+            var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
+            try:
+                # will raise UnavailableVar if var not defined
+                vars = {name: parent.get_var(name) for name in var_names}
+                # will raise KeyError if wanted to negate a value not in true/false
+                value = VAR_RE.sub(partial(cls.replace_var, vars=vars), value)
+            except (UnavailableVar, KeyError):
+                parent.add_waiting_for_vars(cls, filename, var_names)
+                raise UnavailableVar
+            used_vars = set(vars.values())
+        else:
+            used_vars = set()
+        return value, used_vars
+
+    @classmethod
     def raw_parse_filename(cls, name, parent, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
@@ -153,18 +174,10 @@ class Entity:
             args = {}
 
             if conf_part:
-                if matches := VAR_RE.findall(conf_part):
-                    var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
-                    try:
-                        # will raise KeyError if var not defined
-                        vars = {name: parent.get_var(name) for name in var_names}
-                        # will raise KeyError if wanted to negate a value not in true/false
-                        conf_part = VAR_RE.sub(partial(cls.replace_var, vars=vars), conf_part)
-                    except KeyError:
-                        parent.add_waiting_for_vars(cls, name, set(var_names))
-                        return RawParseFilenameResult()  # we don't cache the result
-
-                    used_vars = vars.values()
+                try:
+                    conf_part, used_vars = cls.replace_vars(conf_part, name, parent)
+                except UnavailableVar:
+                    return RawParseFilenameResult()  # we don't cache the result
 
                 parts = conf_part.split(";")
                 for part in parts:
@@ -585,6 +598,7 @@ class EntityFile(Entity):
         self.mode = None
         self.file = None
         self.watched_directory = False
+        self._used_vars_in_content = set()
 
     @classmethod
     def convert_args(cls, main, args):
@@ -642,8 +656,11 @@ class EntityFile(Entity):
         if self.mode != "inside":
             return None
         with self.resolved_path.open() as f:
-            path = Path(f.readline().strip())
+            path = f.readline().strip()
         if path:
+            path = self.replace_vars_in_content(path)
+        if path:
+            path = Path(path)
             try:
                 path = path.expanduser()
             except Exception:
@@ -686,6 +703,44 @@ class EntityFile(Entity):
 
     def get_available_vars_values(self, exclude=None):
         return self.parent.get_available_vars_values(exclude)
+
+    @property
+    def used_vars(self):
+        return self._used_vars | self._used_vars_in_content
+
+    @used_vars.setter
+    def used_vars(self, vars):
+        for var in self._used_vars - self._used_vars_in_content:
+            var.used_by.discard(self)
+        self._used_vars = vars or set()
+        for var in vars:
+            var.used_by.add(self)
+
+    @property
+    def used_vars_in_content(self):
+        return self._used_vars_in_content
+
+    @used_vars_in_content.setter
+    def used_vars_in_content(self, vars):
+        for var in self._used_vars_in_content - self._used_vars:
+            var.used_by.discard(self)
+        self._used_vars_in_content = vars or set()
+        for var in vars:
+            var.used_by.add(self)
+
+    def on_delete(self):
+        super().on_delete()
+        self.used_vars_in_content = set()
+
+    def replace_vars_in_content(self, content):
+        if self.mode != "text" and content:
+            try:
+                content, used_vars = self.replace_vars(content, self.path.name, self.parent)
+            except UnavailableVar:
+                content = None
+            else:
+                self.used_vars_in_content = used_vars
+        return content
 
 
 class NOT_HANDLED:
@@ -814,7 +869,7 @@ class EntityDir(Entity):
         if parent := self.parent:
             return parent.get_var(name)
 
-        raise KeyError(name)
+        raise UnavailableVar(name)
 
     def get_available_vars_values(self, exclude=None):
         if not exclude:
@@ -830,6 +885,8 @@ class EntityDir(Entity):
         return result
 
     def add_waiting_for_vars(self, entity_class, name, var_names):
+        if name in self.children_waiting_for_vars:
+            var_names |= self.children_waiting_for_vars[name][1]
         self.children_waiting_for_vars[name] = (entity_class, var_names)
 
     def remove_waiting_for_vars(self, name):
