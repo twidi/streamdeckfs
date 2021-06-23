@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.5` - *IN PROGRESS*
+## Release `1.5` - *2021-06-23*
 
 - Add variables as files in decks, pages and keys directories, usable in configuration values
 - API to read/change brightness
