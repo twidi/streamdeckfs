@@ -15,7 +15,14 @@ from cached_property import cached_property
 
 from ..common import DEFAULT_BRIGHTNESS, Manager, logger
 from ..threads import Delayer, Repeater
-from .base import RE_PARTS, Entity, EntityFile, InvalidArg, file_char_allowed_args
+from .base import (
+    RE_PARTS,
+    VAR_RE_NAME_PART,
+    Entity,
+    EntityFile,
+    InvalidArg,
+    file_char_allowed_args,
+)
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -419,7 +426,10 @@ class KeyEvent(BaseEvent, KeyContent):
             |
             (?:::(?P<other_page_key_page>[^:]+):(?P<other_page_key_key>[^:]+):)  # "::page:key:VAR_" on the "key" directory of the "page" directory
         )?  # if not => "VAR_" on the current key directory
-        (?P<arg>VAR)_(?P<name>[A-Z0-9_]+)  # VAR_XXX
+        (?P<arg>VAR)_
+        """
+            + VAR_RE_NAME_PART
+            + r"""
         (?P<infile><)?=  # if `=` we set on value in file name; if `<=` we set in file content
         (?P<value>.*)
         $

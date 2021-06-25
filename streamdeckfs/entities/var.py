@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 
 from ..common import file_flags
-from .base import EntityFile, InvalidArg, UnavailableVar
+from .base import VAR_RE_NAME_PART, EntityFile, InvalidArg, UnavailableVar
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -20,7 +20,7 @@ from .page import PageContent
 @dataclass(eq=False)
 class BaseVar(EntityFile):
     path_glob = "VAR_*"
-    main_part_re = re.compile(r"^(?P<kind>VAR)_(?P<name>[A-Z0-9_]+)$")
+    main_part_re = re.compile(r"^(?P<kind>VAR)_" + VAR_RE_NAME_PART + "$")
     main_part_compose = lambda args: f'VAR_{args["name"]}'
 
     allowed_args = EntityFile.allowed_args | {

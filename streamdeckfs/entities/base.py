@@ -27,7 +27,8 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-VAR_RE = re.compile(r'(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)(?P<equal>="(?P<equal_value>[^"]*)")?')
+VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z-0-9])"
+VAR_RE = re.compile(r"(?P<not>!)?\$VAR_" + VAR_RE_NAME_PART + '(?P<equal>="(?P<equal_value>[^"]*)")?')
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
@@ -43,7 +44,9 @@ class InvalidArg(Exception):
 
 
 class UnavailableVar(Exception):
-    pass
+    def __init__(self, message="At least one variable is not available yet", var_names=None):
+        self.var_names = var_names
+        super().__init__(message)
 
 
 RawParseFilenameResult = namedtuple(
@@ -129,30 +132,53 @@ class Entity:
     }
 
     @classmethod
-    def replace_var(cls, match, vars):
+    def replace_var(cls, match, vars, filename, parent, used_vars):
         data = match.groupdict()
-        value = vars[data["name"]].resolved_value
+        name = data["name"]
+        if name not in vars:
+            return match.group(0)
+        value = (var := vars[name]).resolved_value
         if data.get("equal"):
-            value = "true" if value == (data.get("equal_value") or "") else "false"
+            if (equal_value := (data.get("equal_value") or "")) and "$VAR_" in equal_value:
+                equal_value = cls.replace_vars(equal_value, filename, parent, used_vars)[0]
+            value = "true" if value == equal_value else "false"
         if data["not"]:
             value = cls.negated[value]
+        used_vars.add(var)
         return value
 
     @classmethod
-    def replace_vars(cls, value, filename, parent):
-        if matches := VAR_RE.findall(value):
-            var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
-            try:
-                # will raise UnavailableVar if var not defined
-                vars = {name: parent.get_var(name) for name in var_names}
-                # will raise KeyError if wanted to negate a value not in true/false
-                value = VAR_RE.sub(partial(cls.replace_var, vars=vars), value)
-            except (UnavailableVar, KeyError):
-                parent.add_waiting_for_vars(cls, filename, var_names)
-                raise UnavailableVar
-            used_vars = set(vars.values())
-        else:
+    def replace_vars(cls, value, filename, parent, used_vars=None):
+        if used_vars is None:
             used_vars = set()
+        var_names = set()
+        vars = {}
+        replace = partial(cls.replace_var, vars=vars, filename=filename, parent=parent, used_vars=used_vars)
+
+        while "$VAR_" in value and (matches := VAR_RE.findall(value)):
+            count_before = len(matches)
+            current_var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
+            var_names |= current_var_names
+
+            try:
+                vars |= {
+                    name: var
+                    for name in current_var_names
+                    if name not in vars and (var := parent.get_var(name, default_none=True)) is not None
+                }
+                # will raise KeyError if wanted to negate a value not in true/false
+                value = VAR_RE.sub(replace, value)
+
+                if len(VAR_RE.findall(value)) == count_before:
+                    # we had matches, but none were replaced, we can end the loop
+                    raise UnavailableVar
+
+            except (UnavailableVar, KeyError) as exc:
+                if isinstance(exc, UnavailableVar) and exc.var_names:
+                    var_names |= exc.var_names
+                parent.add_waiting_for_vars(cls, filename, var_names)
+                raise UnavailableVar(var_names=var_names)
+
         return value, used_vars
 
     @classmethod
@@ -735,8 +761,8 @@ class EntityFile(Entity):
         super().version_deactivated()
         self.stop_watching_directory()
 
-    def get_var(self, name, cascading=True):
-        return self.parent.get_var(name, cascading=cascading)
+    def get_var(self, name, cascading=True, default_none=False):
+        return self.parent.get_var(name, cascading=cascading, default_none=default_none)
 
     def get_available_vars_values(self, exclude=None):
         return self.parent.get_available_vars_values(exclude)
@@ -900,13 +926,16 @@ class EntityDir(Entity):
         for versions in content.values():
             yield from versions.all_versions
 
-    def get_var(self, name, cascading=True):
+    def get_var(self, name, cascading=True, default_none=False):
         if var := self.vars.get(name):
             return var
         if cascading and (parent := self.parent):
-            return parent.get_var(name, cascading=True)
+            return parent.get_var(name, cascading=True, default_none=default_none)
 
-        raise UnavailableVar(name)
+        if default_none:
+            return None
+
+        raise UnavailableVar
 
     def get_available_vars_values(self, exclude=None):
         if not exclude:

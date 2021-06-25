@@ -1435,9 +1435,9 @@ A variable can be used:
 
 - in the paths defined in the content of `TEXT`, `IMAGE`, or `VAR` files when configured with `file=__inside__`, or `ON_` (events) files when configured with `command=__inside__`
 
-A variable cannot be used:
-
 - in the right side of the "[equality](#equality)" rule (the part between the `"`)
+
+Note that a variable can be composed with other variables: `text=$VAR_$VAR_DISPLAY` will work, because the first `$VAR_` is not a valid variable, but `$VAR_DISPLAY` is, so, `$VAR_DISPLAY` will be converted, for example to `LASTNAME` if we have `VAR_DISPLAY;value=LASTNAME`, so we'll have `text=$VAR_LASTNAME`, then the `VAR_LASTNAME` variable will be read to have the final text. Likewise, in `text=$VAR_TEXT$VAR_INDEX`, if `VAR_TEXT` is not an existing variable, then on the first pass `$VAR_INDEX` will be converted, for example to `1`, then we have `$VAR_TEXT1` which is an existing variable, so its' converted
 
 ## Logic
 
@@ -1449,7 +1449,7 @@ If the variable value is `true` or `false`, it's possible to negate this by prec
 
 ### Equality
 
-If a configuration option needs a boolean (`true` or `false`), you can use equality between a variable and a value to get this result. The format is `$VAR_XXX="VALUE"`. Note the `=` and the value between double quotes (`"`). For example `TEXT;text=OFF;disabled=$VAR_ACTIVE="yes"` won't display the text "OFF" if the `VAR_ACTIVE` variable has "yes" for value.
+If a configuration option needs a boolean (`true` or `false`), you can use equality between a variable and a value to get this result. The format is `$VAR_XXX="VALUE"`. Note the `=` and the value between double quotes (`"`). For example `TEXT;text=OFF;disabled=$VAR_ACTIVE="yes"` won't display the text "OFF" if the `VAR_ACTIVE` variable has "yes" for value. Note that the value can also be a variable, like `disabled=$VAR_ACTIVE="$VAR_YES"`, wity `VAR_YES;value=yes`.
 
 You can combine this with the negate operator (`!`). For example `TEXT;text=ON;disabled=!$VAR_ACTIVE="yes"` will display the text "ON" if the `VAR_ACTIVE` variable has "yes" for value.
 
@@ -1565,13 +1565,40 @@ And the action of the event is to set the next emoji in a variable, variable tha
 
 So we have:
 
-- A text defined like this `TEXT;fit;text=$VAR_EMOJI`
-- A variable file defined like this `VAR_EMOJI;value=:joy`
+- A text defined like this: `TEXT;fit;text=$VAR_EMOJI`
+- A variable file defined like this: `VAR_EMOJI;value=:joy:`
 - And three `ON_PRESS` where only one will be activated depending on the emoji, to display the next one:
     - `ON_PRESS;VAR_EMOJI=:joy:;disabled=!$VAR_EMOJI=":sob:"`
     - `ON_PRESS;VAR_EMOJI=:neutral_face:;disabled=!$VAR_EMOJI=":joy:"`
     - `ON_PRESS;VAR_EMOJI=:sob:;disabled=!$VAR_EMOJI=":neutral_face:"`
 
+Another way to write this example if we don't want to hardcode emojis in many files:
+
+- Same text as above: `TEXT;fit;text=$VAR_EMOJI`
+- A variable file defined like this `VAR_EMOJI;value=$VAR_EMOJI1`
+- Three variables for our emojis, so we can change them without changing anything else:
+    - `VAR_EMOJI1;value=:joy:`
+    - `VAR_EMOJI2;value=:neutral_face:`
+    - `VAR_EMOJI3;value=:sob:`
+And our three `ON_PRESS`:
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;disabled=!$VAR_EMOJI="$VAR_EMOJI3"`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;disabled=!$VAR_EMOJI="$VAR_EMOJI1"`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;disabled=!$VAR_EMOJI="$VAR_EMOJI2"`
+
+  It could even be made more generic:
+
+- A text defined like this: `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`
+- A variable file defined like this: `VAR_INDEX;value=1`
+- Three variables for our emojis, so we can change them without changing anything else:
+    - `VAR_TEXT1;value=:joy:`
+    - `VAR_TEXT2;value=:neutral_face:`
+    - `VAR_TEXT3;value=:sob:`
+- And three `ON_PRESS` where only one will be activated depending on the index, to display the next one:
+    - `ON_PRESS;VAR_INDEX=1;disabled=!$VAR_INDEX="3"`
+    - `ON_PRESS;VAR_INDEX=2;disabled=!$VAR_INDEX="1"`
+    - `ON_PRESS;VAR_INDEX=3;disabled=!$VAR_INDEX="2"`
+
+  The magic is in `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`, because `$VAR_TEXT` is not an existing variable but `$VAR_INDEX` is, so `$VAR_INDEX` is converted first, to `1`, and then we have `$VAR_TEXT1` that can be converted.
 
 # API
 
@@ -2749,7 +2776,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 
 Example:
 
@@ -2770,7 +2797,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 
 Example:
 
@@ -2791,7 +2818,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 
 
 The variable does not need to be in the wanted key or page to be retrieved, as long as it is in one of its parent (the page or the deck when asking for a key variable, or the deck when asking for a page variable)
@@ -2817,7 +2844,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2844,7 +2871,7 @@ with:
 
 - `PAGE`: the number or name of the page where to create the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to create the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to create (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable to create (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
@@ -2872,10 +2899,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to copy. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to copy (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable to copy (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 - `TO_PAGE`: the number or the name of the page where to copy the variable (`-tp` is for `--to-page`). Optional: if not given, will use the page of the variable to copy. Do not pass this argument for a deck variable
 - `TO_KEY`: the name of the key where to copy the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to copy. Do not pass this argument for a page or deck variable
-- `TO_VAR`: the name of the new variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`) Optional: if not given, will use the same name as the variable to copy
+- `TO_VAR`: the name of the new variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to copy
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2902,10 +2929,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to move. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to move (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable to move (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 - `TO_PAGE`: the number or the name of the page where to move the variable (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page. Do not pass this argument for a deck variable
 - `TO_KEY`: the name of the key where to move the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to move. Do not pass this argument for a page or deck variable
-- `TO_VAR`: the name of the moved variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`) Optional: if not given, will use the same name as the variable to move
+- `TO_VAR`: the name of the moved variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to move
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2932,7 +2959,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to delete. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to delete (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`)
+- `VAR`: the name of the variable to delete (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
 
 This command returns the path of the deleted variable file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 
