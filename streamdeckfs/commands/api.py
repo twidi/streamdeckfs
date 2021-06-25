@@ -412,9 +412,10 @@ class FilterCommands:
             else:
                 # check name and value
                 filename = base_filename + f";{name}={value}"
-                try:
-                    args[name] = entity.raw_parse_filename(filename, entity.path.parent).args[name]
-                except KeyError:
+                parsed_args = entity.raw_parse_filename(filename, entity.path.parent).args
+                if parsed_args and name in parsed_args:
+                    args[name] = value
+                else:
                     Manager.exit(1, f"[{error_msg_name_part}] Configuration `{name} {value}` is not valid")
         return args, removed_args
 

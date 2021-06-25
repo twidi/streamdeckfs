@@ -1,6 +1,11 @@
 # Changelog
 
 
+## Release `1.5.1` - *IN PROGRESS*
+
+- Fix some variables that cannot be set via api
+
+
 ## Release `1.5` - *2021-06-23*
 
 - Add variables as files in decks, pages and keys directories, usable in configuration values
