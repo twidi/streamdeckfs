@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.5.2` - *IN PROGRESS*
+## Release `1.5.2` - *2021-06-25*
 
 - Read variables recursively and in equality values
 
