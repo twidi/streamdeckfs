@@ -27,7 +27,7 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-VAR_RE = re.compile(r'(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)(?:="(?P<equal_value>[^"]+)")?')
+VAR_RE = re.compile(r'(?P<not>!)?\$VAR_(?P<name>[A-Z0-9_]+)(?P<equal>="(?P<equal_value>[^"]*)")?')
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
@@ -132,8 +132,8 @@ class Entity:
     def replace_var(cls, match, vars):
         data = match.groupdict()
         value = vars[data["name"]].resolved_value
-        if data["equal_value"]:
-            value = "true" if value == data["equal_value"] else "false"
+        if data.get("equal"):
+            value = "true" if value == (data.get("equal_value") or "") else "false"
         if data["not"]:
             value = cls.negated[value]
         return value
@@ -295,6 +295,38 @@ class Entity:
 
         return ParseFilenameResult(ref_conf)
 
+    def make_new_filename(self, update_args, remove_args):
+        parts = self.path.name.split(";")
+        main_part = parts.pop(0)
+        final_parts = [main_part]
+        seen_names = set()
+        for part in parts:
+            if not part:
+                continue
+            name, *__, value = part.partition("=")
+            if name in seen_names:
+                continue
+            seen_names.add(name)
+            if name in remove_args:
+                continue
+            if name not in update_args:
+                final_parts.append(part)
+                continue
+            final_parts.append(f"{name}={update_args.pop(name)}")
+        for name, value in update_args.items():
+            final_parts.append(f"{name}={value}")
+        return ";".join(final_parts)
+
+    def rename(self, new_filename=None, new_path=None, check_only=False):
+        assert (new_filename or new_path) and not (new_filename and new_path)
+        if new_filename:
+            new_path = self.path.parent / new_filename
+        if new_path != self.path:
+            if not check_only:
+                self.path = self.path.replace(new_path)
+            return True, new_path
+        return False, new_path
+
     @classmethod
     def convert_main_args(cls, args):
         return args
@@ -323,6 +355,11 @@ class Entity:
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         return cls(**cls.get_create_base_args(path, parent, identifier, args, path_modified_at))
+
+    @classmethod
+    def create_basic(cls, parent, main_args, identifier):
+        filename = cls.compose_main_part(main_args)
+        return cls(**cls.get_create_base_args(parent.path / filename, parent, identifier))
 
     @property
     def identifier(self):
@@ -698,8 +735,8 @@ class EntityFile(Entity):
         super().version_deactivated()
         self.stop_watching_directory()
 
-    def get_var(self, name):
-        return self.parent.get_var(name)
+    def get_var(self, name, cascading=True):
+        return self.parent.get_var(name, cascading=cascading)
 
     def get_available_vars_values(self, exclude=None):
         return self.parent.get_available_vars_values(exclude)
@@ -863,11 +900,11 @@ class EntityDir(Entity):
         for versions in content.values():
             yield from versions.all_versions
 
-    def get_var(self, name):
+    def get_var(self, name, cascading=True):
         if var := self.vars.get(name):
             return var
-        if parent := self.parent:
-            return parent.get_var(name)
+        if cascading and (parent := self.parent):
+            return parent.get_var(name, cascading=True)
 
         raise UnavailableVar(name)
 

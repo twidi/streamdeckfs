@@ -413,7 +413,7 @@ class FilterCommands:
                 # check name and value
                 filename = base_filename + f";{name}={value}"
                 parsed_args = entity.raw_parse_filename(filename, entity.path.parent).args
-                if parsed_args and name in parsed_args:
+                if parsed_args and (name in parsed_args or "VAR" in parsed_args):
                     args[name] = value
                 else:
                     Manager.exit(1, f"[{error_msg_name_part}] Configuration `{name} {value}` is not valid")
@@ -430,33 +430,11 @@ class FilterCommands:
         updated_args, removed_args = cls.validate_names_and_values(
             entity, main, names_and_values, error_msg_name_part or entity
         )
-        final_parts = [main_part]
-        seen_names = set()
-        for part in parts:
-            name, *__, value = part.partition("=")
-            if name in seen_names:
-                continue
-            seen_names.add(name)
-            if name in removed_args:
-                continue
-            if name not in updated_args:
-                final_parts.append(part)
-                continue
-            final_parts.append(f"{name}={updated_args.pop(name)}")
-        for name, value in updated_args.items():
-            final_parts.append(f"{name}={value}")
-        return ";".join(final_parts)
+        return entity.make_new_filename(updated_args, removed_args)
 
     @classmethod
     def rename_entity(cls, entity, new_filename=None, new_path=None, dry_run=False):
-        assert (new_filename or new_path) and not (new_filename and new_path)
-        if new_filename:
-            new_path = entity.path.parent / new_filename
-        if new_path != entity.path:
-            if not dry_run:
-                entity.path = entity.path.replace(new_path)
-            return True, new_path
-        return False, new_path
+        return entity.rename(new_filename, new_path, check_only=dry_run)
 
     @classmethod
     def delete_entity(cls, entity, dry_run=False):
@@ -479,8 +457,7 @@ class FilterCommands:
     def create_entity(
         cls, entity_class, parent, identifier, main_args, names_and_values, link, error_msg_name_part, dry_run=False
     ):
-        entity_filename = entity_class.compose_main_part(main_args)
-        entity = entity_class(**entity_class.get_create_base_args(parent.path / entity_filename, parent, identifier))
+        entity = entity_class.create_basic(parent, main_args, identifier)
         filename = cls.update_filename(entity, names_and_values, None, error_msg_name_part)
         path = parent.path / filename
         cls.check_new_path(path, entity_class.is_dir, error_msg_name_part)

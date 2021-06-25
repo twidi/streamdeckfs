@@ -1455,7 +1455,38 @@ You can combine this with the negate operator (`!`). For example `TEXT;text=ON;d
 
 Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
 
-### Examples
+
+## Key event to set a variable
+
+In addition to actions on [key events that were previously described](#configuring-key-events-press-long-press-release-start-end)), ie `page`, `brightness` and `command`, it's also possible to set the value of a variable.
+
+It must be defined like this: `VAR_NAME=VALUE`, with:
+
+- `VAR_NAME`: the variable to set (starting with `VAR_`)
+- `VALUE`: the new value for this variable
+
+If the variable file does not exist, it will be created, else it will be updated (and, if present, its `disabled` attribute will be removed)
+
+By default, the variable will be created/updated in the directory of the key. But it's possible to put it at another place:
+
+- `:VAR_NAME` to put it in the the directory of the page holding the key
+- `::VAR_NAME` to put it in the directory of the deck
+- `:KEY:VAR_NAME` to put it in the directory of another key (defined by name of by coordinate in the `row,col` format) of the page holding the current key
+- `::PAGE:KEY:VAR_NAME` to put it in the directory of aanother key in another page (defined by name or number)
+- `::PAGE:VAR_NAME` to put it in the directory of another page
+
+The value will be set on the name (on the `value` configuration option) of the variable `VAR_NAME;value=VALUE`.
+
+But it can be set as the content of the file, by suffixing the name of the var by `<`: `VAR_NAME<=VALUE`. In this case the file name of the variable will be `VAR_NAME` and its content will be `VALUE`. You can remember this by seeing the `<=` operator as an arrow saying that we put the `VALUE` into `VAR_NAME`.
+
+Example setting a variable named `FOO` to the value `bar` in the page named `mypage` on press of a key would be:
+
+```
+ON_PRESS;::mypage:VAR_FOO<=bar
+
+```
+
+## Examples
 
 The first example below shows how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
 
@@ -1526,6 +1557,20 @@ We have two files:
 - a variable file named `VAR_ICON` containg `thumbs-up`
 
 An external script can then change the content of the `VAR_ICON` file to update the key.
+
+The fourth example below shows how to alternate between 3 emojis.
+
+We use the fact that we can have many times the same event defined (here `ON_PRESS`) but the disabled ones are ignored. So we only keep one enable.
+And the action of the event is to set the next emoji in a variable, variable that is used to display the emoji on the key, and to know which events to disable.
+
+So we have:
+
+- A text defined like this `TEXT;fit;text=$VAR_EMOJI`
+- A variable file defined like this `VAR_EMOJI;value=:joy`
+- And three `ON_PRESS` where only one will be activated depending on the emoji, to display the next one:
+    - `ON_PRESS;VAR_EMOJI=:joy:;disabled=!$VAR_EMOJI=":sob:"`
+    - `ON_PRESS;VAR_EMOJI=:neutral_face:;disabled=!$VAR_EMOJI=":joy:"`
+    - `ON_PRESS;VAR_EMOJI=:sob:;disabled=!$VAR_EMOJI=":neutral_face:"`
 
 
 # API
@@ -2558,6 +2603,12 @@ $ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-
 ```
 $ streamdeckfs get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
 {"kind": "PRESS", "unique": true}
+```
+
+If the action on the event is setting a variable content (`ON_PRESS;VAR_NAME<=VALUE`), notice that the key/value separator is the `=` so the `<` is in the first part of the `-c` argument:
+
+```bash
+$ streamdeckfs set-event-conf ~/streamdeck-data/MYDECKSERIAL -p page -k key -e press -c 'VAR_NAME<' VALUE
 ```
 
 ## create-event

@@ -384,7 +384,7 @@ class PageEvent(BaseEvent, PageContent):
 
 @dataclass(eq=False)
 class KeyEvent(BaseEvent, KeyContent):
-    non_run_args = {"page", "brightness"}
+    non_run_args = {"page", "brightness", "VAR"}
     repeat_allowed_for = BaseEvent.repeat_allowed_for | {"press"}
 
     main_part_re = re.compile(r"^ON_(?P<kind>PRESS|LONGPRESS|RELEASE|START|END)$")
@@ -404,12 +404,35 @@ class KeyEvent(BaseEvent, KeyContent):
         ),
         # action page
         "page": re.compile(r"^(?P<arg>page)=(?P<value>.+)$"),
+        # action set var
+        "VAR": re.compile(
+            r"""
+        ^
+        (?P<dest>
+            (?P<same_page>:)  # ":VAR_" on the current page directory
+            |
+            (?P<deck>::)  # "::VAR_" on the deck directory
+            |
+            (?::(?P<other_key>[^:]+):)  # ":key:VAR_" on the "key" directory of the current page
+            |
+            (?:::(?P<other_page>[^:]+):)  # "::page:VAR_" on the "page" directory
+            |
+            (?:::(?P<other_page_key_page>[^:]+):(?P<other_page_key_key>[^:]+):)  # "::page:key:VAR_" on the "key" directory of the "page" directory
+        )?  # if not => "VAR_" on the current key directory
+        (?P<arg>VAR)_(?P<name>[A-Z0-9_]+)  # VAR_XXX
+        (?P<infile><)?=  # if `=` we set on value in file name; if `<=` we set in file content
+        (?P<value>.*)
+        $
+        """,
+            re.VERBOSE,
+        ),
     }
 
     def __post_init__(self):
         super().__post_init__()
         self.brightness_level = ("=", DEFAULT_BRIGHTNESS)
         self.page_ref = None
+        self.set_var_conf = None
         self.duration_max = None
         self.duration_min = None
 
@@ -426,6 +449,34 @@ class KeyEvent(BaseEvent, KeyContent):
                 args["brightness"].get("brightness_operation") or "=",
                 int(args["brightness"]["brightness_level"]),
             )
+        elif var := args.get("VAR"):
+            final_args["mode"] = "set_var"
+            set_var_conf = final_args["set_var"] = {
+                "name": var["name"],
+                "value": var.get("value") or "",
+                "dest": var.get("dest"),
+                "infile": bool(var.get("infile")),
+            }
+            if var.get("same_page"):
+                set_var_conf["dest_type"] = "page"
+                set_var_conf["page_ref"] = None
+            elif var.get("deck"):
+                set_var_conf["dest_type"] = "deck"
+            elif var.get("other_key"):
+                set_var_conf["dest_type"] = "key"
+                set_var_conf["page_ref"] = None
+                set_var_conf["key_ref"] = var["other_key"]
+            elif var.get("other_page"):
+                set_var_conf["dest_type"] = "page"
+                set_var_conf["page_ref"] = var["other_page"]
+            elif var.get("other_page_key_page"):
+                set_var_conf["dest_type"] = "key"
+                set_var_conf["page_ref"] = var["other_page_key_page"]
+                set_var_conf["key_ref"] = var["other_page_key_key"]
+            else:
+                set_var_conf["dest_type"] = "key"
+                set_var_conf["page_ref"] = None
+                set_var_conf["key_ref"] = None
         else:
             if "duration-max" in args:
                 final_args["duration-max"] = int(args["duration-max"])
@@ -442,6 +493,8 @@ class KeyEvent(BaseEvent, KeyContent):
             event.brightness_level = args["brightness_level"]
         elif event.mode == "page":
             event.page_ref = args["page_ref"]
+        elif event.mode == "set_var":
+            event.set_var_conf = args["set_var"]
         if event.kind == "press":
             if args.get("duration-max"):
                 event.duration_max = args["duration-max"]
@@ -483,8 +536,101 @@ class KeyEvent(BaseEvent, KeyContent):
             self.deck.set_brightness(*self.brightness_level)
         elif self.mode == "page":
             self.deck.go_to_page(self.page_ref)
+        elif self.mode == "set_var":
+            self.set_var()
         else:
             return super()._run()
+
+    def set_var(self):
+        if not self.set_var_conf:
+            return
+
+        conf = self.set_var_conf
+        name = conf["name"]
+        value = conf["value"]
+
+        if conf["dest_type"] == "deck":
+            parent = self.deck
+        elif conf["dest_type"] == "page":
+            if conf["page_ref"]:
+                parent = self.deck.find_page(conf["page_ref"])
+            else:
+                parent = self.page
+        else:
+            if conf["key_ref"]:
+                if conf["page_ref"]:
+                    page = self.deck.find_page(conf["page_ref"])
+                else:
+                    page = self.page
+                parent = page.find_key(conf["key_ref"]) if page else None
+            else:
+                parent = self.key
+        if not parent:
+            logger.error(
+                f"[{self}] Variable `VAR_{name}` cannot be set: unable to find a {conf['dest_type']} matching `{conf['dest']}`"
+            )
+            return
+
+        if var := parent.find_var(name, allow_disabled=True):
+
+            if conf["infile"]:
+                if var.value is None and value == var.resolved_value:
+                    logger.debug(f"[{self}] Variable `VAR_{name}` already had the correct value in `{var.path}`")
+                    return
+                filename = var.make_new_filename(update_args={}, remove_args={"value", "disabled"})
+
+            else:
+                if value == var.value:
+                    logger.debug(
+                        f"[{self}] Variable `VAR_{name}` already had the correct value configuration option in `{var.path}`"
+                    )
+                    return
+                filename = var.make_new_filename(update_args={"value": conf["value"]}, remove_args={"disabled"})
+
+            try:
+                renamed, path = var.rename(new_filename=filename)
+            except Exception:
+                logger.error(
+                    f"[{self}] Variable `VAR_{name}` cannot be set: error when renaming file `{var.path}` to `{parent.path / filename}`",
+                    exc_info=logger.level == logging.DEBUG,
+                )
+                return
+            else:
+                if conf["infile"]:
+                    try:
+                        path.write_text(value)
+                    except Exception:
+                        logger.error(
+                            f"[{self}] Variable `VAR_{name}` cannot be set: error when renaming file `{var.path}` to `{parent.path / filename}`",
+                            exc_info=logger.level == logging.DEBUG,
+                        )
+                        return
+                if renamed:
+                    logger.debug(f"[{self}] Variable `VAR_{name}` updated (renamed from `{var.path}` to `{path}`)")
+                elif conf["infile"]:
+                    logger.debug(f"[{self}] Variable `VAR_{name}` updated (same path, `{path}`)")
+                else:
+                    logger.debug(f"[{self}] Variable `VAR_{name}` untouched (same path, `{path}`)")
+
+        else:
+            var = parent.var_class.create_basic(parent, {"name": name}, name)
+            if conf["infile"]:
+                path = var.path
+            else:
+                path = parent.path / var.make_new_filename({"value": conf["value"]}, set())
+            try:
+                if conf["infile"]:
+                    path.write_text(value)
+                else:
+                    path.touch()
+            except Exception:
+                logger.error(
+                    f"[{self}] Variable `VAR_{name}` cannot be set: error when creating file `{path}`",
+                    exc_info=logger.level == logging.DEBUG,
+                )
+                return
+            else:
+                logger.debug(f"[{self}] Variable `VAR_{name}` created (in `{path}`)")
 
     def wait_run_and_repeat(self, on_press=False):
         if self.duration_max:
