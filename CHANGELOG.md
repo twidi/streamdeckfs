@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.5.1` - *IN PROGRESS*
+## Release `1.5.1` - *2021-06-25*
 
 - Fix some variables that cannot be set via api
 - New action on key events to set a variable
