@@ -19,6 +19,7 @@ import cloup.constraints as cons
 
 from ..common import Manager, logger
 from ..entities import FILTER_DENY, PAGE_CODES, VAR_RE, Deck, UnavailableVar
+from ..entities.var import ELIF_THEN_RE
 from .base import cli, validate_positive_integer
 
 NoneType = type(None)
@@ -397,8 +398,9 @@ class FilterCommands:
 
             if not value:
                 removed_args.add(name)
-            elif VAR_RE.search(value):
+            elif ELIF_THEN_RE.search(name) or VAR_RE.search(value):
                 # if the value contains a variable, we only check the name
+                # same if it's a "elif" or "then"  because it depends on the other configuration options
                 if name not in entity.allowed_args:
                     if "." not in name:
                         Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
@@ -408,13 +410,13 @@ class FilterCommands:
                             main_name
                         ].match(name):
                             Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
-                args[name] = value
+                entity.save_raw_arg(name, value, args)
             else:
                 # check name and value
                 filename = base_filename + f";{name}={value}"
                 parsed_args = entity.raw_parse_filename(filename, entity.path.parent).args
                 if parsed_args and (name in parsed_args or "VAR" in parsed_args):
-                    args[name] = value
+                    entity.save_raw_arg(name, value, args)
                 else:
                     Manager.exit(1, f"[{error_msg_name_part}] Configuration `{name} {value}` is not valid")
         return args, removed_args
@@ -430,7 +432,14 @@ class FilterCommands:
         updated_args, removed_args = cls.validate_names_and_values(
             entity, main, names_and_values, error_msg_name_part or entity
         )
-        return entity.make_new_filename(updated_args, removed_args)
+        filename = entity.make_new_filename(updated_args, removed_args)
+        try:
+            # ensure the new filename is valid
+            if not entity.parse_filename(filename, entity.parent).main:
+                raise ValueError
+        except Exception:
+            Manager.exit(1, f"[{error_msg_name_part}] Configuration is not valid")
+        return filename
 
     @classmethod
     def rename_entity(cls, entity, new_filename=None, new_path=None, dry_run=False):

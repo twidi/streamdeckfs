@@ -1,6 +1,12 @@
 # Changelog
 
 
+
+## Release `1.5.3` - *IN PROGRESS*
+
+- Conditionals when defining variables
+
+
 ## Release `1.5.2` - *2021-06-25*
 
 - Read variables recursively and in equality values

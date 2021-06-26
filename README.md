@@ -1455,6 +1455,20 @@ You can combine this with the negate operator (`!`). For example `TEXT;text=ON;d
 
 Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
 
+### Conditionals
+
+When defining a varialbe (not when using it), it's possible to use if/then/else to set it's value.
+
+All are configuration options to set in tne file name, like `VAR_FOO;if=CONDITION;then=VALUE_IF;else=?VALUE_ELSE;`, with
+
+- `CONDITION`: the condition to check. Must be `true` or `false`, and can be composed with variables (because it does not make a lot of sense to set `if=true` directly). For example `if=$VAR_FOO="bar"`
+- `VALUE_IF`: it's the value that will be used if the `CONDITION` is `true`
+- `VALUE_ELSE`: it's the value that will be used if the `CONDITION` is `false`
+
+In addition you can also use additional `elif` + `else` groups, like `VAR_FOO;if=CONDITION1;then=VALUE_IF1;elif=CONDITION2;then=VALUE_IF2;elif=CONDITION3;then=VALUE_IF3;else=VALUE_ELSE;`
+
+See in the examples below how it can be used.
+
 
 ## Key event to set a variable
 
@@ -1580,16 +1594,16 @@ Another way to write this example if we don't want to hardcode emojis in many fi
     - `VAR_EMOJI1;value=:joy:`
     - `VAR_EMOJI2;value=:neutral_face:`
     - `VAR_EMOJI3;value=:sob:`
-And our three `ON_PRESS`:
+- And our three `ON_PRESS`:
     - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;disabled=!$VAR_EMOJI="$VAR_EMOJI3"`
     - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;disabled=!$VAR_EMOJI="$VAR_EMOJI1"`
     - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;disabled=!$VAR_EMOJI="$VAR_EMOJI2"`
 
-  It could even be made more generic:
+It could even be made more generic:
 
 - A text defined like this: `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`
 - A variable file defined like this: `VAR_INDEX;value=1`
-- Three variables for our emojis, so we can change them without changing anything else:
+- Three variables for our texts, so we can change them without changing anything else:
     - `VAR_TEXT1;value=:joy:`
     - `VAR_TEXT2;value=:neutral_face:`
     - `VAR_TEXT3;value=:sob:`
@@ -1599,6 +1613,26 @@ And our three `ON_PRESS`:
     - `ON_PRESS;VAR_INDEX=3;disabled=!$VAR_INDEX="2"`
 
   The magic is in `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`, because `$VAR_TEXT` is not an existing variable but `$VAR_INDEX` is, so `$VAR_INDEX` is converted first, to `1`, and then we have `$VAR_TEXT1` that can be converted.
+
+
+We could also use conditionals to reduce the number of files::
+
+- We still have our text:  `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`
+- And our index variable:  `VAR_INDEX;value=1`
+- Our variables for the texts:
+    - `VAR_TEXT1;value=:joy:`
+    - `VAR_TEXT2;value=:neutral_face:`
+    - `VAR_TEXT3;value=:sob:`
+
+
+But instead of 3 `ON_PRESS` used to set the next index depending on the current one, we'll start by making a `VAR_NEXT_INDEX` variable:
+
+- `VAR_NEXT_INDEX;if=$VAR_INDEX="1";then=2;elif=$VAR_INDEX="2";then=3;else=1`
+
+And finally our single `ON_PRESS` file:
+
+- `ON_PRESS;VAR_INDEX=$VAR_NEXT_INDEX`
+
 
 # API
 

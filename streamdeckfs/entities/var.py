@@ -16,6 +16,8 @@ from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
 
+ELIF_THEN_RE = re.compile(r"^(?:elif|then)(?:\.\d+)?$")
+
 
 @dataclass(eq=False)
 class BaseVar(EntityFile):
@@ -25,9 +27,32 @@ class BaseVar(EntityFile):
 
     allowed_args = EntityFile.allowed_args | {
         "value": re.compile(r"^(?P<arg>value)=(?P<value>.+)$"),
+        "if": re.compile(r"^(?P<arg>if)=(?P<value>true|false)$"),
+        "elif": re.compile(r"^(?P<arg>elif)=(?P<value>.+)$"),
+        "elif.": re.compile(r"^(?P<arg>elif\.\d+)=(?P<value>.+)$"),
+        "then": re.compile(r"^(?P<arg>then)=(?P<value>.+)$"),
+        "then.": re.compile(r"^(?P<arg>then\.\d+)=(?P<value>.+)$"),
+        "else": re.compile(r"^(?P<arg>else)=(?P<value>.+)$"),
     }
     # no `name` arg, we already have it in main
     allowed_args.pop("name")
+
+    allowed_partial_args = EntityFile.allowed_partial_args | {
+        "then": re.compile(r"^then\.\d+$"),
+        "elif": re.compile(r"^elif\.\d+$"),
+    }
+
+    unique_args_combinations = [
+        ("value", "file"),
+        ("value", "if"),
+        ("value", "elif"),
+        ("value", "then"),
+        ("value", "else"),
+        ("file", "if"),
+        ("file", "elif"),
+        ("file", "then"),
+        ("file", "else"),
+    ]
 
     identifier_attr = "name"
     parent_container_attr = "vars"
@@ -46,22 +71,78 @@ class BaseVar(EntityFile):
         return f"{self.parent}, {self.str}"
 
     @classmethod
+    def save_raw_arg(cls, name, value, args):
+        if name == "elif":
+            if "elif" not in args:
+                args["elif"] = []
+            args["elif"].append(value)
+        elif name == "then":
+            if "then" not in args:
+                args["then"] = []
+            args["then"].append(value)
+        else:
+            super().save_raw_arg(name, value, args)
+
+    @classmethod
     def convert_args(cls, main, args):
         final_args = super().convert_args(main, args)
 
-        if len([1 for key in ("value", "file") if args.get(key)]) > 1:
-            raise InvalidArg('Only one of these arguments must be used: "value", "file"')
+        for unique_args in cls.unique_args_combinations:
+            if len([1 for key in unique_args if args.get(key)]) > 1:
+                raise InvalidArg(
+                    "Only one of these arguments must be used: " + (", ".join(f'"{arg}"' for arg in unique_args))
+                )
+        if "if" in args or "else" in args or "then" in args:
+            if "if" not in args or "else" not in args or "then" not in args:
+                raise InvalidArg('"if", "then" and "else" arguments must all be present')
+            all_ifs = [args["if"]] + args.get("elif", [])
+            if len(args["then"]) != len(all_ifs) or None in args["then"] or None in all_ifs:
+                raise InvalidArg('Invalide number of "elif" or "then"')
 
         del final_args["name"]
-        if "value" in args:
-            final_args["value"] = cls.replace_special_chars(args["value"], args)
+
+        for arg in ("value", "if", "else"):
+            if arg in args:
+                final_args[arg] = cls.replace_special_chars(args[arg], args)
+
+        for arg in ("elif", "then"):
+            if arg in args:
+                final_args[arg] = [cls.replace_special_chars(subarg, args) for subarg in args[arg]]
+
         return final_args
 
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         var = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        var.value = args.get("value")
+        if "if" in args:
+            elif_ = [args["if"]] + args.get("elif", [])
+            for if_, then_ in zip(elif_, args["then"]):
+                if if_ == "true":
+                    var.value = then_
+                    break
+            else:
+                var.value = args["else"]
+        else:
+            var.value = args.get("value")
         return var
+
+    @classmethod
+    def merge_partial_arg(cls, main_key, values, args):
+        if main_key in ("elif", "then"):
+            if main_key not in args:
+                args[main_key] = []
+            arg = args[main_key]
+            for key, value in values.items():
+                try:
+                    index = int(key.split(".")[-1])
+                    if index >= len(arg):
+                        # complete list with `None` values
+                        arg.extend([None] * (index - len(arg) + 1))
+                    arg[index] = value
+                except Exception:
+                    pass
+        else:
+            super().merge_partial_arg(main_key, values, args)
 
     @staticmethod
     def args_matching_filter(main, args, filter):
@@ -73,7 +154,7 @@ class BaseVar(EntityFile):
     def resolved_value(self):
         if self.cached_value is not None:
             return self.cached_value
-        if self.value:
+        if self.value is not None:
             self.cached_value = self.value
         else:
             if self.mode == "content":

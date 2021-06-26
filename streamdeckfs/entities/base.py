@@ -182,6 +182,10 @@ class Entity:
         return value, used_vars
 
     @classmethod
+    def save_raw_arg(cls, name, value, args):
+        args[name] = value
+
+    @classmethod
     def raw_parse_filename(cls, name, parent, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
@@ -219,7 +223,7 @@ class Entity:
                                 values = values["value"]
                                 if is_flag:
                                     values = values in (None, "true")
-                            args[arg_name] = values
+                            cls.save_raw_arg(arg_name, values, args)
 
         cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars)
         return cls.parse_cache[name]
@@ -278,38 +282,8 @@ class Entity:
                 continue
             parent_key = key.split(".", 1)[0]
             sub_args.setdefault(parent_key, {})[key] = value
-        if sub_args:
-            for parent_key in sub_args.keys():
-                if parent_key in args:
-                    if isinstance(args[parent_key], str):
-                        try:
-                            parts = args[parent_key].split(",")
-                            for key, value in sub_args[parent_key].items():
-                                try:
-                                    index = int(key.split(".")[-1])
-                                    parts[index] = value
-                                except Exception:
-                                    continue
-                            args[parent_key] = ",".join(parts)
-                        except Exception:
-                            pass
-                    elif isinstance(args[parent_key], dict):
-                        try:
-                            parts = list(args[parent_key].keys())
-                            for key, value in sub_args[parent_key].items():
-                                try:
-                                    part = key.split(".")[-1]
-                                    try:
-                                        index = int(part)
-                                    except ValueError:
-                                        if part in args[parent_key]:
-                                            args[parent_key][part] = value
-                                    else:
-                                        args[parent_key][parts[index]] = value
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
+        for parent_key in sub_args.keys():
+            cls.merge_partial_arg(parent_key, sub_args[parent_key], args)
 
         try:
             main = cls.convert_main_args(main)
@@ -320,6 +294,41 @@ class Entity:
             logger.error(f"[{parent}] [{name}] {exc}")
 
         return ParseFilenameResult(ref_conf)
+
+    @classmethod
+    def merge_partial_arg(cls, main_key, values, args):
+        if main_key not in args:
+            return
+        arg = args[main_key]
+        if isinstance(arg, str):
+            try:
+                parts = arg.split(",")
+                for key, value in values.items():
+                    try:
+                        index = int(key.split(".")[-1])
+                        parts[index] = value
+                    except Exception:
+                        continue
+                args[main_key] = ",".join(parts)
+            except Exception:
+                pass
+        elif isinstance(arg, dict):
+            try:
+                parts = list(arg.keys())
+                for key, value in values.items():
+                    try:
+                        part = key.split(".")[-1]
+                        try:
+                            index = int(part)
+                        except ValueError:
+                            if part in arg:
+                                arg[part] = value
+                        else:
+                            arg[parts[index]] = value
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
     def make_new_filename(self, update_args, remove_args):
         parts = self.path.name.split(";")
@@ -338,9 +347,17 @@ class Entity:
             if name not in update_args:
                 final_parts.append(part)
                 continue
-            final_parts.append(f"{name}={update_args.pop(name)}")
+            if isinstance(update_args[name], list):
+                for sub_value in update_args.pop(name):
+                    final_parts.append(f"{name}={sub_value}")
+            else:
+                final_parts.append(f"{name}={update_args.pop(name)}")
         for name, value in update_args.items():
-            final_parts.append(f"{name}={value}")
+            if isinstance(value, list):
+                for sub_value in value:
+                    final_parts.append(f"{name}={sub_value}")
+            else:
+                final_parts.append(f"{name}={value}")
         return ";".join(final_parts)
 
     def rename(self, new_filename=None, new_path=None, check_only=False):
