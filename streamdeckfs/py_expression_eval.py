@@ -557,6 +557,8 @@ class Parser:
                 break
         operstack.append(operator)
 
+    isNumberPattern = re.compile(r"([-+]?([0-9]*\.?[0-9]*)[eE][-+]?[0-9]+).*")
+
     def isNumber(self):
         r = False
 
@@ -564,8 +566,7 @@ class Parser:
             return False
 
         # number in scientific notation
-        pattern = r"([-+]?([0-9]*\.?[0-9]*)[eE][-+]?[0-9]+).*"
-        match = re.match(pattern, self.expression[self.pos :])
+        match = self.isNumberPattern.match(self.expression[self.pos :])
         if match:
             self.pos += len(match.group(1))
             self.tokennumber = float(match.group(1))
@@ -589,6 +590,17 @@ class Parser:
                 break
         return r
 
+    unescapes = {
+        "'": "'",
+        "\\": "\\",
+        "/": "/",
+        "b": "\b",
+        "f": "\f",
+        "r": "\r",
+        "n": "\n",
+        "t": "\t",
+    }
+
     def unescape(self, v, pos):
         buffer = []
         escaping = False
@@ -597,30 +609,8 @@ class Parser:
             c = v[i]
 
             if escaping:
-                if c == "'":
-                    buffer.append("'")
-                    break
-                elif c == "\\":
-                    buffer.append("\\")
-                    break
-                elif c == "/":
-                    buffer.append("/")
-                    break
-                elif c == "b":
-                    buffer.append("\b")
-                    break
-                elif c == "f":
-                    buffer.append("\f")
-                    break
-                elif c == "n":
-                    buffer.append("\n")
-                    break
-                elif c == "r":
-                    buffer.append("\r")
-                    break
-                elif c == "t":
-                    buffer.append("\t")
-                    break
+                if c in self.unescapes:
+                    buffer.append(self.unescapes[c])
                 elif c == "u":
                     # interpret the following 4 characters
                     # as the hex of the unicode code point
@@ -676,31 +666,32 @@ class Parser:
                     return True
         return False
 
+    isOperatorOps = (
+        ("**", 8, "**"),
+        ("^", 8, "^"),
+        ("%", 6, "%"),
+        ("/", 6, "/"),
+        ("\u2219", 5, "*"),  # bullet operator
+        ("\u2022", 5, "*"),  # black small circle
+        ("*", 5, "*"),
+        ("+", 4, "+"),
+        ("-", 4, "-"),
+        ("||", 3, "||"),
+        ("==", 3, "=="),
+        ("!=", 3, "!="),
+        ("<=", 3, "<="),
+        (">=", 3, ">="),
+        ("<", 3, "<"),
+        (">", 3, ">"),
+        ("in ", 3, "in"),
+        ("not ", 2, "not"),
+        ("and ", 1, "and"),
+        ("xor ", 0, "xor"),
+        ("or ", 0, "or"),
+    )
+
     def isOperator(self):
-        ops = (
-            ("**", 8, "**"),
-            ("^", 8, "^"),
-            ("%", 6, "%"),
-            ("/", 6, "/"),
-            ("\u2219", 5, "*"),  # bullet operator
-            ("\u2022", 5, "*"),  # black small circle
-            ("*", 5, "*"),
-            ("+", 4, "+"),
-            ("-", 4, "-"),
-            ("||", 3, "||"),
-            ("==", 3, "=="),
-            ("!=", 3, "!="),
-            ("<=", 3, "<="),
-            (">=", 3, ">="),
-            ("<", 3, "<"),
-            (">", 3, ">"),
-            ("in ", 3, "in"),
-            ("not ", 2, "not"),
-            ("and ", 1, "and"),
-            ("xor ", 0, "xor"),
-            ("or ", 0, "or"),
-        )
-        for token, priority, index in ops:
+        for token, priority, index in self.isOperatorOps:
             if self.expression.startswith(token, self.pos):
                 self.tokenprio = priority
                 self.tokenindex = index
