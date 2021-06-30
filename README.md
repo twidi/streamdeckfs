@@ -1479,6 +1479,15 @@ You'll have:
 - `$VAR_FOO[-3]` => `foo`
 - `$VAR_FOO[#]` => `3`
 
+### Adding/removing values
+
+It's possible to add/remove a value (as an integer or float) to the value returned by the variable:
+
+Using the previous example of the `VAR_FOO` file containing 3 lines, with `$VAR_FOO[#]` returning the number of lines, to get the index of the last line it's possible to do `$VAR_FOO[#]-1`
+
+The numbers in this operation cannot be variables.
+
+See in the examples below how it can be used.
 
 ### Conditionals
 
@@ -1674,6 +1683,11 @@ Using lines indexing, we can reduce the number of files:
 - And our `$VAR_NEXT_INDEX` is updated to take into account that lines start at 0:
 
 - `VAR_NEXT_INDEX;if=$VAR_INDEX="0";then=1;elif=$VAR_INDEX="1";then=2;else=0`
+
+
+And finally to make it works whatever the number of lines in `VAR_TEXTS`, we can use basic operations, using `$VAR_NEXT_INDEX=$VAR_INDEX+1` and `$VAR_TEXTS[#]-1`:
+
+- `VAR_NEXT_INDEX;if=$VAR_INDEX="$VAR_TEXTS[#]-1";then=0;else=$VAR_INDEX+1`
 
 
 # API

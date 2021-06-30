@@ -6,6 +6,7 @@
 
 - Conditionals when defining variables
 - Lines indexing on multi-lines variable files
+- Adding/removing numbers to a variable (for example to increment a counter, or get the last line index of a file)
 
 
 ## Release `1.5.2` - *2021-06-25*

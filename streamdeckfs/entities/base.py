@@ -29,7 +29,9 @@ RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
 VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z-0-9])"
 VAR_RE = re.compile(
-    r"(?P<not>!)?\$VAR_" + VAR_RE_NAME_PART + r'(?:\[(?P<line>[^\]]+)\])?(?P<equal>="(?P<equal_value>[^"]*)")?'
+    r"(?P<not>!)?\$VAR_"
+    + VAR_RE_NAME_PART
+    + r'(?:\[(?P<line>[^\]]+)\])?(?P<op>[+-]\d+(?:\.\d+)?)?(?P<equal>="(?P<equal_value>[^"]*)")?'
 )
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 VAR_RE_INDEX = re.compile(r"^(?:#|-?\d+)$")
@@ -152,6 +154,11 @@ class Entity:
             elif line:
                 value = value.splitlines()[int(line)]
 
+        if op := data.get("op"):
+            value = int(value) if value.isdigit() else float(value)
+            op = int(op) if "." not in op else float(op)
+            value = str(value + op)
+
         if data.get("equal"):
             if (equal_value := (data.get("equal_value") or "")) and "$VAR_" in equal_value:
                 equal_value = cls.replace_vars(equal_value, filename, parent, used_vars)[0]
@@ -184,13 +191,14 @@ class Entity:
                 }
                 # will raise KeyError if wanted to negate a value not in true/false
                 # or IndexError if wanted to access an invalid line number
+                # or ValueError if a +- operation was done on an non-number value
                 value = VAR_RE.sub(replace, value)
 
                 if len(VAR_RE.findall(value)) == count_before:
                     # we had matches, but none were replaced, we can end the loop
                     raise UnavailableVar
 
-            except (UnavailableVar, KeyError, IndexError) as exc:
+            except (UnavailableVar, KeyError, IndexError, ValueError) as exc:
                 if isinstance(exc, UnavailableVar) and exc.var_names:
                     var_names |= exc.var_names
                 parent.add_waiting_for_vars(cls, filename, var_names)
