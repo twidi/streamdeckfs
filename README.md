@@ -1455,6 +1455,31 @@ You can combine this with the negate operator (`!`). For example `TEXT;text=ON;d
 
 Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
 
+### Lines indexing
+
+If the `VAR_` as its value defined by its content (ie not using `value=`) and its content is on multiple lines, it's possible to access a specific line by using `$VAR_FOO[INDEX]`, with `INDEX` being the line to access, starting at `0`. It's also possible to use reverse indexing (`-1` is the last line, `-2` the line before the last line...).
+
+It's also possible to get the number of lines by using `[#]`.
+
+For example if the file `VAR_FOO` contains:
+
+```
+foo
+bar
+baz
+```
+
+You'll have:
+
+- `$VAR_FOO[0]` => `foo`
+- `$VAR_FOO[1]` => `bar`
+- `$VAR_FOO[2]` => `baz`
+- `$VAR_FOO[-1]` => `baz`
+- `$VAR_FOO[-2]` => `bar`
+- `$VAR_FOO[-3]` => `foo`
+- `$VAR_FOO[#]` => `3`
+
+
 ### Conditionals
 
 When defining a varialbe (not when using it), it's possible to use if/then/else to set it's value.
@@ -1632,6 +1657,23 @@ But instead of 3 `ON_PRESS` used to set the next index depending on the current 
 And finally our single `ON_PRESS` file:
 
 - `ON_PRESS;VAR_INDEX=$VAR_NEXT_INDEX`
+
+Using lines indexing, we can reduce the number of files:
+
+- We still have our text, but using indexing:  `TEXT;fit;text=$VAR_TEXTS[$VAR_INDEX]`
+- And our index variable:  `VAR_INDEX;value=1`
+- And our `ON_PRESS` file: `ON_PRESS;VAR_INDEX=$VAR_NEXT_INDEX`
+- But we know have only one `VAR_TEXTS` file, containing three lines:
+
+```
+:joy:
+:neutral_face:
+:sob:
+```
+
+- And our `$VAR_NEXT_INDEX` is updated to take into account that lines start at 0:
+
+- `VAR_NEXT_INDEX;if=$VAR_INDEX="0";then=1;elif=$VAR_INDEX="1";then=2;else=0`
 
 
 # API

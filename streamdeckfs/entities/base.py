@@ -28,8 +28,11 @@ RE_PARTS = {
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
 VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z-0-9])"
-VAR_RE = re.compile(r"(?P<not>!)?\$VAR_" + VAR_RE_NAME_PART + '(?P<equal>="(?P<equal_value>[^"]*)")?')
+VAR_RE = re.compile(
+    r"(?P<not>!)?\$VAR_" + VAR_RE_NAME_PART + r'(?:\[(?P<line>[^\]]+)\])?(?P<equal>="(?P<equal_value>[^"]*)")?'
+)
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
+VAR_RE_INDEX = re.compile(r"^(?:#|-?\d+)$")
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
@@ -138,12 +141,25 @@ class Entity:
         if name not in vars:
             return match.group(0)
         value = (var := vars[name]).resolved_value
+
+        if line := data.get("line"):
+            if "$VAR_" in line:
+                line = cls.replace_vars(line, filename, parent, used_vars)[0]
+            if not VAR_RE_INDEX.match(line):
+                raise IndexError
+            if line == "#":
+                value = str(len(value.splitlines()))
+            elif line:
+                value = value.splitlines()[int(line)]
+
         if data.get("equal"):
             if (equal_value := (data.get("equal_value") or "")) and "$VAR_" in equal_value:
                 equal_value = cls.replace_vars(equal_value, filename, parent, used_vars)[0]
             value = "true" if value == equal_value else "false"
+
         if data["not"]:
             value = cls.negated[value]
+
         used_vars.add(var)
         return value
 
@@ -167,13 +183,14 @@ class Entity:
                     if name not in vars and (var := parent.get_var(name, default_none=True)) is not None
                 }
                 # will raise KeyError if wanted to negate a value not in true/false
+                # or IndexError if wanted to access an invalid line number
                 value = VAR_RE.sub(replace, value)
 
                 if len(VAR_RE.findall(value)) == count_before:
                     # we had matches, but none were replaced, we can end the loop
                     raise UnavailableVar
 
-            except (UnavailableVar, KeyError) as exc:
+            except (UnavailableVar, KeyError, IndexError) as exc:
                 if isinstance(exc, UnavailableVar) and exc.var_names:
                     var_names |= exc.var_names
                 parent.add_waiting_for_vars(cls, filename, var_names)

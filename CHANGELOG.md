@@ -5,6 +5,7 @@
 ## Release `1.5.3` - *IN PROGRESS*
 
 - Conditionals when defining variables
+- Lines indexing on multi-lines variable files
 
 
 ## Release `1.5.2` - *2021-06-25*
