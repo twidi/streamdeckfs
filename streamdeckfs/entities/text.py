@@ -41,7 +41,7 @@ class KeyTextLine(KeyImagePart):
         "ref": re.compile(
             r"^(?P<arg>ref)=(?:(?::(?P<key_same_page>.*))|(?:(?P<page>.+):(?P<key>.+))):(?P<text_line>.*)$"  # we'll use -1 if no line given
         ),
-        "text": re.compile(r"^(?P<arg>text)=(?P<value>.+)$"),
+        "text": re.compile(r"^(?P<arg>text)=(?P<value>.+)$", re.DOTALL),  # include new lines
         "size": re.compile(r"^(?P<arg>size)=(?P<value>" + RE_PARTS["% | number"] + ")$"),
         "weight": re.compile(r"^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$"),
         "italic": re.compile(r"^(?P<flag>italic)(?:=(?P<value>false|true))?$"),
