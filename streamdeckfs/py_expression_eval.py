@@ -23,13 +23,12 @@ TVAR = 3
 TFUNCALL = 4
 
 
-class Token():
-
+class Token:
     def __init__(self, type_, index_, prio_, number_):
         self.type_ = type_
         self.index_ = index_ or 0
         self.prio_ = prio_ or 0
-        self.number_ = number_ if number_ != None else 0
+        self.number_ = number_ if number_ is not None else 0
 
     def toString(self):
         if self.type_ == TNUMBER:
@@ -37,13 +36,12 @@ class Token():
         if self.type_ == TOP1 or self.type_ == TOP2 or self.type_ == TVAR:
             return self.index_
         elif self.type_ == TFUNCALL:
-            return 'CALL'
+            return "CALL"
         else:
-            return 'Invalid Token'
+            return "Invalid Token"
 
 
-class Expression():
-
+class Expression:
     def __init__(self, tokens, ops1, ops2, functions):
         self.tokens = tokens
         self.ops1 = ops1
@@ -110,7 +108,6 @@ class Expression():
     def evaluate(self, values):
         values = values or {}
         nstack = []
-        L = len(self.tokens)
         for item in self.tokens:
             type_ = item.type_
             if type_ == TNUMBER:
@@ -126,7 +123,7 @@ class Expression():
                 elif item.index_ in self.functions:
                     nstack.append(self.functions[item.index_])
                 else:
-                    raise Exception('undefined variable: ' + item.index_)
+                    raise Exception("undefined variable: " + item.index_)
             elif type_ == TOP1:
                 n1 = nstack.pop()
                 f = self.ops1[item.index_]
@@ -140,11 +137,11 @@ class Expression():
                     else:
                         nstack.append(f(n1))
                 else:
-                    raise Exception(f + ' is not a function')
+                    raise Exception(f + " is not a function")
             else:
-                raise Exception('invalid Expression')
+                raise Exception("invalid Expression")
         if len(nstack) > 1:
-            raise Exception('invalid Expression (parity)')
+            raise Exception("invalid Expression (parity)")
         return nstack[0]
 
     def toString(self, toJS=False):
@@ -155,44 +152,45 @@ class Expression():
             type_ = item.type_
             if type_ == TNUMBER:
                 if type(item.number_) == str:
-                    nstack.append("'"+item.number_+"'")
+                    nstack.append("'" + item.number_ + "'")
                 else:
-                    nstack.append( item.number_)
+                    nstack.append(item.number_)
             elif type_ == TOP2:
                 n2 = nstack.pop()
                 n1 = nstack.pop()
                 f = item.index_
-                if toJS and f == '^':
-                    nstack.append('math.pow(' + n1 + ',' + n2 + ')')
+                if toJS and f == "^":
+                    nstack.append("math.pow(" + n1 + "," + n2 + ")")
                 else:
-                    frm='({n1}{f}{n2})'
-                    if f == ',':
-                        frm = '{n1}{f}{n2}'
+                    frm = "({n1}{f}{n2})"
+                    if f == ",":
+                        frm = "{n1}{f}{n2}"
 
-                    nstack.append(frm.format(
-                        n1=n1,
-                        n2=n2,
-                        f=f,
-                    ))
-
+                    nstack.append(
+                        frm.format(
+                            n1=n1,
+                            n2=n2,
+                            f=f,
+                        )
+                    )
 
             elif type_ == TVAR:
                 nstack.append(item.index_)
             elif type_ == TOP1:
                 n1 = nstack.pop()
                 f = item.index_
-                if f == '-':
-                    nstack.append('(' + f + str(n1) + ')')
+                if f == "-":
+                    nstack.append("(" + f + str(n1) + ")")
                 else:
-                    nstack.append(f + '(' + str(n1) + ')')
+                    nstack.append(f + "(" + str(n1) + ")")
             elif type_ == TFUNCALL:
                 n1 = nstack.pop()
                 f = nstack.pop()
-                nstack.append(f + '(' + n1 + ')')
+                nstack.append(f + "(" + n1 + ")")
             else:
-                raise Exception('invalid Expression')
+                raise Exception("invalid Expression")
         if len(nstack) > 1:
-            raise Exception('invalid Expression (parity)')
+            raise Exception("invalid Expression (parity)")
         return nstack[0]
 
     def __str__(self):
@@ -202,29 +200,26 @@ class Expression():
         vars = []
         for i in range(0, len(self.tokens)):
             item = self.tokens[i]
-            if item.type_ == TVAR and not item.index_ in vars:
+            if item.type_ == TVAR and item.index_ not in vars:
                 vars.append(item.index_)
         return vars
 
     def variables(self):
-        return [
-            sym for sym in self.symbols()
-            if sym not in self.functions]
+        return [sym for sym in self.symbols() if sym not in self.functions]
 
 
 class Parser:
-
     class Expression(Expression):
         pass
 
-    PRIMARY      = 1
-    OPERATOR     = 2
-    FUNCTION     = 4
-    LPAREN       = 8
-    RPAREN       = 16
-    COMMA        = 32
-    SIGN         = 64
-    CALL         = 128
+    PRIMARY = 1
+    OPERATOR = 2
+    FUNCTION = 4
+    LPAREN = 8
+    RPAREN = 16
+    COMMA = 32
+    SIGN = 64
+    CALL = 128
     NULLARY_CALL = 256
 
     def add(self, a, b):
@@ -242,38 +237,38 @@ class Parser:
     def mod(self, a, b):
         return a % b
 
-    def concat(self, a, b,*args):
-        result=u'{0}{1}'.format(a, b)
+    def concat(self, a, b, *args):
+        result = "{0}{1}".format(a, b)
         for arg in args:
-            result=u'{0}{1}'.format(result, arg)
+            result = "{0}{1}".format(result, arg)
         return result
 
-    def equal (self, a, b ):
+    def equal(self, a, b):
         return a == b
 
-    def notEqual (self, a, b ):
+    def notEqual(self, a, b):
         return a != b
 
-    def greaterThan (self, a, b ):
+    def greaterThan(self, a, b):
         return a > b
 
-    def lessThan (self, a, b ):
+    def lessThan(self, a, b):
         return a < b
 
-    def greaterThanEqual (self, a, b ):
+    def greaterThanEqual(self, a, b):
         return a >= b
 
-    def lessThanEqual (self, a, b ):
+    def lessThanEqual(self, a, b):
         return a <= b
 
-    def andOperator (self, a, b ):
-        return ( a and b )
+    def andOperator(self, a, b):
+        return a and b
 
-    def orOperator (self, a, b ):
-        return  ( a or  b )
+    def orOperator(self, a, b):
+        return a or b
 
-    def xorOperator (self, a, b ):
-        return  ( a ^ b )
+    def xorOperator(self, a, b):
+        return a ^ b
 
     def inOperator(self, a, b):
         return a in b
@@ -314,13 +309,12 @@ class Parser:
     def roll(self, a, b):
         rolls = []
         roll = 0
-        final = 0
         for c in range(1, a):
             roll = random.randint(1, b)
             rolls.append(roll)
         return rolls
 
-    def ifFunction(self,a,b,c):
+    def ifFunction(self, a, b, c):
         return b if a else c
 
     def append(self, a, b):
@@ -329,12 +323,12 @@ class Parser:
         a.append(b)
         return a
 
-    def __init__(self, string_literal_quotes = ("'", "\"")):
+    def __init__(self, string_literal_quotes=("'", '"')):
         self.string_literal_quotes = string_literal_quotes
 
         self.success = False
-        self.errormsg = ''
-        self.expression = ''
+        self.errormsg = ""
+        self.expression = ""
 
         self.pos = 0
 
@@ -344,40 +338,38 @@ class Parser:
         self.tmpprio = 0
 
         self.ops1 = {
-            'sin': math.sin,
-            'cos': math.cos,
-            'tan': math.tan,
-            'asin': math.asin,
-            'acos': math.acos,
-            'atan': math.atan,
-
-            'sind': self.sind,
-            'cosd': self.cosd,
-            'tand': self.tand,
-            'asind': self.asind,
-            'acosd': self.acosd,
-            'atand': self.atand,
-
-            'sqrt': math.sqrt,
-            'abs': abs,
-            'ceil': math.ceil,
-            'floor': math.floor,
-            'round': round,
-            '-': self.neg,
-            'not': self.notOperator,
-            'exp': math.exp,
+            "sin": math.sin,
+            "cos": math.cos,
+            "tan": math.tan,
+            "asin": math.asin,
+            "acos": math.acos,
+            "atan": math.atan,
+            "sind": self.sind,
+            "cosd": self.cosd,
+            "tand": self.tand,
+            "asind": self.asind,
+            "acosd": self.acosd,
+            "atand": self.atand,
+            "sqrt": math.sqrt,
+            "abs": abs,
+            "ceil": math.ceil,
+            "floor": math.floor,
+            "round": round,
+            "-": self.neg,
+            "not": self.notOperator,
+            "exp": math.exp,
         }
 
         self.ops2 = {
-            '+': self.add,
-            '-': self.sub,
-            '*': self.mul,
-            '/': self.div,
-            '%': self.mod,
-            '^': math.pow,
-            '**': math.pow,
-            ',': self.append,
-            '||': self.concat,
+            "+": self.add,
+            "-": self.sub,
+            "*": self.mul,
+            "/": self.div,
+            "%": self.mod,
+            "^": math.pow,
+            "**": math.pow,
+            ",": self.append,
+            "||": self.concat,
             "==": self.equal,
             "!=": self.notEqual,
             ">": self.greaterThan,
@@ -388,54 +380,54 @@ class Parser:
             "or": self.orOperator,
             "xor": self.xorOperator,
             "in": self.inOperator,
-            "D": self.roll
+            "D": self.roll,
         }
 
         self.functions = {
-            'random': self.random,
-            'fac': self.fac,
-            'log': math.log,
-            'min': min,
-            'max': max,
-            'pyt': self.pyt,
-            'pow': math.pow,
-            'atan2': math.atan2,
-            'concat':self.concat,
-            'if': self.ifFunction
+            "random": self.random,
+            "fac": self.fac,
+            "log": math.log,
+            "min": min,
+            "max": max,
+            "pyt": self.pyt,
+            "pow": math.pow,
+            "atan2": math.atan2,
+            "concat": self.concat,
+            "if": self.ifFunction,
         }
 
         self.consts = {
-            'E': math.e,
-            'PI': math.pi,
+            "E": math.e,
+            "PI": math.pi,
         }
 
         self.values = {
-            'sin': math.sin,
-            'cos': math.cos,
-            'tan': math.tan,
-            'asin': math.asin,
-            'acos': math.acos,
-            'atan': math.atan,
-            'sqrt': math.sqrt,
-            'log': math.log,
-            'abs': abs,
-            'ceil': math.ceil,
-            'floor': math.floor,
-            'round': round,
-            'random': self.random,
-            'fac': self.fac,
-            'exp': math.exp,
-            'min': min,
-            'max': max,
-            'pyt': self.pyt,
-            'pow': math.pow,
-            'atan2': math.atan2,
-            'E': math.e,
-            'PI': math.pi
+            "sin": math.sin,
+            "cos": math.cos,
+            "tan": math.tan,
+            "asin": math.asin,
+            "acos": math.acos,
+            "atan": math.atan,
+            "sqrt": math.sqrt,
+            "log": math.log,
+            "abs": abs,
+            "ceil": math.ceil,
+            "floor": math.floor,
+            "round": round,
+            "random": self.random,
+            "fac": self.fac,
+            "exp": math.exp,
+            "min": min,
+            "max": max,
+            "pyt": self.pyt,
+            "pow": math.pow,
+            "atan2": math.atan2,
+            "E": math.e,
+            "PI": math.pi,
         }
 
     def parse(self, expr):
-        self.errormsg = ''
+        self.errormsg = ""
         self.success = True
         operstack = []
         tokenstack = []
@@ -450,106 +442,96 @@ class Parser:
                 if self.isSign() and expected & self.SIGN:
                     if self.isNegativeSign():
                         self.tokenprio = 5
-                        self.tokenindex = '-'
+                        self.tokenindex = "-"
                         noperators += 1
                         self.addfunc(tokenstack, operstack, TOP1)
-                    expected = \
-                        self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
+                    expected = self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
                 elif self.isLogicalNot() and expected & self.SIGN:
                     self.tokenprio = 2
-                    self.tokenindex = 'not'
+                    self.tokenindex = "not"
                     noperators += 1
                     self.addfunc(tokenstack, operstack, TOP1)
-                    expected = \
-                        self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
+                    expected = self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
                 elif self.isComment():
                     pass
                 else:
                     if expected and self.OPERATOR == 0:
-                        self.error_parsing(self.pos, 'unexpected operator')
+                        self.error_parsing(self.pos, "unexpected operator")
                     noperators += 2
                     self.addfunc(tokenstack, operstack, TOP2)
-                    expected = \
-                        self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
+                    expected = self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
             elif self.isNumber():
                 if expected and self.PRIMARY == 0:
-                    self.error_parsing(self.pos, 'unexpected number')
+                    self.error_parsing(self.pos, "unexpected number")
                 token = Token(TNUMBER, 0, 0, self.tokennumber)
                 tokenstack.append(token)
                 expected = self.OPERATOR | self.RPAREN | self.COMMA
             elif self.isString():
                 if (expected & self.PRIMARY) == 0:
-                    self.error_parsing(self.pos, 'unexpected string')
+                    self.error_parsing(self.pos, "unexpected string")
                 token = Token(TNUMBER, 0, 0, self.tokennumber)
                 tokenstack.append(token)
                 expected = self.OPERATOR | self.RPAREN | self.COMMA
             elif self.isLeftParenth():
                 if (expected & self.LPAREN) == 0:
-                    self.error_parsing(self.pos, 'unexpected \"(\"')
+                    self.error_parsing(self.pos, 'unexpected "("')
                 if expected & self.CALL:
                     noperators += 2
                     self.tokenprio = -2
                     self.tokenindex = -1
                     self.addfunc(tokenstack, operstack, TFUNCALL)
-                expected = \
-                    self.PRIMARY | self.LPAREN | self.FUNCTION | \
-                    self.SIGN | self.NULLARY_CALL
+                expected = self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN | self.NULLARY_CALL
             elif self.isRightParenth():
                 if expected & self.NULLARY_CALL:
                     token = Token(TNUMBER, 0, 0, [])
                     tokenstack.append(token)
                 elif (expected & self.RPAREN) == 0:
-                    self.error_parsing(self.pos, 'unexpected \")\"')
-                expected = \
-                    self.OPERATOR | self.RPAREN | self.COMMA | \
-                    self.LPAREN | self.CALL
+                    self.error_parsing(self.pos, 'unexpected ")"')
+                expected = self.OPERATOR | self.RPAREN | self.COMMA | self.LPAREN | self.CALL
             elif self.isComma():
                 if (expected & self.COMMA) == 0:
-                    self.error_parsing(self.pos, 'unexpected \",\"')
+                    self.error_parsing(self.pos, 'unexpected ","')
                 self.addfunc(tokenstack, operstack, TOP2)
                 noperators += 2
-                expected = \
-                    self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
+                expected = self.PRIMARY | self.LPAREN | self.FUNCTION | self.SIGN
             elif self.isConst():
                 if (expected & self.PRIMARY) == 0:
-                    self.error_parsing(self.pos, 'unexpected constant')
+                    self.error_parsing(self.pos, "unexpected constant")
                 consttoken = Token(TNUMBER, 0, 0, self.tokennumber)
                 tokenstack.append(consttoken)
                 expected = self.OPERATOR | self.RPAREN | self.COMMA
             elif self.isOp2():
                 if (expected & self.FUNCTION) == 0:
-                    self.error_parsing(self.pos, 'unexpected function')
+                    self.error_parsing(self.pos, "unexpected function")
                 self.addfunc(tokenstack, operstack, TOP2)
                 noperators += 2
                 expected = self.LPAREN
             elif self.isOp1():
                 if (expected & self.FUNCTION) == 0:
-                    self.error_parsing(self.pos, 'unexpected function')
+                    self.error_parsing(self.pos, "unexpected function")
                 self.addfunc(tokenstack, operstack, TOP1)
                 noperators += 1
                 expected = self.LPAREN
             elif self.isVar():
                 if (expected & self.PRIMARY) == 0:
-                    self.error_parsing(self.pos, 'unexpected variable')
+                    self.error_parsing(self.pos, "unexpected variable")
                 vartoken = Token(TVAR, self.tokenindex, 0, 0)
                 tokenstack.append(vartoken)
-                expected = \
-                    self.OPERATOR | self.RPAREN | \
-                    self.COMMA | self.LPAREN | self.CALL
+                expected = self.OPERATOR | self.RPAREN | self.COMMA | self.LPAREN | self.CALL
             elif self.isWhite():
                 pass
             else:
-                if self.errormsg == '':
-                    self.error_parsing(self.pos, 'unknown character')
+                if self.errormsg == "":
+                    self.error_parsing(self.pos, "unknown character")
                 else:
                     self.error_parsing(self.pos, self.errormsg)
         if self.tmpprio < 0 or self.tmpprio >= 10:
-            self.error_parsing(self.pos, 'unmatched \"()\"')
+            self.error_parsing(self.pos, 'unmatched "()"')
         while len(operstack) > 0:
             tmp = operstack.pop()
             tokenstack.append(tmp)
         if (noperators + 1) != len(tokenstack):
-            self.error_parsing(self.pos, 'parity')
+            self.error_parsing(self.pos, "parity")
 
         return Expression(tokenstack, self.ops1, self.ops2, self.functions)
 
@@ -558,7 +540,7 @@ class Parser:
 
     def error_parsing(self, column, msg):
         self.success = False
-        self.errormsg = 'parse error [column ' + str(column) + ']: ' + msg + ', expression: ' + self.expression
+        self.errormsg = "parse error [column " + str(column) + "]: " + msg + ", expression: " + self.expression
         raise Exception(self.errormsg)
 
     def addfunc(self, tokenstack, operstack, type_):
@@ -578,24 +560,24 @@ class Parser:
     def isNumber(self):
         r = False
 
-        if self.expression[self.pos] == 'E':
+        if self.expression[self.pos] == "E":
             return False
 
         # number in scientific notation
-        pattern = r'([-+]?([0-9]*\.?[0-9]*)[eE][-+]?[0-9]+).*'
-        match = re.match(pattern, self.expression[self.pos: ])
+        pattern = r"([-+]?([0-9]*\.?[0-9]*)[eE][-+]?[0-9]+).*"
+        match = re.match(pattern, self.expression[self.pos :])
         if match:
             self.pos += len(match.group(1))
             self.tokennumber = float(match.group(1))
             return True
 
         # number in decimal
-        str = ''
+        str = ""
         while self.pos < len(self.expression):
             code = self.expression[self.pos]
-            if (code >= '0' and code <= '9') or code == '.':
-                if (len(str) == 0 and code == '.' ):
-                    str = '0'
+            if (code >= "0" and code <= "9") or code == ".":
+                if len(str) == 0 and code == ".":
+                    str = "0"
                 str += code
                 self.pos += 1
                 try:
@@ -618,58 +600,58 @@ class Parser:
                 if c == "'":
                     buffer.append("'")
                     break
-                elif c == '\\':
-                    buffer.append('\\')
+                elif c == "\\":
+                    buffer.append("\\")
                     break
-                elif c == '/':
-                    buffer.append('/')
+                elif c == "/":
+                    buffer.append("/")
                     break
-                elif c == 'b':
-                    buffer.append('\b')
+                elif c == "b":
+                    buffer.append("\b")
                     break
-                elif c == 'f':
-                    buffer.append('\f')
+                elif c == "f":
+                    buffer.append("\f")
                     break
-                elif c == 'n':
-                    buffer.append('\n')
+                elif c == "n":
+                    buffer.append("\n")
                     break
-                elif c == 'r':
-                    buffer.append('\r')
+                elif c == "r":
+                    buffer.append("\r")
                     break
-                elif c == 't':
-                    buffer.append('\t')
+                elif c == "t":
+                    buffer.append("\t")
                     break
-                elif c == 'u':
+                elif c == "u":
                     # interpret the following 4 characters
                     # as the hex of the unicode code point
                     codePoint = int(v[i + 1, i + 5], 16)
-                    buffer.append(unichr(codePoint))
+                    buffer.append(chr(codePoint))
                     i += 4
                     break
                 else:
                     raise self.error_parsing(
                         pos + i,
-                        'Illegal escape sequence: \'\\' + c + '\'',
+                        "Illegal escape sequence: '\\" + c + "'",
                     )
                 escaping = False
             else:
-                if c == '\\':
+                if c == "\\":
                     escaping = True
                 else:
                     buffer.append(c)
 
-        return ''.join(buffer)
+        return "".join(buffer)
 
     def isString(self):
         r = False
-        str = ''
+        str = ""
         startpos = self.pos
         if self.pos < len(self.expression) and self.expression[self.pos] in self.string_literal_quotes:
             quote_type = self.expression[self.pos]
             self.pos += 1
             while self.pos < len(self.expression):
                 code = self.expression[self.pos]
-                if code != quote_type or (str != '' and str[-1] == '\\'):
+                if code != quote_type or (str != "" and str[-1] == "\\"):
                     str += self.expression[self.pos]
                     self.pos += 1
                 else:
@@ -682,7 +664,7 @@ class Parser:
     def isConst(self):
         for i in self.consts:
             L = len(i)
-            str = self.expression[self.pos:self.pos+L]
+            str = self.expression[self.pos : self.pos + L]
             if i == str:
                 if len(self.expression) <= self.pos + L:
                     self.tokennumber = self.consts[i]
@@ -696,27 +678,27 @@ class Parser:
 
     def isOperator(self):
         ops = (
-            ('**', 8, '**'),
-            ('^', 8, '^'),
-            ('%', 6, '%'),
-            ('/', 6, '/'),
-            (u'\u2219', 5, '*'), # bullet operator
-            (u'\u2022', 5, '*'), # black small circle
-            ('*', 5, '*'),
-            ('+', 4, '+'),
-            ('-', 4, '-'),
-            ('||', 3, '||'),
-            ('==', 3, '=='),
-            ('!=', 3, '!='),
-            ('<=', 3, '<='),
-            ('>=', 3, '>='),
-            ('<', 3, '<'),
-            ('>', 3, '>'),
-            ('in ', 3, 'in'),
-            ('not ', 2, 'not'),
-            ('and ', 1, 'and'),
-            ('xor ', 0, 'xor'),
-            ('or ', 0, 'or'),
+            ("**", 8, "**"),
+            ("^", 8, "^"),
+            ("%", 6, "%"),
+            ("/", 6, "/"),
+            ("\u2219", 5, "*"),  # bullet operator
+            ("\u2022", 5, "*"),  # black small circle
+            ("*", 5, "*"),
+            ("+", 4, "+"),
+            ("-", 4, "-"),
+            ("||", 3, "||"),
+            ("==", 3, "=="),
+            ("!=", 3, "!="),
+            ("<=", 3, "<="),
+            (">=", 3, ">="),
+            ("<", 3, "<"),
+            (">", 3, ">"),
+            ("in ", 3, "in"),
+            ("not ", 2, "not"),
+            ("and ", 1, "and"),
+            ("xor ", 0, "xor"),
+            ("or ", 0, "or"),
         )
         for token, priority, index in ops:
             if self.expression.startswith(token, self.pos):
@@ -728,23 +710,23 @@ class Parser:
 
     def isSign(self):
         code = self.expression[self.pos - 1]
-        return (code == '+') or (code == '-')
+        return (code == "+") or (code == "-")
 
     def isPositiveSign(self):
         code = self.expression[self.pos - 1]
-        return code == '+'
+        return code == "+"
 
     def isNegativeSign(self):
         code = self.expression[self.pos - 1]
-        return code == '-'
+        return code == "-"
 
     def isLogicalNot(self):
-        code = self.expression[self.pos - 4: self.pos]
-        return code == 'not '
+        code = self.expression[self.pos - 4 : self.pos]
+        return code == "not "
 
     def isLeftParenth(self):
         code = self.expression[self.pos]
-        if code == '(':
+        if code == "(":
             self.pos += 1
             self.tmpprio += 10
             return True
@@ -752,7 +734,7 @@ class Parser:
 
     def isRightParenth(self):
         code = self.expression[self.pos]
-        if code == ')':
+        if code == ")":
             self.pos += 1
             self.tmpprio -= 10
             return True
@@ -760,10 +742,10 @@ class Parser:
 
     def isComma(self):
         code = self.expression[self.pos]
-        if code==',':
-            self.pos+=1
-            self.tokenprio=-1
-            self.tokenindex=","
+        if code == ",":
+            self.pos += 1
+            self.tokenprio = -1
+            self.tokenindex = ","
             return True
         return False
 
@@ -775,11 +757,11 @@ class Parser:
         return False
 
     def isOp1(self):
-        str = ''
+        str = ""
         for i in range(self.pos, len(self.expression)):
             c = self.expression[i]
             if c.upper() == c.lower():
-                if i == self.pos or (c != '_' and (c < '0' or c > '9')):
+                if i == self.pos or (c != "_" and (c < "0" or c > "9")):
                     break
             str += c
         if len(str) > 0 and str in self.ops1:
@@ -790,11 +772,11 @@ class Parser:
         return False
 
     def isOp2(self):
-        str = ''
+        str = ""
         for i in range(self.pos, len(self.expression)):
             c = self.expression[i]
             if c.upper() == c.lower():
-                if i == self.pos or (c != '_' and (c < '0' or c > '9')):
+                if i == self.pos or (c != "_" and (c < "0" or c > "9")):
                     break
             str += c
         if len(str) > 0 and (str in self.ops2):
@@ -805,12 +787,12 @@ class Parser:
         return False
 
     def isVar(self):
-        str = ''
+        str = ""
         inQuotes = False
         for i in range(self.pos, len(self.expression)):
             c = self.expression[i]
             if c.lower() == c.upper():
-                if ((i == self.pos and c != '"') or (not (c in '_."') and (c < '0' or c > '9'))) and not inQuotes :
+                if ((i == self.pos and c != '"') or (not (c in '_."') and (c < "0" or c > "9"))) and not inQuotes:
                     break
             if c == '"':
                 inQuotes = not inQuotes
@@ -824,8 +806,8 @@ class Parser:
 
     def isComment(self):
         code = self.expression[self.pos - 1]
-        if code == '/' and self.expression[self.pos] == '*':
-            self.pos = self.expression.index('*/', self.pos) + 2
+        if code == "/" and self.expression[self.pos] == "*":
+            self.pos = self.expression.index("*/", self.pos) + 2
             if self.pos == 1:
                 self.pos = len(self.expression)
             return True
