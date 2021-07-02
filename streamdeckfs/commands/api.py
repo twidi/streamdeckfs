@@ -18,7 +18,7 @@ import cloup
 import cloup.constraints as cons
 
 from ..common import Manager, logger
-from ..entities import FILTER_DENY, PAGE_CODES, VAR_RE, Deck, UnavailableVar
+from ..entities import FILTER_DENY, PAGE_CODES, VAR_PREFIX, VAR_RE, Deck, UnavailableVar
 from ..entities.var import ELIF_THEN_RE
 from .base import cli, validate_positive_integer
 
@@ -434,8 +434,8 @@ class FilterCommands:
         )
         filename = entity.make_new_filename(updated_args, removed_args)
         try:
-            # ensure the new filename is valid
-            if not entity.parse_filename(filename, entity.parent).main:
+            # ensure the new filename is valid, but only if it does not have vars
+            if VAR_PREFIX not in filename and not entity.parse_filename(filename, entity.parent).main:
                 raise ValueError
         except Exception:
             Manager.exit(1, f"[{error_msg_name_part}] Configuration is not valid")

@@ -36,6 +36,7 @@ VAR_RE = re.compile(
 )
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 VAR_RE_INDEX = re.compile(r"^(?:#|-?\d+)$")
+VAR_PREFIX = "$VAR_"
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
@@ -146,7 +147,7 @@ class Entity:
         value = (var := vars[name]).resolved_value
 
         if line := data.get("line"):
-            if "$VAR_" in line:
+            if VAR_PREFIX in line:
                 line = cls.replace_vars(line, filename, parent, used_vars)[0]
             if not VAR_RE_INDEX.match(line):
                 raise IndexError
@@ -179,7 +180,7 @@ class Entity:
         vars = {}
         replace = partial(cls.replace_var, vars=vars, filename=filename, parent=parent, used_vars=used_vars)
 
-        while "$VAR_" in value and (matches := VAR_RE.findall(value)):
+        while VAR_PREFIX in value and (matches := VAR_RE.findall(value)):
             count_before = len(matches)
             current_var_names = {match[VAR_RE_NAME_GROUP] for match in matches}
             var_names |= current_var_names
