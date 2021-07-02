@@ -354,6 +354,7 @@ class Parser:
             "abs": abs,
             "ceil": math.ceil,
             "floor": math.floor,
+            "int": int,
             "round": round,
             "-": self.neg,
             "not": self.notOperator,
@@ -365,6 +366,7 @@ class Parser:
             "-": self.sub,
             "*": self.mul,
             "/": self.div,
+            "|": self.div,
             "%": self.mod,
             "^": math.pow,
             "**": math.pow,
@@ -413,6 +415,7 @@ class Parser:
             "abs": abs,
             "ceil": math.ceil,
             "floor": math.floor,
+            "int": int,
             "round": round,
             "random": self.random,
             "fac": self.fac,
@@ -671,6 +674,7 @@ class Parser:
         ("^", 8, "^"),
         ("%", 6, "%"),
         ("/", 6, "/"),
+        ("|", 6, "/"),
         ("\u2219", 5, "*"),  # bullet operator
         ("\u2022", 5, "*"),  # black small circle
         ("*", 5, "*"),

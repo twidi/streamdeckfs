@@ -12,11 +12,15 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from threading import local
 from time import time
 
 from peak.util.proxies import ObjectWrapper
 
 from ..common import Manager, file_flags, logger
+from ..py_expression_eval import Parser
+
+thread_local = local()
 
 RE_PARTS = {
     "0-100": r"0*(?:\d{1,2}?|100)",
@@ -29,14 +33,13 @@ RE_PARTS = {
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
 VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z-0-9])"
-VAR_RE = re.compile(
-    r"(?P<not>!)?\$VAR_"
-    + VAR_RE_NAME_PART
-    + r'(?:\[(?P<line>[^\]]+)\])?(?P<op>[+-]\d+(?:\.\d+)?)?(?P<equal>="(?P<equal_value>[^"]*)")?'
-)
+VAR_RE = re.compile(r"\$VAR_" + VAR_RE_NAME_PART + r"(?:\[(?P<line>[^\]]+)\])?")
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 VAR_RE_INDEX = re.compile(r"^(?:#|-?\d+)$")
 VAR_PREFIX = "$VAR_"
+
+EXPR_RE = re.compile(r"\{(?P<expr>[^}]*)\}")
+EXPR_CACHE = {}
 
 DEFAULT_SLASH_REPL = "\\\\"  # double \
 DEFAULT_SEMICOLON_REPL = "^"
@@ -133,11 +136,6 @@ class Entity:
     def compose_main_part(cls, args):
         return cls.main_part_compose(args)
 
-    negated = {
-        "false": "true",
-        "true": "false",
-    }
-
     @classmethod
     def replace_var(cls, match, vars, filename, parent, used_vars):
         data = match.groupdict()
@@ -155,19 +153,6 @@ class Entity:
                 value = str(len(value.splitlines()))
             elif line:
                 value = value.splitlines()[int(line)]
-
-        if op := data.get("op"):
-            value = int(value) if value.isdigit() else float(value)
-            op = int(op) if "." not in op else float(op)
-            value = str(value + op)
-
-        if data.get("equal"):
-            if (equal_value := (data.get("equal_value") or "")) and "$VAR_" in equal_value:
-                equal_value = cls.replace_vars(equal_value, filename, parent, used_vars)[0]
-            value = "true" if value == equal_value else "false"
-
-        if data["not"]:
-            value = cls.negated[value.lower()]
 
         used_vars.add(var)
         return value
@@ -191,22 +176,49 @@ class Entity:
                     for name in current_var_names
                     if name not in vars and (var := parent.get_var(name, default_none=True)) is not None
                 }
-                # will raise KeyError if wanted to negate a value not in true/false
-                # or IndexError if wanted to access an invalid line number
-                # or ValueError if a +- operation was done on an non-number value
+                # will raise IndexError if wanted to access an invalid line number
                 value = VAR_RE.sub(replace, value)
 
                 if len(VAR_RE.findall(value)) == count_before:
                     # we had matches, but none were replaced, we can end the loop
                     raise UnavailableVar
 
-            except (UnavailableVar, KeyError, IndexError, ValueError) as exc:
+            except (UnavailableVar, IndexError) as exc:
                 if isinstance(exc, UnavailableVar) and exc.var_names:
                     var_names |= exc.var_names
                 parent.add_waiting_for_vars(cls, filename, var_names)
                 raise UnavailableVar(var_names=var_names)
 
         return value, used_vars
+
+    @classmethod
+    def get_expr_parser(cls):
+        # the Parser object is not thread safe so we must have one per thread
+        try:
+            return thread_local.expr_parser
+        except AttributeError:
+            thread_local.expr_parser = Parser()
+            return thread_local.expr_parser
+
+    @classmethod
+    def replace_expr(cls, match, name):
+        expr = match.groupdict()["expr"]
+        try:
+            if expr in EXPR_CACHE:
+                if (result := EXPR_CACHE[expr]) is None:
+                    raise ValueError
+            else:
+                EXPR_CACHE[expr] = result = str(cls.get_expr_parser().evaluate(expr, {}))
+        except Exception:
+            EXPR_CACHE[expr] = None
+            logger.warning(f'`{expr}` is not a valid expression in "{name}"')
+            raise
+        return result
+
+    @classmethod
+    def replace_exprs(cls, value, name):
+        replace = partial(cls.replace_expr, name=name)
+        return EXPR_RE.sub(replace, value)
 
     @classmethod
     def save_raw_arg(cls, name, value, args):
@@ -235,6 +247,12 @@ class Entity:
                     conf_part, used_vars = cls.replace_vars(conf_part, name, parent)
                 except UnavailableVar:
                     return RawParseFilenameResult()  # we don't cache the result
+
+                if "{" in conf_part and "}" in conf_part:
+                    try:
+                        conf_part = cls.replace_exprs(conf_part, name)
+                    except Exception:
+                        return RawParseFilenameResult()  # we don't cache the result
 
                 parts = conf_part.split(";")
                 for part in parts:

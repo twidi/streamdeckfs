@@ -1439,27 +1439,11 @@ A variable can be used:
 
 Note that a variable can be composed with other variables: `text=$VAR_$VAR_DISPLAY` will work, because the first `$VAR_` is not a valid variable, but `$VAR_DISPLAY` is, so, `$VAR_DISPLAY` will be converted, for example to `LASTNAME` if we have `VAR_DISPLAY;value=LASTNAME`, so we'll have `text=$VAR_LASTNAME`, then the `VAR_LASTNAME` variable will be read to have the final text. Likewise, in `text=$VAR_TEXT$VAR_INDEX`, if `VAR_TEXT` is not an existing variable, then on the first pass `$VAR_INDEX` will be converted, for example to `1`, then we have `$VAR_TEXT1` which is an existing variable, so its' converted
 
-## Logic
+## Lines indexing
 
-When using variables in a file name, you can apply some logic to it.
+If the `VAR_` has its value defined by its content (i.e., not using `value=`) and its content is on multiple lines, it's possible to access a specific line by using `$VAR_FOO[INDEX]`, with `INDEX` being the line to access, starting at `0`. It's also possible to use reverse indexing (`-1` is the last line, `-2` the line before the last line...).
 
-### Negate
-
-If the variable value is `true` or `false`, it's possible to negate this by preceding the `$VAR_*` by a `!`. Useful for the `disabled` configuration option, so it's possible to activate a layer and deactivate another with a single variable. Use it like this: `TEXT;text=foo;disabled=!$VAR_SHOW_TEXT` (here, if the variable `VAR_SHOW_TEXT` as `true` for value, `disabled` will be set to `not true`, so `false`, so the text will be shown). Note that if `!` is used for a variable that contains something else than `true` or `false`, the file defining it won't be displayed.
-
-### Equality
-
-If a configuration option needs a boolean (`true` or `false`), you can use equality between a variable and a value to get this result. The format is `$VAR_XXX="VALUE"`. Note the `=` and the value between double quotes (`"`). For example `TEXT;text=OFF;disabled=$VAR_ACTIVE="yes"` won't display the text "OFF" if the `VAR_ACTIVE` variable has "yes" for value. Note that the value can also be a variable, like `disabled=$VAR_ACTIVE="$VAR_YES"`, wity `VAR_YES;value=yes`.
-
-You can combine this with the negate operator (`!`). For example `TEXT;text=ON;disabled=!$VAR_ACTIVE="yes"` will display the text "ON" if the `VAR_ACTIVE` variable has "yes" for value.
-
-Note that the value can contain a semicolon, as the variable are replaced before the parsing, so it won't be seen as an option separator. But if it's in the filename, `/` are not available.
-
-### Lines indexing
-
-If the `VAR_` as its value defined by its content (ie not using `value=`) and its content is on multiple lines, it's possible to access a specific line by using `$VAR_FOO[INDEX]`, with `INDEX` being the line to access, starting at `0`. It's also possible to use reverse indexing (`-1` is the last line, `-2` the line before the last line...).
-
-It's also possible to get the number of lines by using `[#]`.
+And to get the number of lines, you can use `[#]`.
 
 For example if the file `VAR_FOO` contains:
 
@@ -1479,29 +1463,43 @@ You'll have:
 - `$VAR_FOO[-3]` => `foo`
 - `$VAR_FOO[#]` => `3`
 
-### Adding/removing values
 
-It's possible to add/remove a value (as an integer or float) to the value returned by the variable:
-
-Using the previous example of the `VAR_FOO` file containing 3 lines, with `$VAR_FOO[#]` returning the number of lines, to get the index of the last line it's possible to do `$VAR_FOO[#]-1`
-
-The numbers in this operation cannot be variables.
-
-See in the examples below how it can be used.
-
-### Conditionals
+## Conditionals
 
 When defining a varialbe (not when using it), it's possible to use if/then/else to set it's value.
 
-All are configuration options to set in tne file name, like `VAR_FOO;if=CONDITION;then=VALUE_IF;else=?VALUE_ELSE;`, with
+All are configuration options to set in the file name, like `VAR_FOO;if=CONDITION;then=VALUE_IF;else=?VALUE_ELSE;`, with
 
-- `CONDITION`: the condition to check. Must be `true` or `false`, and can be composed with variables (because it does not make a lot of sense to set `if=true` directly). For example `if=$VAR_FOO="bar"`
+- `CONDITION`: the condition to check. Must be `true` or `false` (case not sensitive), and can be composed with variables (because it does not make a lot of sense to set `if=true` directly). For example `if=$VAR_FOO="bar"`
 - `VALUE_IF`: it's the value that will be used if the `CONDITION` is `true`
 - `VALUE_ELSE`: it's the value that will be used if the `CONDITION` is `false`
 
 In addition you can also use additional `elif` + `else` groups, like `VAR_FOO;if=CONDITION1;then=VALUE_IF1;elif=CONDITION2;then=VALUE_IF2;elif=CONDITION3;then=VALUE_IF3;else=VALUE_ELSE;`
 
 See in the examples below how it can be used.
+
+
+## Expressions
+
+It's possible to have for value the result of some expressions. For example `{100/3}%` will give `33.3333%`.
+
+Expressions are surrounded by `{` and `}`, and everything that is possible via the [py-expression-eval](https://github.com/axiacore/py-expression-eval/) library is possible (we included a forked, slightly modified version of this library into the `streamdeckfs` package).
+
+Some examples:
+
+- `disabled={"$VAR_FOO" == "foo"}` will set disable to `true` if `VAR_FOO` as `foo` for value. This example shows that variables containing string must be surrounded by double-quotes, because all variables are replaced first by their exact content, and after that the expressions will be evaluated.
+
+- `VAR_NEXT_INDEX;if={$VAR_INDEX==$VAR_TEXTS[#]-1};then=0;else={$VAR_INDEX+1}` will set in `$VAR_NEXT_INDEX` the next line to use in a `VAR_TEXTs` file containing many lines, except where we are at the last line (`if={$VAR_INDEX==$VAR_TEXTS[#]-1}`) in which case we go back to 0
+
+Check the [py-expression-eval](https://github.com/axiacore/py-expression-eval/) library page to see what is possible. The version we use has two differences with the original one:
+
+- you must use `|` instead of `/` for divisions, because `/` cannot be used in a filename
+- we added the `int()` function
+
+
+The expressions are evaluated from the filename, but also in the content of variable files.
+
+They are evaluated after all the contained variables are replaced, and updated each time a variable is updated.
 
 
 ## Key event to set a variable
@@ -1536,17 +1534,22 @@ ON_PRESS;::mypage:VAR_FOO<=bar
 
 ## Examples
 
-The first example below shows how this can be used to display different texts depending on a state. This example will also show that a variable value can contain a variable itself, and that a variable does not need to be the full value of the configuration value:
+
+### Example 1
+
+The first example below shows how this can be used to display different texts depending on a state. This example will also show how to use "expressions" (surrounded by `{` and `}`, and, via `VAR_STATE=value=state_$VAR_STATE_VALUE` that a variable value can use a variable itself, and that a variable does not need to be the full value of a configuration option:
 
 ```
-TEXT;text=1;fit;disabled=!$VAR_STATE="state_one"
-TEXT;text=2;fit;disabled=!$VAR_STATE="state_two"
-TEXT;text=3;fit;disabled=!$VAR_STATE="state_three"
+TEXT;text=1;fit;disabled={"$VAR_STATE" != "state_one"}
+TEXT;text=2;fit;disabled={"$VAR_STATE" != "state_two"}
+TEXT;text=3;fit;disabled={"$VAR_STATE" != "state_three"}
 VAR_STATE;value=state_$VAR_STATE_VALUE
 VAR_STATE_VALUE;value=one
 ```
 
 This example will display `1`, with the current value of `VAR_STATE_VALUE` (`one`).
+
+### Example 2
 
 The second example below shows how a variable can be used for many configurations options at once (`VAR_TEXT_STYLE`), and that how variables can be set in the content of files.
 
@@ -1596,6 +1599,7 @@ color=red;fit;wrap
 
 This will show the text "Hello Foo Bar" in red on the key.
 
+### Example 3
 
 The third example below shows how to use a variable in a path. Here we want to change the icon displayed depending on a variable.
 
@@ -1604,11 +1608,13 @@ We have two files:
 - an image file named `IMAGE;colorize=white;file=__inside__` containing `/path/to/icons/$VAR_ICON.png`
 - a variable file named `VAR_ICON` containg `thumbs-up`
 
-An external script can then change the content of the `VAR_ICON` file to update the key.
+An event or an external script can then change the content of the `VAR_ICON` file to update the key.
+
+### Example 4
 
 The fourth example below shows how to alternate between 3 emojis.
 
-We use the fact that we can have many times the same event defined (here `ON_PRESS`) but the disabled ones are ignored. So we only keep one enable.
+We use the fact that we can have many times the same event defined (here `ON_PRESS`) but the disabled ones are ignored. So we only keep one enabled.
 And the action of the event is to set the next emoji in a variable, variable that is used to display the emoji on the key, and to know which events to disable.
 
 So we have:
@@ -1616,9 +1622,9 @@ So we have:
 - A text defined like this: `TEXT;fit;text=$VAR_EMOJI`
 - A variable file defined like this: `VAR_EMOJI;value=:joy:`
 - And three `ON_PRESS` where only one will be activated depending on the emoji, to display the next one:
-    - `ON_PRESS;VAR_EMOJI=:joy:;disabled=!$VAR_EMOJI=":sob:"`
-    - `ON_PRESS;VAR_EMOJI=:neutral_face:;disabled=!$VAR_EMOJI=":joy:"`
-    - `ON_PRESS;VAR_EMOJI=:sob:;disabled=!$VAR_EMOJI=":neutral_face:"`
+    - `ON_PRESS;VAR_EMOJI=:joy:;disabled={"$VAR_EMOJI" != ":sob:"}`
+    - `ON_PRESS;VAR_EMOJI=:neutral_face:;disabled={"$VAR_EMOJI" != ":joy:"}`
+    - `ON_PRESS;VAR_EMOJI=:sob:;disabled={"$VAR_EMOJI" != ":neutral_face:"}`
 
 Another way to write this example if we don't want to hardcode emojis in many files:
 
@@ -1629,9 +1635,9 @@ Another way to write this example if we don't want to hardcode emojis in many fi
     - `VAR_EMOJI2;value=:neutral_face:`
     - `VAR_EMOJI3;value=:sob:`
 - And our three `ON_PRESS`:
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;disabled=!$VAR_EMOJI="$VAR_EMOJI3"`
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;disabled=!$VAR_EMOJI="$VAR_EMOJI1"`
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;disabled=!$VAR_EMOJI="$VAR_EMOJI2"`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;disabled={"$VAR_EMOJI" != "$VAR_EMOJI3"}`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;disabled={"$VAR_EMOJI" != "$VAR_EMOJI1"}`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;disabled={"$VAR_EMOJI" != "$VAR_EMOJI2"}`
 
 It could even be made more generic:
 
@@ -1642,9 +1648,9 @@ It could even be made more generic:
     - `VAR_TEXT2;value=:neutral_face:`
     - `VAR_TEXT3;value=:sob:`
 - And three `ON_PRESS` where only one will be activated depending on the index, to display the next one:
-    - `ON_PRESS;VAR_INDEX=1;disabled=!$VAR_INDEX="3"`
-    - `ON_PRESS;VAR_INDEX=2;disabled=!$VAR_INDEX="1"`
-    - `ON_PRESS;VAR_INDEX=3;disabled=!$VAR_INDEX="2"`
+    - `ON_PRESS;VAR_INDEX=1;disabled={"$VAR_INDEX" != "3"}`
+    - `ON_PRESS;VAR_INDEX=2;disabled={"$VAR_INDEX" != "1"}`
+    - `ON_PRESS;VAR_INDEX=3;disabled={"$VAR_INDEX" != "2"}`
 
   The magic is in `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`, because `$VAR_TEXT` is not an existing variable but `$VAR_INDEX` is, so `$VAR_INDEX` is converted first, to `1`, and then we have `$VAR_TEXT1` that can be converted.
 
@@ -1658,10 +1664,9 @@ We could also use conditionals to reduce the number of files::
     - `VAR_TEXT2;value=:neutral_face:`
     - `VAR_TEXT3;value=:sob:`
 
+But instead of 3 `ON_PRESS` used to set the next index depending on the current one, we'll make a `VAR_NEXT_INDEX` variable:
 
-But instead of 3 `ON_PRESS` used to set the next index depending on the current one, we'll start by making a `VAR_NEXT_INDEX` variable:
-
-- `VAR_NEXT_INDEX;if=$VAR_INDEX="1";then=2;elif=$VAR_INDEX="2";then=3;else=1`
+- `VAR_NEXT_INDEX;if={$VAR_INDEX==1};then=2;elif={$VAR_INDEX==2};then=3;else=1`
 
 And finally our single `ON_PRESS` file:
 
@@ -1682,12 +1687,12 @@ Using lines indexing, we can reduce the number of files:
 
 - And our `$VAR_NEXT_INDEX` is updated to take into account that lines start at 0:
 
-- `VAR_NEXT_INDEX;if=$VAR_INDEX="0";then=1;elif=$VAR_INDEX="1";then=2;else=0`
+- `VAR_NEXT_INDEX;if={$VAR_INDEX==0};then=1;elif={$VAR_INDEX==1};then=2;else=0`
 
 
-And finally to make it works whatever the number of lines in `VAR_TEXTS`, we can use basic operations, using `$VAR_NEXT_INDEX=$VAR_INDEX+1` and `$VAR_TEXTS[#]-1`:
+And finally to make it works whatever the number of lines in `VAR_TEXTS`, we can use operations:
 
-- `VAR_NEXT_INDEX;if=$VAR_INDEX="$VAR_TEXTS[#]-1";then=0;else=$VAR_INDEX+1`
+- `VAR_NEXT_INDEX;if={$VAR_INDEX==$VAR_TEXTS[#]-1};then=0;else={$VAR_INDEX+1}`
 
 
 # API

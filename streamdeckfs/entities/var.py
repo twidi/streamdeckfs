@@ -11,7 +11,14 @@ import re
 from dataclasses import dataclass
 
 from ..common import file_flags
-from .base import RE_PARTS, VAR_RE_NAME_PART, EntityFile, InvalidArg, UnavailableVar
+from .base import (
+    RE_PARTS,
+    VAR_PREFIX,
+    VAR_RE_NAME_PART,
+    EntityFile,
+    InvalidArg,
+    UnavailableVar,
+)
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -169,7 +176,10 @@ class BaseVar(EntityFile):
                         self.cached_value = path.read_text().strip()
                     except Exception:
                         pass
-        self.cached_value = self.replace_vars_in_content(self.cached_value)
+        if VAR_PREFIX in self.cached_value:
+            self.cached_value = self.replace_vars_in_content(self.cached_value)
+        if "{" in self.cached_value and "}" in self.cached_value:
+            self.cached_value = self.replace_exprs(self.cached_value, self.path.name)
         return self.cached_value
 
     def iterate_children_dirs(self):
