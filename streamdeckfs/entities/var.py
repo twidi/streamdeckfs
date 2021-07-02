@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 
 from ..common import file_flags
-from .base import VAR_RE_NAME_PART, EntityFile, InvalidArg, UnavailableVar
+from .base import RE_PARTS, VAR_RE_NAME_PART, EntityFile, InvalidArg, UnavailableVar
 from .deck import DeckContent
 from .key import KeyContent
 from .page import PageContent
@@ -27,9 +27,9 @@ class BaseVar(EntityFile):
 
     allowed_args = EntityFile.allowed_args | {
         "value": re.compile(r"^(?P<arg>value)=(?P<value>.+)$"),
-        "if": re.compile(r"^(?P<arg>if)=(?P<value>true|false)$"),
-        "elif": re.compile(r"^(?P<arg>elif)=(?P<value>.+)$"),
-        "elif.": re.compile(r"^(?P<arg>elif\.\d+)=(?P<value>.+)$"),
+        "if": re.compile(r"^(?P<arg>if)=(?P<value>" + RE_PARTS["bool"] + ")$"),
+        "elif": re.compile(r"^(?P<arg>elif)=(?P<value>" + RE_PARTS["bool"] + ")$"),
+        "elif.": re.compile(r"^(?P<arg>elif\.\d+)=(?P<value>" + RE_PARTS["bool"] + ")$"),
         "then": re.compile(r"^(?P<arg>then)=(?P<value>.+)$"),
         "then.": re.compile(r"^(?P<arg>then\.\d+)=(?P<value>.+)$"),
         "else": re.compile(r"^(?P<arg>else)=(?P<value>.+)$"),
@@ -117,7 +117,7 @@ class BaseVar(EntityFile):
         if "if" in args:
             elif_ = [args["if"]] + args.get("elif", [])
             for if_, then_ in zip(elif_, args["then"]):
-                if if_ == "true":
+                if if_.lower() == "true":
                     var.value = then_
                     break
             else:

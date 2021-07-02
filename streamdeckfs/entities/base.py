@@ -23,6 +23,7 @@ RE_PARTS = {
     "%": r"(?:\d+|\d*\.\d+)%",
     "color": r"\w+|(?:#[a-fA-F0-9]{6})",
     "color & alpha?": r"\w+|(?:#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?)",
+    "bool": r"(?:[Ff][Aa][Ll][Ss][Ee])|(?:[Tt][Rr][Uu][Ee])",
 }
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
@@ -72,7 +73,7 @@ class Entity:
     main_part_compose = None
 
     allowed_args = {
-        "disabled": re.compile(r"^(?P<flag>disabled)(?:=(?P<value>false|true))?$"),
+        "disabled": re.compile(r"^(?P<flag>disabled)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "name": re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$"),
     }
     allowed_partial_args = {}
@@ -165,7 +166,7 @@ class Entity:
             value = "true" if value == equal_value else "false"
 
         if data["not"]:
-            value = cls.negated[value]
+            value = cls.negated[value.lower()]
 
         used_vars.add(var)
         return value
@@ -247,7 +248,7 @@ class Entity:
                             if list(values.keys()) == ["value"]:
                                 values = values["value"]
                                 if is_flag:
-                                    values = values in (None, "true")
+                                    values = values is None or isinstance(values, str) and values.lower() == "true"
                             cls.save_raw_arg(arg_name, values, args)
 
         cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars)
