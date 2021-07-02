@@ -2,7 +2,7 @@
 
 
 
-## Release `1.5.3` - *IN PROGRESS*
+## Release `1.5.3` - *2021-06-30*
 
 - Conditionals when defining variables
 - Lines indexing on multi-lines variable files
