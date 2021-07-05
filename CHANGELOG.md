@@ -2,7 +2,7 @@
 
 
 
-## Release `1.6` - *IN PROGRESS*
+## Release `1.6` - *2021-07-05*
 
 - Expressions evaluation
 
