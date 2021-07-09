@@ -323,7 +323,7 @@ class BaseEvent(EntityFile):
             return
         self.activating_parent = from_parent
         self.activated = True
-        if self.kind == "start" and self.mode in self.run_modes:
+        if self.kind == "start":
             self.wait_run_and_repeat()
 
     def deactivate(self):
@@ -332,7 +332,7 @@ class BaseEvent(EntityFile):
         self.activated = None
         self.activating_parent = None
         self.stop()
-        if self.kind == "end" and self.mode in self.run_modes:
+        if self.kind == "end":
             self.wait_run_and_repeat()
 
     @cached_property
@@ -451,6 +451,8 @@ class KeyEvent(BaseEvent, KeyContent):
         final_args = super().convert_args(main, args)
 
         if args.get("page"):
+            if main["kind"] in ("start", "end"):
+                raise InvalidArg(f'Changing page is not allowed for "{main["kind"].upper()}" events')
             final_args["mode"] = "page"
             final_args["page_ref"] = args["page"]
         elif args.get("brightness"):

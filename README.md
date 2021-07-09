@@ -1222,6 +1222,8 @@ It must be defined like this: `page=PAGE` with:
 
 See the `Pages` section below to know more about how pages work.
 
+Note that this configuration option is not available for `ON_START` and `ON_END` events.
+
 ## Configuring page events
 
 Like keys, pages can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the page directory.
