@@ -1232,20 +1232,6 @@ When a page is displayed, the `ON_START` action is executed. And when the page i
 
 All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
 
-### Option "overlay"
-
-The `overlay` flag allows opening wanted page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website. 
-
-It must be defined like this:
-
-- `overlay` or `overlay=true` to have the page displayed as an overlay
-- `overlay=false` to have the new page hiding the current one, including non defined keys that will then be black
-
-Examples:
-
-- `PAGE_50;overlay` or `PAGE=50;overlay=true` will make the page number 50 open as an overlay
-- `PAGE_50;overlay=false` or `PAGE_50` will make the page number 50 open without any key of the current page being visible
-
 ## Configuring deck events
 
 Like pages, decks can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the deck directory.
@@ -1280,6 +1266,20 @@ For example, say you have three pages of classic actions and want to navigate be
 Using names is very useful when you configure your page actions: having `page=spotify` is a lot more meaningful than `page=50` (and it allows reorganizing your pages as you want)
 
 The `run` command will start with the first page, using page numbers. You can change that by passing the page argument: `--page PAGE` (or `-p PAGE`) with `PAGE` being the number or name of an available page.
+
+## Option "overlay"
+
+The `overlay` flag allows opening the page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website. 
+
+It must be defined like this:
+
+- `overlay` or `overlay=true` to have the page displayed as an overlay
+- `overlay=false` to have the new page hiding the current one, including non defined keys that will then be black
+
+Examples:
+
+- `PAGE_50;overlay` or `PAGE=50;overlay=true` will make the page number 50 open as an overlay
+- `PAGE_50;overlay=false` or `PAGE_50` will make the page number 50 open without any key of the current page being visible
 
 
 # References
