@@ -44,7 +44,7 @@ class BaseEvent(EntityFile):
         Entity.allowed_args
         | {
             # if the process must be detached from ours (ie launch and forget)
-            "detach": re.compile(r"^(?P<flag>detach)(?:=(?P<value>false|true))?$"),
+            "detach": re.compile(r"^(?P<flag>detach)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
             # delay before launching action
             "wait": re.compile(r"^(?P<arg>wait)=(?P<value>\d+)$"),
             # repeat every, max times (ignored if not press/start)
@@ -53,7 +53,7 @@ class BaseEvent(EntityFile):
             # action run
             "command": re.compile(r"^(?P<arg>command)=(?P<value>.+)$"),
             # do not run many times the same command at the same time
-            "unique": re.compile(r"^(?P<flag>unique)(?:=(?P<value>false|true))?$"),
+            "unique": re.compile(r"^(?P<flag>unique)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         }
         | file_char_allowed_args
     )

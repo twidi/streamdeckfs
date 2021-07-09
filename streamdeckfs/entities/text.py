@@ -44,12 +44,12 @@ class KeyTextLine(KeyImagePart):
         "text": re.compile(r"^(?P<arg>text)=(?P<value>.+)$", re.DOTALL),  # include new lines
         "size": re.compile(r"^(?P<arg>size)=(?P<value>" + RE_PARTS["% | number"] + ")$"),
         "weight": re.compile(r"^(?P<arg>weight)(?:=(?P<value>thin|light|regular|medium|bold|black))?$"),
-        "italic": re.compile(r"^(?P<flag>italic)(?:=(?P<value>false|true))?$"),
+        "italic": re.compile(r"^(?P<flag>italic)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "align": re.compile(r"^(?P<arg>align)(?:=(?P<value>left|center|right))?$"),
         "valign": re.compile(r"^(?P<arg>valign)(?:=(?P<value>top|middle|bottom))?$"),
         "color": re.compile(r"^(?P<arg>color)=(?P<value>" + RE_PARTS["color"] + ")$"),
-        "wrap": re.compile(r"^(?P<flag>wrap)(?:=(?P<value>false|true))?$"),
-        "fit": re.compile(r"^(?P<flag>fit)(?:=(?P<value>false|true))?$"),
+        "wrap": re.compile(r"^(?P<flag>wrap)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
+        "fit": re.compile(r"^(?P<flag>fit)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "scroll": re.compile(r"^(?P<arg>scroll)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
     }
 

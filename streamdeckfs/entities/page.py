@@ -12,7 +12,14 @@ from dataclasses import dataclass
 from cached_property import cached_property
 
 from ..common import Manager, file_flags
-from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
+from .base import (
+    FILTER_DENY,
+    NOT_HANDLED,
+    RE_PARTS,
+    Entity,
+    EntityDir,
+    versions_dict_factory,
+)
 from .deck import DeckContent
 
 FIRST = "__first__"
@@ -31,7 +38,7 @@ class Page(EntityDir, DeckContent):
     main_part_compose = lambda args: f'PAGE_{args["page"]}'
 
     allowed_args = EntityDir.allowed_args | {
-        "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>false|true))?$"),
+        "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
     }
 
     identifier_attr = "number"
