@@ -1232,6 +1232,8 @@ When a page is displayed, the `ON_START` action is executed. And when the page i
 
 All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for page events, except for `page` and `brightness`.
 
+It's not possible to set [variables](#variables) on page events.
+
 ## Configuring deck events
 
 Like pages, decks can have `start` and `end` events, defined by `ON_START` and `ON_END` files placed in the deck directory.
@@ -1240,6 +1242,7 @@ When a deck is started, the `ON_START` action is executed. And when it is stoppe
 
 All [configuration options defined above for key events](#the-events-configuration-options) that are available for `start` and `end` events are also available for deck events, except for `page` and `brightness`.
 
+It's not possible to set [variables](#variables) on deck events.
 
 # Pages
 
