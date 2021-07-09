@@ -18,7 +18,15 @@ import cloup
 import cloup.constraints as cons
 
 from ..common import Manager, logger
-from ..entities import FILTER_DENY, PAGE_CODES, VAR_PREFIX, VAR_RE, Deck, UnavailableVar
+from ..entities import (
+    FILTER_DENY,
+    PAGE_CODES,
+    VAR_PREFIX,
+    VAR_RE,
+    VAR_RE_NAME_PART,
+    Deck,
+    UnavailableVar,
+)
 from ..entities.var import ELIF_THEN_RE
 from .base import cli, validate_positive_integer
 
@@ -134,7 +142,7 @@ class FilterCommands:
             "var_filter",
             type=str,
             required=True,
-            help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+            help="The variable name (allowed characters: 'A-Z', '0-9' and '_'). May be prefixed by 'VAR_'",
             callback=cls.validate_var_name,
         )
 
@@ -302,10 +310,14 @@ class FilterCommands:
     @classmethod
     def validate_var_name(cls, ctx, param, value):
         if value is not None and not cls.validate_var_name_re.match(value):
-            raise click.BadParameter("Allowed characters for a variable name: 'A-Z', '0-9' and '_'")
+            raise click.BadParameter(
+                "Allowed characters for a variable name: 'A-Z', '0-9' and '_'. May be prefixed by 'VAR_'"
+            )
+        if value.startswith("VAR_"):
+            value = value[4:]
         return value
 
-    validate_var_name_re = re.compile(r"^[A-Z0-9]+$")
+    validate_var_name_re = re.compile(VAR_RE_NAME_PART)
 
     @staticmethod
     def get_deck(
@@ -1758,7 +1770,7 @@ def set_var_conf(directory, page_filter, key_filter, var_filter, names_and_value
     "var_name",
     type=str,
     required=True,
-    help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+    help="The variable name (allowed characters: 'A-Z', '0-9' and '_'). May be prefixed by 'VAR_'",
     callback=FC.validate_var_name,
 )
 @FC.options["optional_names_and_values"]
@@ -1780,7 +1792,7 @@ def create_var(directory, page_filter, key_filter, var_name, names_and_values, l
     "--to-var",
     "to_name",
     required=False,
-    help="The variable name (allowed characters: 'A-Z', '0-9' and '_')",
+    help="The variable name (allowed characters: 'A-Z', '0-9' and '_'). May be prefixed by 'VAR_'",
     callback=FC.validate_var_name,
 )
 @FC.options["optional_names_and_values"]
@@ -1833,7 +1845,7 @@ def copy_var(
     "--to-var",
     "to_name",
     required=False,
-    help="The optional name of the new variable",
+    help="The optional name of the new variable (allowed characters: 'A-Z', '0-9' and '_'). May be prefixed by 'VAR_'",
     callback=FC.validate_var_name,
 )
 @FC.options["optional_names_and_values"]

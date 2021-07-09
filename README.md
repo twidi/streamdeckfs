@@ -2873,7 +2873,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 
 Example:
 
@@ -2894,7 +2894,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 
 Example:
 
@@ -2915,7 +2915,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 
 
 The variable does not need to be in the wanted key or page to be retrieved, as long as it is in one of its parent (the page or the deck when asking for a key variable, or the deck when asking for a page variable)
@@ -2941,7 +2941,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -2968,7 +2968,7 @@ with:
 
 - `PAGE`: the number or name of the page where to create the wanted variable. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to create the wanted variable, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to create (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable to create (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 - `OPTION`: one option to set
 - `VALUE`: the value for the option
 - `LINKED_FILE`: optional path to a file to make a symbolic link to. If not defined, an empty file will be created.
@@ -2996,10 +2996,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to copy. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to copy, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to copy (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable to copy (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 - `TO_PAGE`: the number or the name of the page where to copy the variable (`-tp` is for `--to-page`). Optional: if not given, will use the page of the variable to copy. Do not pass this argument for a deck variable
 - `TO_KEY`: the name of the key where to copy the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to copy. Do not pass this argument for a page or deck variable
-- `TO_VAR`: the name of the new variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to copy
+- `TO_VAR`: the name of the new variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to copy. May be prefixed by `VAR_`.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -3026,10 +3026,10 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to move. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to move, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to move (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable to move (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 - `TO_PAGE`: the number or the name of the page where to move the variable (`-tp` is for `--to-page`). Optional: if not given, will stay in the same page. Do not pass this argument for a deck variable
 - `TO_KEY`: the name of the key where to move the variable (`-tk` if for `--to-key`). Optional: if not given, will use the key at the same position of the one containing the variable to move. Do not pass this argument for a page or deck variable
-- `TO_VAR`: the name of the moved variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to move
+- `TO_VAR`: the name of the moved variable (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`) Optional: if not given, will use the same name as the variable to move. May be prefixed by `VAR_`.
 - `OPTION`: one option to update
 - `VALUE`: the value for the option
 
@@ -3056,7 +3056,7 @@ with:
 
 - `PAGE`: the number or name of the page where to find the variable to delete. Do not pass this argument for a deck variable
 - `KEY`: the name of the key where to find the variable to delete, or its "position" (`ROW,COL`, for example `1,2` for second key of first row). Do not pass this argument for a page or deck variable
-- `VAR`: the name of the variable to delete (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`)
+- `VAR`: the name of the variable to delete (can only contains capital letters from `A` to `Z`, digits from `0` to `9`, and the character `_`, cannot start by number or `_`, and cannot end by `_`). May be prefixed by `VAR_`.
 
 This command returns the path of the deleted variable file. Use `--dry-run` to get this path without effectively doing the changes (can also be used to validate the arguments).
 

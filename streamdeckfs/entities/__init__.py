@@ -15,6 +15,7 @@ __all__ = [
     "PAGE_CODES",
     "VAR_PREFIX",
     "VAR_RE",
+    "VAR_RE_NAME_PART",
     "Deck",
     "DeckEvent",
     "DeckVar",
@@ -29,7 +30,7 @@ __all__ = [
     "UnavailableVar",
 ]
 
-from .base import FILTER_DENY, VAR_PREFIX, VAR_RE, UnavailableVar
+from .base import FILTER_DENY, VAR_PREFIX, VAR_RE, UnavailableVar, VAR_RE_NAME_PART
 from .deck import Deck
 from .page import PAGE_CODES, Page
 from .key import Key
