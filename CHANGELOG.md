@@ -2,9 +2,9 @@
 
 
 
-## Release `1.6.1` - *IN PROGRESS*
+## Release `1.6.1` - *2021-07-11*
 
-- Samll tweaks and fixes regarding variables
+- Small tweaks and fixes regarding variables
 - Add sdfs env vars available as variables
 
 
