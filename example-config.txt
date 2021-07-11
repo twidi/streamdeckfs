@@ -32,7 +32,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
 │   ├── KEY_ROW_4_COL_1;name=volume-toggle
-│   │   ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled=!$VAR_MUTED
+│   │   ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled={not $VAR_MUTED}
 │   │   ├── IMAGE;layer=2;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
 │   │   ├── IMAGE;layer=3;name=volume;ref=ref:draw:progress;coords.2=$VAR_VOLUME%
 │   │   ├── IMAGE;ref=ref:draw:background;fill=$VAR_COLOR
@@ -62,7 +62,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/decrease.sh
 │   └── KEY_ROW_4_COL_2;name=toggle
-│       ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled=!$VAR_MUTED
+│       ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled={not $VAR_MUTED}
 │       ├── IMAGE;layer=2;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
 │       ├── IMAGE;layer=3;name=sensitivity;ref=ref:draw:progress;coords.2=$VAR_SENSITIVITY%
 │       ├── IMAGE;ref=ref:draw:background;fill=$VAR_COLOR

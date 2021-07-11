@@ -1500,7 +1500,7 @@ Check the [py-expression-eval](https://github.com/axiacore/py-expression-eval/) 
 
 - you must use `|` instead of `/` for divisions, because `/` cannot be used in a filename
 - we added the `int()` function
-
+- we added the `True` and `False` values
 
 The expressions are evaluated from the filename, but also in the content of variable files.
 

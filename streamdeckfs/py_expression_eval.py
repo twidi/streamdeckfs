@@ -401,6 +401,9 @@ class Parser:
         self.consts = {
             "E": math.e,
             "PI": math.pi,
+            "True": True,
+            "False": False,
+            "None": None,
         }
 
         self.values = {
@@ -427,6 +430,9 @@ class Parser:
             "atan2": math.atan2,
             "E": math.e,
             "PI": math.pi,
+            "True": True,
+            "False": False,
+            "None": None,
         }
 
     def parse(self, expr):
