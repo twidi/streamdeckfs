@@ -32,7 +32,7 @@ RE_PARTS = {
 
 RE_PARTS["% | number"] = r"(?:\d+|" + RE_PARTS["%"] + ")"
 
-VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z-0-9])"
+VAR_RE_NAME_PART = r"(?P<name>[A-Z][A-Z0-9_]*[A-Z0-9])"
 VAR_RE = re.compile(r"\$VAR_" + VAR_RE_NAME_PART + r"(?:\[(?P<line>[^\]]+)\])?")
 VAR_RE_NAME_GROUP = VAR_RE.groupindex["name"] - 1
 VAR_RE_INDEX = re.compile(r"^(?:#|-?\d+)$")
