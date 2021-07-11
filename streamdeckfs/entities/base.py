@@ -140,6 +140,13 @@ class Entity:
     def replace_var(cls, match, vars, filename, parent, used_vars):
         data = match.groupdict()
         name = data["name"]
+
+        if name.startswith("SDFS_"):
+            try:
+                return parent.env_vars[name]
+            except KeyError:
+                return match.group(0)
+
         if name not in vars:
             return match.group(0)
         value = (var := vars[name]).resolved_value

@@ -1469,6 +1469,13 @@ You'll have:
 - `$VAR_FOO[#]` => `3`
 
 
+## Using environment variables
+
+It's possible to use the [environment variables](#environment-variables) defined by `streamdeckfs` as variables, like `$VAR_SDFS_PAGE` to get the value of the `SDFS_PAGE` environment variable, ie the current page number. Consequently, it's not possible to create a variable starting with `$VAR_SDFS_`.
+
+Note that environment variables related to events (`SDFS_EVENT*` and `SDFS_PRESS*`) cannot be used.
+
+
 ## Conditionals
 
 When defining a varialbe (not when using it), it's possible to use if/then/else to set it's value.

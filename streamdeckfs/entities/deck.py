@@ -43,6 +43,7 @@ class Deck(EntityDir):
     def __post_init__(self):
         super().__post_init__()
         if self.device:
+            self.model = self.device.info["class"].__name__
             self.serial = self.device.info["serial"]
             self.nb_cols = self.device.info["cols"]
             self.nb_rows = self.device.info["rows"]
@@ -52,6 +53,7 @@ class Deck(EntityDir):
             self.serial = None
             try:
                 info = Manager.get_info_from_model_file(self.path)
+                self.model = info["model"]
                 self.nb_rows = info["nb_rows"]
                 self.nb_cols = info["nb_cols"]
                 self.key_width = info["key_width"]
@@ -497,7 +499,7 @@ class Deck(EntityDir):
         return self.finalize_env_vars(
             {
                 "executable": Manager.get_executable(),
-                "device_type": self.device.info["class"].__name__,
+                "device_type": self.model,
                 "device_serial": self.serial,
                 "device_directory": self.path,
                 "device_nb_rows": self.nb_rows,
