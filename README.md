@@ -12,7 +12,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Examples](#examples)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Example configurations](#example-configurations)
 
 # StreamDeckFS
 
@@ -3118,7 +3118,7 @@ $ streamdeckfs delete-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
 ```
 
 
-# Examples
+# Example configurations
 
 Here are some examples of some things that can be done
 
