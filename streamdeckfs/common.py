@@ -423,7 +423,7 @@ class Manager:
                 start_new_session=bool(detach),
                 shell=bool(shell),
                 env=(os.environ | env) if env else None,
-                stderr=None if logger.level == logging.DEBUG else DEVNULL,
+                stderr=None if logger.level <= logging.DEBUG else DEVNULL,
                 cwd=working_dir,
             )
             cls.processes[process.pid] = {
@@ -437,7 +437,7 @@ class Manager:
             logger.info(f"{base_str} [ok PID={process.pid}]")
             return None if detach else process.pid
         except Exception:
-            logger.error(f"{base_str} [failed]", exc_info=logger.level == logging.DEBUG)
+            logger.error(f"{base_str} [failed]", exc_info=logger.level <= logging.DEBUG)
             return None
 
     @classmethod

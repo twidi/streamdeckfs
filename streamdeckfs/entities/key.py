@@ -299,7 +299,7 @@ class Key(EntityDir, PageContent):
                                 rendered_layer, position_x, position_y, mask = composed
                             except Exception:
                                 logger.error(
-                                    f"[{layer}] Layer could not be rendered", exc_info=logger.level == logging.DEBUG
+                                    f"[{layer}] Layer could not be rendered", exc_info=logger.level <= logging.DEBUG
                                 )
                                 continue  # we simply ignore a layer that couldn't be created
                             final_image.paste(rendered_layer, (position_x, position_y), mask)
@@ -307,7 +307,7 @@ class Key(EntityDir, PageContent):
                             self.deck.device, final_image
                         )
             except Exception:
-                logger.error(f"[{self}] Image could not be rendered", exc_info=logger.level == logging.DEBUG)
+                logger.error(f"[{self}] Image could not be rendered", exc_info=logger.level <= logging.DEBUG)
                 self.compose_image_cache = None, None
 
         if overlay_level and (image := self.compose_image_cache[0]):

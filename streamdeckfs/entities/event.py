@@ -232,7 +232,7 @@ class BaseEvent(EntityFile):
         try:
             return self._run()
         except Exception:
-            logger.error(f"[{self}] Failure while running the command", exc_info=logger.level == logging.DEBUG)
+            logger.error(f"[{self}] Failure while running the command", exc_info=logger.level <= logging.DEBUG)
         return True
 
     def _run(self):
@@ -240,7 +240,7 @@ class BaseEvent(EntityFile):
             return
         if self.unique and not self.ended_running.is_set():
             if self.kind != "start":
-                if logger.level == logging.DEBUG:
+                if logger.level <= logging.DEBUG:
                     logger.warning(
                         f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
                     )
@@ -309,7 +309,7 @@ class BaseEvent(EntityFile):
                 except Exception:
                     logger.error(
                         f"[{self}] Failure while stopping the command [PID={pid}]",
-                        exc_info=logger.level == logging.DEBUG,
+                        exc_info=logger.level <= logging.DEBUG,
                     )
 
     @property
@@ -621,7 +621,7 @@ class KeyEvent(BaseEvent, KeyContent):
             except Exception:
                 logger.error(
                     f"[{self}] Variable `VAR_{name}` cannot be set: error when renaming file `{var.path}` to `{parent.path / filename}`",
-                    exc_info=logger.level == logging.DEBUG,
+                    exc_info=logger.level <= logging.DEBUG,
                 )
                 return
             else:
@@ -631,7 +631,7 @@ class KeyEvent(BaseEvent, KeyContent):
                     except Exception:
                         logger.error(
                             f"[{self}] Variable `VAR_{name}` cannot be set: error when renaming file `{var.path}` to `{parent.path / filename}`",
-                            exc_info=logger.level == logging.DEBUG,
+                            exc_info=logger.level <= logging.DEBUG,
                         )
                         return
                 if renamed:
@@ -655,7 +655,7 @@ class KeyEvent(BaseEvent, KeyContent):
             except Exception:
                 logger.error(
                     f"[{self}] Variable `VAR_{name}` cannot be set: error when creating file `{path}`",
-                    exc_info=logger.level == logging.DEBUG,
+                    exc_info=logger.level <= logging.DEBUG,
                 )
                 return
             else:

@@ -221,7 +221,7 @@ class BaseFilesWatcher:
         try:
             watch_id = self._set_watch(directory, watch_mode)
         except Exception as exc:
-            if logger.level == logging.DEBUG:
+            if logger.level <= logging.DEBUG:
                 logger.exception(
                     f'[{self.thread_name}] Could not watch directory "{directory}" in mode "{watch_mode}": {exc}'
                 )
@@ -236,7 +236,7 @@ class BaseFilesWatcher:
         try:
             self._remove_watch(watch_id)
         except Exception as exc:
-            if logger.level == logging.DEBUG:
+            if logger.level <= logging.DEBUG:
                 logger.exception(f'[{self.thread_name}] Could not remove watch "{watch_id}": {exc}')
         else:
             self.WatchedDirectory.on_watch_removed(watch_id)

@@ -95,7 +95,7 @@ def run(serials, directory, scroll):
     end_event = threading.Event()
 
     def end(signum, frame):
-        if logger.level == logging.DEBUG:
+        if logger.level <= logging.DEBUG:
             logger.info(f"Ending ({signal.strsignal(signum)})...")
         else:
             logger.info("Ending.")
