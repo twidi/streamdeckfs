@@ -6,6 +6,7 @@
 - Allow setting many vars in key events, independently from actions
 - Set current directory to the deck/page/key triggering a command
 - Add `quiet` configuration option for events
+- Add floor divistion (via `||`, so we removed `concat`) and string conversion (via `str()`) to replace `concat` to expressions
 
 
 ## Release `1.6.1` - *2021-07-11*

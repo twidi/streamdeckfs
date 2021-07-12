@@ -1523,8 +1523,12 @@ Some examples:
 Check the [py-expression-eval](https://github.com/axiacore/py-expression-eval/) library page to see what is possible. The version we use has two differences with the original one:
 
 - you must use `|` instead of `/` for divisions, because `/` cannot be used in a filename
+- we added the floor division, using `||` (`//` is available if not used in filename)
 - we added the `int()` function
+- we added the `str()` function
+- we removed the `concat()` function (`||` is used for floor division, and `+` can be used, in addition to `str()`, to emulate `concat()`)
 - we added the `True` and `False` values
+- we added the `format()` function: `format(value, "FORMAT")` with `FORMAT` being the part after the `:` when using the normal `format` function (without the `{` and `}`). For example, `format(7, "02")` will output `07`.
 
 The expressions are evaluated from the filename, but also in the content of variable files.
 

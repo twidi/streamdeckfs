@@ -234,14 +234,11 @@ class Parser:
     def div(self, a, b):
         return a / b
 
+    def floordiv(self, a, b):
+        return a // b
+
     def mod(self, a, b):
         return a % b
-
-    def concat(self, a, b, *args):
-        result = "{0}{1}".format(a, b)
-        for arg in args:
-            result = "{0}{1}".format(result, arg)
-        return result
 
     def equal(self, a, b):
         return a == b
@@ -323,6 +320,9 @@ class Parser:
         a.append(b)
         return a
 
+    def format(self, a, b):
+        return ("{:" + str(b) + "}").format(a)
+
     def __init__(self, string_literal_quotes=("'", '"')):
         self.string_literal_quotes = string_literal_quotes
 
@@ -365,13 +365,14 @@ class Parser:
             "+": self.add,
             "-": self.sub,
             "*": self.mul,
+            "//": self.floordiv,
+            "||": self.floordiv,
             "/": self.div,
             "|": self.div,
             "%": self.mod,
             "^": math.pow,
             "**": math.pow,
             ",": self.append,
-            "||": self.concat,
             "==": self.equal,
             "!=": self.notEqual,
             ">": self.greaterThan,
@@ -394,8 +395,9 @@ class Parser:
             "pyt": self.pyt,
             "pow": math.pow,
             "atan2": math.atan2,
-            "concat": self.concat,
             "if": self.ifFunction,
+            "str": str,
+            "format": self.format,
         }
 
         self.consts = {
@@ -428,6 +430,8 @@ class Parser:
             "pyt": self.pyt,
             "pow": math.pow,
             "atan2": math.atan2,
+            "str": str,
+            "format": self.format,
             "E": math.e,
             "PI": math.pi,
             "True": True,
@@ -679,6 +683,8 @@ class Parser:
         ("**", 8, "**"),
         ("^", 8, "^"),
         ("%", 6, "%"),
+        ("//", 6, "//"),
+        ("||", 6, "//"),
         ("/", 6, "/"),
         ("|", 6, "/"),
         ("\u2219", 5, "*"),  # bullet operator
@@ -686,7 +692,6 @@ class Parser:
         ("*", 5, "*"),
         ("+", 4, "+"),
         ("-", 4, "-"),
-        ("||", 3, "||"),
         ("==", 3, "=="),
         ("!=", 3, "!="),
         ("<=", 3, "<="),
