@@ -15,6 +15,7 @@ __all__ = [
     "PAGE_CODES",
     "VAR_PREFIX",
     "VAR_RE",
+    "VAR_RE_DEST_PART",
     "VAR_RE_NAME_PART",
     "Deck",
     "DeckEvent",
@@ -30,11 +31,11 @@ __all__ = [
     "UnavailableVar",
 ]
 
-from .base import FILTER_DENY, VAR_PREFIX, VAR_RE, UnavailableVar, VAR_RE_NAME_PART
+from .base import FILTER_DENY, VAR_PREFIX, VAR_RE, VAR_RE_NAME_PART, UnavailableVar
 from .deck import Deck
 from .page import PAGE_CODES, Page
 from .key import Key
 from .var import DeckVar, KeyVar, PageVar
-from .event import DeckEvent, KeyEvent, PageEvent
+from .event import KeyEvent, PageEvent, DeckEvent, VAR_RE_DEST_PART
 from .image import KeyImageLayer
 from .text import KeyTextLine

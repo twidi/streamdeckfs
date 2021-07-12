@@ -389,6 +389,21 @@ class PageEvent(BaseEvent, PageContent):
         return parent.is_visible
 
 
+VAR_RE_DEST_PART = r"""
+(?P<dest>
+    (?P<same_page>:)  # ":VAR_" on the current page directory
+    |
+    (?P<deck>::)  # "::VAR_" on the deck directory
+    |
+    (?::(?P<other_key>[^:]+):)  # ":key:VAR_" on the "key" directory of the current page
+    |
+    (?:::(?P<other_page>[^:]+):)  # "::page:VAR_" on the "page" directory
+    |
+    (?:::(?P<other_page_key_page>[^:]+):(?P<other_page_key_key>[^:]+):)  # "::page:key:VAR_" on the "key" directory of the "page" directory
+)?  # if not => "VAR_" on the current key directory
+"""
+
+
 @dataclass(eq=False)
 class KeyEvent(BaseEvent, KeyContent):
     non_run_args = {"page", "brightness", "VAR"}
@@ -413,23 +428,12 @@ class KeyEvent(BaseEvent, KeyContent):
         "page": re.compile(r"^(?P<arg>page)=(?P<value>.+)$"),
         # action set var
         "VAR": re.compile(
-            r"""
-        ^
-        (?P<dest>
-            (?P<same_page>:)  # ":VAR_" on the current page directory
-            |
-            (?P<deck>::)  # "::VAR_" on the deck directory
-            |
-            (?::(?P<other_key>[^:]+):)  # ":key:VAR_" on the "key" directory of the current page
-            |
-            (?:::(?P<other_page>[^:]+):)  # "::page:VAR_" on the "page" directory
-            |
-            (?:::(?P<other_page_key_page>[^:]+):(?P<other_page_key_key>[^:]+):)  # "::page:key:VAR_" on the "key" directory of the "page" directory
-        )?  # if not => "VAR_" on the current key directory
-        (?P<arg>VAR)_
-        """
+            r"^"
+            + VAR_RE_DEST_PART
+            + r"(?P<arg>VAR_"
             + VAR_RE_NAME_PART
             + r"""
+        )
         (?P<infile><)?=  # if `=` we set on value in file name; if `<=` we set in file content
         (?P<value>.*)
         $
@@ -442,9 +446,18 @@ class KeyEvent(BaseEvent, KeyContent):
         super().__post_init__()
         self.brightness_level = ("=", DEFAULT_BRIGHTNESS)
         self.page_ref = None
-        self.set_var_conf = None
+        self.set_vars_conf = None
         self.duration_max = None
         self.duration_min = None
+
+    @classmethod
+    def save_raw_arg(cls, name, value, args):
+        if "VAR_" in name:
+            if "vars" not in args:
+                args["vars"] = {}
+            args["vars"][name] = value
+        else:
+            super().save_raw_arg(name, value, args)
 
     @classmethod
     def convert_args(cls, main, args):
@@ -461,39 +474,41 @@ class KeyEvent(BaseEvent, KeyContent):
                 args["brightness"].get("brightness_operation") or "=",
                 int(args["brightness"]["brightness_level"]),
             )
-        elif var := args.get("VAR"):
-            final_args["mode"] = "set_var"
-            set_var_conf = final_args["set_var"] = {
-                "name": var["name"],
-                "value": var.get("value") or "",
-                "dest": var.get("dest"),
-                "infile": bool(var.get("infile")),
-            }
-            if var.get("same_page"):
-                set_var_conf["dest_type"] = "page"
-                set_var_conf["page_ref"] = None
-            elif var.get("deck"):
-                set_var_conf["dest_type"] = "deck"
-            elif var.get("other_key"):
-                set_var_conf["dest_type"] = "key"
-                set_var_conf["page_ref"] = None
-                set_var_conf["key_ref"] = var["other_key"]
-            elif var.get("other_page"):
-                set_var_conf["dest_type"] = "page"
-                set_var_conf["page_ref"] = var["other_page"]
-            elif var.get("other_page_key_page"):
-                set_var_conf["dest_type"] = "key"
-                set_var_conf["page_ref"] = var["other_page_key_page"]
-                set_var_conf["key_ref"] = var["other_page_key_key"]
-            else:
-                set_var_conf["dest_type"] = "key"
-                set_var_conf["page_ref"] = None
-                set_var_conf["key_ref"] = None
         else:
             if "duration-max" in args:
                 final_args["duration-max"] = int(args["duration-max"])
             if "duration-min" in args:
                 final_args["duration-min"] = int(args["duration-min"])
+
+        if vars := args.get("vars"):
+            final_args["set_vars"] = {}
+            for name, var in vars.items():
+                set_var_conf = final_args["set_vars"][name] = {
+                    "name": var["name"],
+                    "value": var.get("value") or "",
+                    "dest": var.get("dest"),
+                    "infile": bool(var.get("infile")),
+                }
+                if var.get("same_page"):
+                    set_var_conf["dest_type"] = "page"
+                    set_var_conf["page_ref"] = None
+                elif var.get("deck"):
+                    set_var_conf["dest_type"] = "deck"
+                elif var.get("other_key"):
+                    set_var_conf["dest_type"] = "key"
+                    set_var_conf["page_ref"] = None
+                    set_var_conf["key_ref"] = var["other_key"]
+                elif var.get("other_page"):
+                    set_var_conf["dest_type"] = "page"
+                    set_var_conf["page_ref"] = var["other_page"]
+                elif var.get("other_page_key_page"):
+                    set_var_conf["dest_type"] = "key"
+                    set_var_conf["page_ref"] = var["other_page_key_page"]
+                    set_var_conf["key_ref"] = var["other_page_key_key"]
+                else:
+                    set_var_conf["dest_type"] = "key"
+                    set_var_conf["page_ref"] = None
+                    set_var_conf["key_ref"] = None
 
         return final_args
 
@@ -505,8 +520,8 @@ class KeyEvent(BaseEvent, KeyContent):
             event.brightness_level = args["brightness_level"]
         elif event.mode == "page":
             event.page_ref = args["page_ref"]
-        elif event.mode == "set_var":
-            event.set_var_conf = args["set_var"]
+        if args.get("set_vars"):
+            event.set_vars_conf = args["set_vars"]
         if event.kind == "press":
             if args.get("duration-max"):
                 event.duration_max = args["duration-max"]
@@ -544,20 +559,17 @@ class KeyEvent(BaseEvent, KeyContent):
             self.run_and_repeat()
 
     def _run(self):
+        if self.set_vars_conf:
+            for conf in self.set_vars_conf.values():
+                self.set_var(conf)
         if self.mode == "brightness":
             self.deck.set_brightness(*self.brightness_level)
         elif self.mode == "page":
             self.deck.go_to_page(self.page_ref)
-        elif self.mode == "set_var":
-            self.set_var()
         else:
             return super()._run()
 
-    def set_var(self):
-        if not self.set_var_conf:
-            return
-
-        conf = self.set_var_conf
+    def set_var(self, conf):
         name = conf["name"]
         value = conf["value"]
 

@@ -1514,14 +1514,16 @@ The expressions are evaluated from the filename, but also in the content of vari
 They are evaluated after all the contained variables are replaced, and updated each time a variable is updated.
 
 
-## Key event to set a variable
+## Key event to set variables
 
-In addition to actions on [key events that were previously described](#configuring-key-events-press-long-press-release-start-end)), ie `page`, `brightness` and `command`, it's also possible to set the value of a variable.
+In addition to actions on [key events that were previously described](#configuring-key-events-press-long-press-release-start-end)), ie `page`, `brightness` and `command`, it's also possible to set the value of one or many variable (while still running the other actions)
 
-It must be defined like this: `VAR_NAME=VALUE`, with:
+To make an event set a variable, it must be defined like this: `VAR_NAME=VALUE`, with:
 
 - `VAR_NAME`: the variable to set (starting with `VAR_`)
-- `VALUE`: the new value for this variable
+- `VALUE`: the new value for this variable (can be a fixed value, another variable (using `$VAR_...`) or an expression)
+
+Repeat for each variable you want to set.
 
 If the variable file does not exist, it will be created, else it will be updated (and, if present, its `disabled` attribute will be removed)
 

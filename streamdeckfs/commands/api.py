@@ -23,6 +23,7 @@ from ..entities import (
     PAGE_CODES,
     VAR_PREFIX,
     VAR_RE,
+    VAR_RE_DEST_PART,
     VAR_RE_NAME_PART,
     Deck,
     UnavailableVar,
@@ -395,8 +396,12 @@ class FilterCommands:
             data = {k: v for k, v in data.items() if k in only_names}
         return json.dumps(data)
 
+    event_set_var_re = re.compile(r"^" + VAR_RE_DEST_PART + "VAR_" + VAR_RE_NAME_PART + r"$")
+
     @classmethod
     def validate_names_and_values(cls, entity, main_args, names_and_values, error_msg_name_part):
+        from ..entities import KeyEvent
+
         args = {}
         removed_args = set()
         base_filename = entity.compose_main_part(main_args)
@@ -415,7 +420,10 @@ class FilterCommands:
                 # same if it's a "elif" or "then"  because it depends on the other configuration options
                 if name not in entity.allowed_args:
                     if "." not in name:
-                        Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
+                        if isinstance(entity, KeyEvent) and cls.event_set_var_re.match(name):
+                            pass
+                        else:
+                            Manager.exit(1, f"[{error_msg_name_part}] Configuration name `{name}` is not valid")
                     else:
                         main_name = name.split(".", 1)[0]
                         if main_name not in entity.allowed_partial_args or not entity.allowed_partial_args[
