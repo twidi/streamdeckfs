@@ -269,6 +269,7 @@ class BaseEvent(EntityFile):
             shell=shell,
             done_event=self.ended_running,
             env=self.env_vars | self.finalize_env_vars(self.get_available_vars_values(), "VAR_"),
+            working_dir=self.activating_parent.path,
         ):
             self.pids.append(pid)
         return True

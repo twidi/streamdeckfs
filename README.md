@@ -966,8 +966,10 @@ If you want many actions to be done when a key is, for example, pressed, the fil
 
 Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
+Note that when the commands are executed, the working directory is set to the deck/page/event triggering the command.
 
 ### Environment variables
+
 Each command is executed with the environment variables received by `streamdeckfs` when it started, plus some others:
 
 - `SDFS_EXECUTABLE`: executable to run `streamdeckfs` (the same used to run the current instance of `streamdeckfs`)

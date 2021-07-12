@@ -4,6 +4,7 @@
 ## Release `1.7` - *IN PROGRESS*
 
 - Allow setting many vars in key events, independently from actions
+- Set current directory to the deck/page/key triggering a command
 
 
 ## Release `1.6.1` - *2021-07-11*

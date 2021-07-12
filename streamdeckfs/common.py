@@ -407,7 +407,9 @@ class Manager:
         cls.processes_checker_thread = None
 
     @classmethod
-    def start_process(cls, command, register_stop=False, detach=False, shell=False, done_event=None, env=None):
+    def start_process(
+        cls, command, register_stop=False, detach=False, shell=False, done_event=None, env=None, working_dir=None
+    ):
         if done_event is not None:
             done_event.clear()
         if not cls.processes_checker_thread:
@@ -422,6 +424,7 @@ class Manager:
                 shell=bool(shell),
                 env=(os.environ | env) if env else None,
                 stderr=None if logger.level == logging.DEBUG else DEVNULL,
+                cwd=working_dir,
             )
             cls.processes[process.pid] = {
                 "pid": process.pid,
