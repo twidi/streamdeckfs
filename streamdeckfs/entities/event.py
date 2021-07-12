@@ -249,9 +249,13 @@ class BaseEvent(EntityFile):
             return True
         if self.mode == "path":
             command = self.resolved_path
+            if not command.stat().st_size:
+                return False
             shell = False
         elif self.mode == "inside":
             command = self.resolved_path.read_text().strip()
+            if not command:
+                return False
             shell = True
         elif self.mode == "command":
             command = self.command
