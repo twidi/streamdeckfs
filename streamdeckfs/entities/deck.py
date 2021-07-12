@@ -195,13 +195,13 @@ class Deck(EntityDir):
                 break
         return page, transparent
 
-    def go_to_page(self, page_ref):
+    def go_to_page(self, page_ref, quiet=False):
         try:
-            self._go_to_page(page_ref)
+            self._go_to_page(page_ref, quiet=quiet)
         finally:
             self.write_current_page_info()
 
-    def _go_to_page(self, page_ref):
+    def _go_to_page(self, page_ref, quiet=False):
         from .page import BACK, FIRST, NEXT, PREVIOUS
 
         logger.debug(f"[{self}] Asking to go to page {page_ref} (current={self.current_page_number})")
@@ -256,28 +256,32 @@ class Deck(EntityDir):
 
         if current_page := self.current_page:
             if page_ref == BACK:
-                if self.current_page_is_transparent:
-                    logger.info(
-                        f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]'
-                    )
-                else:
-                    logger.info(
-                        f'[{self}] Going back to {"overlay " if transparent else ""}[{page.str}] from [{current_page.str}]'
-                    )
+                if not quiet:
+                    if self.current_page_is_transparent:
+                        logger.info(
+                            f'[{self}] Closing overlay for page [{current_page.str}], going back to {"overlay " if transparent else ""}[{page.str}]'
+                        )
+                    else:
+                        logger.info(
+                            f'[{self}] Going back to {"overlay " if transparent else ""}[{page.str}] from [{current_page.str}]'
+                        )
                 current_page.unrender(
                     clear_images=False  # the render of the new page will clear keys needing to be cleared
                 )
             elif transparent:
-                logger.info(f"[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]")
+                if not quiet:
+                    logger.info(f"[{self}] Adding [{page.str}] as an overlay over [{current_page.str}]")
             else:
-                logger.info(f"[{self}] Changing current page from [{current_page.str}] to [{page.str}]")
+                if not quiet:
+                    logger.info(f"[{self}] Changing current page from [{current_page.str}] to [{page.str}]")
                 for page_number in self.visible_pages:
                     if visible_page := self.pages.get(page_number):
                         visible_page.unrender(
                             clear_images=False  # the render of the new page will clear keys needing to be cleared
                         )
         else:
-            logger.info(f"[{self}] Setting current page to [{page.str}]")
+            if not quiet:
+                logger.info(f"[{self}] Setting current page to [{page.str}]")
 
         self.append_to_history(page, transparent)
         page.render(render_above=False, render_below=True)
@@ -434,7 +438,7 @@ class Deck(EntityDir):
             pressed_key, self.pressed_key = self.pressed_key, None
             pressed_key.released()
 
-    def set_brightness(self, operation, level):
+    def set_brightness(self, operation, level, quiet=False):
         old_brightness = self.brightness
         if operation == "=":
             self.brightness = level
@@ -444,7 +448,8 @@ class Deck(EntityDir):
             self.brightness = max(0, old_brightness - level)
         if self.brightness == old_brightness:
             return
-        logger.info(f"[{self}] Changing brightness from {old_brightness} to {self.brightness}")
+        if not quiet:
+            logger.info(f"[{self}] Changing brightness from {old_brightness} to {self.brightness}")
         self.device.set_brightness(self.brightness)
         self.write_current_brightness_info()
 

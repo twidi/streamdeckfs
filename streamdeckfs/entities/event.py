@@ -54,6 +54,8 @@ class BaseEvent(EntityFile):
             "command": re.compile(r"^(?P<arg>command)=(?P<value>.+)$"),
             # do not run many times the same command at the same time
             "unique": re.compile(r"^(?P<flag>unique)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
+            # do not show logs about runs in log
+            "quiet": re.compile(r"^(?P<flag>quiet)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         }
         | file_char_allowed_args
     )
@@ -73,6 +75,7 @@ class BaseEvent(EntityFile):
         self.detach = False
         self.command = None
         self.unique = False
+        self.quiet = False
         self.pids = []
         self.activated = False
         self.activating_parent = None
@@ -121,6 +124,8 @@ class BaseEvent(EntityFile):
             final_args["detach"] = args.get("detach", False)
             final_args["unique"] = args.get("unique", True if main["kind"] in ("start", "end") else False)
 
+        final_args["quiet"] = args.get("quiet", False)
+
         if "every" in args:
             final_args["repeat-every"] = int(args["every"])
         if "max-runs" in args:
@@ -146,6 +151,8 @@ class BaseEvent(EntityFile):
                 event.max_runs = args.get("max_runs")
         if args.get("wait"):
             event.wait = args["wait"]
+        if args.get("quiet"):
+            event.quiet = args["quiet"]
         return event
 
     @staticmethod
@@ -244,7 +251,7 @@ class BaseEvent(EntityFile):
                     logger.warning(
                         f'[{self} STILL RUNNING, EXECUTION SKIPPED [PIDS: {", ".join(str(pid) for pid in self.pids if pid in Manager.processes)}]'
                     )
-                else:
+                elif not self.quiet:
                     logger.warning(f"[{self}] Still running. Execution skipped.")
             return True
         if self.mode == "path":
@@ -270,6 +277,7 @@ class BaseEvent(EntityFile):
             done_event=self.ended_running,
             env=self.env_vars | self.finalize_env_vars(self.get_available_vars_values(), "VAR_"),
             working_dir=self.activating_parent.path,
+            quiet=self.quiet,
         ):
             self.pids.append(pid)
         return True
@@ -347,6 +355,7 @@ class BaseEvent(EntityFile):
                 "event": self.kind,
                 "event_name": "" if self.name == self.unnamed else self.name,
                 "event_file": self.path,
+                "quiet": "True" if self.quiet else "",
             }
         )
 
@@ -568,9 +577,9 @@ class KeyEvent(BaseEvent, KeyContent):
             for conf in self.set_vars_conf.values():
                 self.set_var(conf)
         if self.mode == "brightness":
-            self.deck.set_brightness(*self.brightness_level)
+            self.deck.set_brightness(*self.brightness_level, quiet=self.quiet)
         elif self.mode == "page":
-            self.deck.go_to_page(self.page_ref)
+            self.deck.go_to_page(self.page_ref, quiet=self.quiet)
         else:
             return super()._run()
 

@@ -993,6 +993,7 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_EVENT`: the kind of the triggered event (one of `start`, `end`, press`, `longpress`, `release`)
 - `SDFS_EVENT_NAME`: name, if defined, of the triggered event
 - `SDFS_EVENT_FILE`: file configuration of the triggered event
+- `SDFS_QUIET`: set to `True` if the `quiet` configuration option of the event was set, else set to an empty string
 - `SDFS_PRESSED_AT`: for key press related events (ie not `ON_START` or `ON_END`), the moment the key was pressed, as a timestamp (with decimals)
 - `SDFS_PRESS_DURATION`: for key press related events (ie not `ON_START` or `ON_END`), the duration, in milliseconds (with decimals), elapsed between the press of the key and the execution of the command
 
@@ -1145,6 +1146,20 @@ Examples:
 
 - `ON_PRESS;every=100;detach` or `ON_PRESS;every=100;detach=true` will run the program every 100 milliseconds but will skip an iteration if the execution from the previous one is not finished yet, so if the program takes 140ms, it will run at 0ms, 200ms, 400ms... instead of 0ms, 100ms, 200ms...
 - `ON_PRESS;every=100;detach=false` or `ON_PRESS;every=100` will not detach the program, so it will run at 0ms, 100ms, 200ms, and many occurrences of the same program may be running at the same time
+
+### Option "quiet"
+
+The `quiet` flag avoids displaying in the `streamdeckfs` output the start (with PID) and stop (with return code) of the command. Useful when [every](#option-every) configuration option is used.
+
+It must be defined like this:
+
+- `quiet` or `quiet=true` to not display the start and stop of the command
+- `quiet=false` to display the start and stop of the command. It's the default.
+
+Examples:
+
+- `ON_PRESS;every=100;quiet` or `ON_PRESS;every=100;quiet=true` will run the program every 100 milliseconds but will not display alls starts and stops
+- `ON_PRESS;every=100;quiet=false` or `ON_PRESS;every=100` will display all starts and stops
 
 ### Option "command"
 

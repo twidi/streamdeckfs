@@ -378,9 +378,10 @@ class Manager:
     def check_process_running(cls, pid, process_info):
         if (return_code := process_info["process"].poll()) is None:
             return True
-        logger.info(
-            f'[PROCESS {pid}] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [ReturnCode={return_code}]'
-        )
+        if not process_info["quiet"]:
+            logger.info(
+                f'[PROCESS {pid}] `{process_info["command"]}`{" (launched in detached mode)" if process_info["detached"] else ""} ended [ReturnCode={return_code}]'
+            )
         cls.processes.pop(pid, None)
         if event := process_info.get("done_event"):
             event.set()
@@ -408,12 +409,23 @@ class Manager:
 
     @classmethod
     def start_process(
-        cls, command, register_stop=False, detach=False, shell=False, done_event=None, env=None, working_dir=None
+        cls,
+        command,
+        register_stop=False,
+        detach=False,
+        shell=False,
+        done_event=None,
+        env=None,
+        working_dir=None,
+        quiet=False,
     ):
         if done_event is not None:
             done_event.clear()
         if not cls.processes_checker_thread:
             cls.start_processes_checker()
+
+        if logger.level <= logging.DEBUG:
+            quiet = False
 
         base_str = f'[PROCESS] Launching `{command}`{" (in detached mode)" if detach else ""}'
         logger.debug(f"{base_str}...")
@@ -433,8 +445,10 @@ class Manager:
                 "to_stop": bool(register_stop),
                 "detached": detach,
                 "done_event": done_event,
+                "quiet": quiet,
             }
-            logger.info(f"{base_str} [ok PID={process.pid}]")
+            if not quiet:
+                logger.info(f"{base_str} [ok PID={process.pid}]")
             return None if detach else process.pid
         except Exception:
             logger.error(f"{base_str} [failed]", exc_info=logger.level <= logging.DEBUG)
