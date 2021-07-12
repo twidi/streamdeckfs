@@ -3,6 +3,15 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 ├── PAGE_1;name=main
 │   ├── KEY_ROW_1_COL_1;ref=spotify:toggle;name=spotify-toggle
 │   │   └── ON_LONGPRESS;page=spotify;duration-min=300
+│   ├── KEY_ROW_1_COL_4;name=stop-watch
+│   │   ├── IMAGE;$VAR_ICON_STYLE -> /home/twidi/dev/streamdeck-scripts/assets/stopwatch.png
+│   │   ├── ON_PRESS;VAR_STATE<=off;disabled={"$VAR_STATE" != "result"}
+│   │   ├── ON_PRESS;VAR_STATE<=result;disabled={"$VAR_STATE" != "running"}
+│   │   ├── ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;disabled={"$VAR_STATE" != "off"};quiet
+│   │   ├── ON_START;every=1000;command=date +%s>VAR_LAST;disabled={"$VAR_STATE" != "running"};quiet
+│   │   ├── TEXT;fit;text={($VAR_LAST-$VAR_START)||3600}:{format(($VAR_LAST-$VAR_START)%3600||60,"02")}:{format(($VAR_LAST-$VAR_START)%3600%60,"02")};disabled={"$VAR_STATE"=="off"}
+│   │   ├── VAR_ICON_STYLE;if={"$VAR_STATE"=="off"};then=colorize=#5db0e8;elif={"$VAR_STATE"=="running"};then=colorize=#bdf57f^opacity=30;else=colorize=#5db0e8^opacity=30
+│   │   └── VAR_STATE;value=off
 │   ├── KEY_ROW_2_COL_1;name=volume-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
 │   │   ├── IMAGE;ref=ref:img:overlay
