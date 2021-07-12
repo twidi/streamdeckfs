@@ -730,7 +730,6 @@ Examples:
 - `TEXT;text=😂;fit=false` or `TEXT;text=😂` will use the default size
 
 
-
 #### Option "weight"
 
 It's the font-weight to use.
@@ -950,6 +949,24 @@ Examples:
 - `TEXT;file=|home|myself|texts|intro,version2.txt;slash=|;semicolon=,` same but using `|` for slashes and `,` for semicolons
 
 
+#### Option "emojis"
+
+This configuration option, active by default, allow to disable emojis when setting it to `false`. The main reason is to allow text within `:` to not be converted to emojis.
+
+
+It must be defined like this:
+
+- `emojis` or `emojis=true` to enable emojis (the default)
+- `emojis=false` to not display emojis
+
+
+Examples:
+
+- `TEXT;text=:joy:`, `TEXT;text=:joy:;emojis`, or `TEXT;text=:joy:;emojis=true` will convert `:joy:` to the 😂 emoji
+
+- `TEXT;text=:joy:;emojis=false` will display `:joy:` without converting it to the 😂 emoji
+
+
 ## Configuring key events (press, long-press, release, start, end)
 
 `streamdeckfs` handles five different events from your StreamDeck that are listed below. But first, let see how events are defined.
@@ -967,6 +984,7 @@ If you want many actions to be done when a key is, for example, pressed, the fil
 Two other kinds of actions can be triggered on an event instead of running a script/program: changing page (see later the `page` configuration option) or adjusting the brightness of the StreamDeck (see later the `brightness` configuration option)
 
 Note that when the commands are executed, the working directory is set to the deck/page/event triggering the command.
+
 
 ### Environment variables
 

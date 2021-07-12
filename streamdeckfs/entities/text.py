@@ -50,6 +50,7 @@ class KeyTextLine(KeyImagePart):
         "color": re.compile(r"^(?P<arg>color)=(?P<value>" + RE_PARTS["color"] + ")$"),
         "wrap": re.compile(r"^(?P<flag>wrap)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "fit": re.compile(r"^(?P<flag>fit)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
+        "emojis": re.compile(r"^(?P<flag>emojis)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "scroll": re.compile(r"^(?P<arg>scroll)=(?P<value>-?" + RE_PARTS["% | number"] + ")$"),
     }
 
@@ -79,6 +80,7 @@ class KeyTextLine(KeyImagePart):
         self.opacity = None
         self.wrap = False
         self.fit = False
+        self.allow_emojis = True
         self.margin = None
         self.scroll = None
         self._complete_image = None
@@ -118,6 +120,8 @@ class KeyTextLine(KeyImagePart):
             final_args["wrap"] = args["wrap"]
         if "fit" in args:
             final_args["fit"] = args["fit"]
+        if "emojis" in args:
+            final_args["allow_emojis"] = args["emojis"]
         if "margin" in args:
             final_args["margin"] = {}
             for part, val in list(args["margin"].items()):
@@ -141,6 +145,7 @@ class KeyTextLine(KeyImagePart):
             "opacity",
             "wrap",
             "fit",
+            "allow_emojis",
             "margin",
             "scroll",
         ):
@@ -236,15 +241,22 @@ class KeyTextLine(KeyImagePart):
     def get_emoji_image(cls, text, size, top_margin):
         font = cls.get_emoji_font()
         original_key = (cls.emoji_font_size, 0)
+        key = (size, top_margin)
+        cls.emoji_cache.setdefault(key, {})
         if text not in cls.emoji_cache[original_key]:
             width, height = cls.get_text_size(text, font)
+            if width == 0:
+                cls.emoji_cache[original_key][text] = cls.emoji_cache[key][text] = None
+                return None
             image = Image.new("RGBA", (width, height), "#00000000")
             drawer = ImageDraw.Draw(image)
             drawer.text((0, 0), text, font=font, fill="white", embedded_color=True)
             cls.emoji_cache[original_key][text] = image.crop(image.getbbox())  # auto-crop
-        key = (size, top_margin)
-        if text not in cls.emoji_cache.setdefault(key, {}):
+        if text not in cls.emoji_cache[key]:
             original_image = cls.emoji_cache[original_key][text]
+            if original_image is None:
+                cls.emoji_cache[key][text] = None
+                return None
             original_width, original_height = original_image.size
             new_height = size - top_margin
             new_width = round(original_width * new_height / original_height)
@@ -259,7 +271,9 @@ class KeyTextLine(KeyImagePart):
 
     @classmethod
     def get_emmoji_size(cls, text, size, top_margin):
-        return cls.get_emoji_image(text, size, top_margin).size
+        if image := cls.get_emoji_image(text, size, top_margin):
+            return image.size
+        return 0, 0
 
     @classmethod
     def get_text_or_emoji_size(cls, kind, text, text_font, emoji_size, top_margin):
@@ -275,6 +289,8 @@ class KeyTextLine(KeyImagePart):
         for part in parts:
             if part.width is None:
                 width, height = cls.get_text_or_emoji_size(part.kind, part.text, text_font, emoji_size, top_margin)
+                if not width or not height:
+                    continue
                 part = part._replace(width=width, height=height)
             line_width += part.width
             if part.height > line_height:
@@ -284,8 +300,9 @@ class KeyTextLine(KeyImagePart):
         return TextLine(final_parts, line_width, line_height)
 
     def split_text_on_lines_and_emojis(self, text, max_width, text_font, emoji_size, top_margin):
-        emojis = UNICODE_EMOJI["en"]
-        text = emojize(text, use_aliases=True, variant="emoji_type")
+        emojis = UNICODE_EMOJI["en"] if self.allow_emojis else {}
+        if self.allow_emojis:
+            text = emojize(text, use_aliases=True, variant="emoji_type")
 
         # we strip lines and replace all consecutive whitespaces on each line by a single space
         lines = [" ".join(line.split()) for line in text.splitlines()]
@@ -309,7 +326,7 @@ class KeyTextLine(KeyImagePart):
                 new_kind = (
                     SPACE
                     if char == " "  # we keep spaces appart to help wrapping
-                    else (EMOJI if char in EMOJI_TYPES or char in emojis else TEXT)
+                    else (EMOJI if self.allow_emojis and (char in EMOJI_TYPES or char in emojis) else TEXT)
                 )
                 if new_kind != current_kind:
                     if current_part:
