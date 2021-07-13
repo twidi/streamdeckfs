@@ -201,7 +201,13 @@ class KeyTextLine(KeyImagePart):
                         self.text = path.read_text()
                     except Exception:
                         pass
-        self.text = self.replace_vars_in_content(self.text)
+        self.text = self.replace_special_chars(
+            self.replace_vars_in_content(self.text),
+            {
+                "slash": self.slash_repl,
+                "semicolon": self.semicolon_repl,
+            },
+        )
         return self.text
 
     @classmethod

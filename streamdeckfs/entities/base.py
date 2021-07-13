@@ -632,12 +632,6 @@ class Entity:
         return None
 
     @staticmethod
-    def replace_special_chars(value, args):
-        return value.replace(args.get("slash", DEFAULT_SLASH_REPL), "/").replace(
-            args.get("semicolon", DEFAULT_SEMICOLON_REPL), ";"
-        )
-
-    @staticmethod
     def finalize_env_vars(env_vars, post_prefix=None):
         return {
             f"SDFS_{post_prefix or ''}{key.upper()}": str(value)
@@ -729,6 +723,8 @@ class EntityFile(Entity):
         super().__post_init__()
         self.mode = None
         self.file = None
+        self.slash_repl = DEFAULT_SLASH_REPL
+        self.semicolon_repl = DEFAULT_SEMICOLON_REPL
         self.watched_directory = False
         self._used_vars_in_content = set()
 
@@ -749,7 +745,16 @@ class EntityFile(Entity):
                         pass
                 except Exception:
                     final_args["file"] = None
+        for arg in ("slash", "semicolon"):
+            if arg in args:
+                final_args[f"{arg}_repl"] = args[arg]
         return final_args
+
+    @staticmethod
+    def replace_special_chars(value, args):
+        return value.replace(args.get("slash", DEFAULT_SLASH_REPL), "/").replace(
+            args.get("semicolon", DEFAULT_SEMICOLON_REPL), ";"
+        )
 
     def check_file_exists(self):
         if not self.deck.is_running:
@@ -762,7 +767,7 @@ class EntityFile(Entity):
     @classmethod
     def create_from_args(cls, path, parent, identifier, args, path_modified_at):
         obj = super().create_from_args(path, parent, identifier, args, path_modified_at)
-        for key in ("mode", "file"):
+        for key in ("mode", "file", "slash_repl", "semicolon_repl"):
             if key not in args:
                 continue
             setattr(obj, key, args[key])

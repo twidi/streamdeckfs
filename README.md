@@ -669,7 +669,7 @@ All text will be written in the same font ([Roboto](https://fonts.google.com/spe
 
 Text is not wrapped by default and will be truncated to fit on a line. See the `wrap` and `scroll` options below to change this behavior.
 
-All consecutive white space will be merged on a single space.
+All consecutive white space will be merged on a single space. And `^` and `\\` will be replaced by `;` and `/` (can be changed via the `slash` and `semicolon` configuration options).
 
 The configuration options for the texts are:
 
