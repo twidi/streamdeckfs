@@ -78,6 +78,7 @@ class Entity:
 
     allowed_args = {
         "disabled": re.compile(r"^(?P<flag>disabled)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
+        "enabled": re.compile(r"^(?P<flag>enabled)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
         "name": re.compile(r"^(?P<arg>name)=(?P<value>[^;]+)$"),
     }
     allowed_partial_args = {}
@@ -428,8 +429,11 @@ class Entity:
 
     @classmethod
     def convert_args(cls, main, args):
+        if len([1 for key in ("disabled", "enabled") if args.get(key)]) > 1:
+            raise InvalidArg('Only one of these arguments must be used: "disabled", "enabled"')
+
         final_args = {
-            "disabled": args.get("disabled", False),
+            "disabled": args.get("disabled", not args.get("enabled", True)),
             "name": args.get("name") or cls.unnamed,
         }
         return final_args

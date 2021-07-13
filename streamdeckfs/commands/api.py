@@ -131,7 +131,10 @@ class FilterCommands:
             help="Only validate arguments and return what would have been returned by the command but without touching anything",
         ),
         "disabled_flag": cloup.option(
-            "--with-disabled/--without-disabled", "with_disabled", default=False, help="Include disabled ones or not"
+            "--with-disabled/--without-disabled",
+            "with_disabled",
+            default=False,
+            help="Include disabled ones, or not (the default)",
         ),
     }
 

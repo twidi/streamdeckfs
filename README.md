@@ -257,6 +257,13 @@ It's the name of the page, key, image, event, or text. It can be whatever you wa
 
 To make `streamdeckfs` ignore a page, image, text, event..., you can use the `disabled` option, which is a flag, meaning that simply adding `;disabled` is enough to have it disabled, but you can also set a boolean value `;disabled=true` or `;disabled=false`.
 
+### `enabled`
+
+It's the exact opposite of `disabled`. Used as a flag `enabled` only or via `enabled=true` (equivalent to `disabled=false`) or `enabled=false` (equivalent to `disabled=true`)
+
+Useful when using [variables](#variables). Only one of `enabled` or `disabled` can be used.
+
+
 ## Configuring appearance (images, drawings, texts)
 
 First, let's talk about the image formats that are supported. You can use every [image format supported by the `pillow` python library](https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html). For example, jpeg, png, gif (we don't handle animated gif yet). The transparency level ("alpha layer") is respected.
@@ -1444,7 +1451,7 @@ This key represents a key rendered with a title on top, a small line as a separa
 
 `streamdeckfs` can be used as a store for the commands launched by its events. For this it uses files that can be in decks, pages or keys directories, that are named `VAR_NAME` with `NAME` a name of your choice (it must only contains capital letters from `A` to `Z`, digits from `0` to `9` and the character `_`).
 
-As for other kinds of objects, it can be disabled by adding `;disabled` (or `;disabled=true`, see [above](#disabled))
+As for other kinds of objects, it can be disabled by adding `;disabled` (or `;disabled=true`, see [above](#disabled), or `;enabled=false`)
 
 The value of the variable will be read from the file itself, of from the `value` configuration option in the file name. For example the file `VAR_FOO;value=bar` defines a variable `FOO` having `bar` as value. When read from the `value` configuration option, if you want semicolon `;` or slash `/` you must use `^` or `\\` (or specify the characters to use via the [semicolon](#option-semicolon) and [slash](#option-slash) configuration options (like for paths in texts/images `file` and events `command` options).
 
@@ -1564,7 +1571,7 @@ To make an event set a variable, it must be defined like this: `VAR_NAME=VALUE`,
 
 Repeat for each variable you want to set.
 
-If the variable file does not exist, it will be created, else it will be updated (and, if present, its `disabled` attribute will be removed)
+If the variable file does not exist, it will be created, else it will be updated (and, if present, its `disabled` or `enabled` attribute will be removed)
 
 By default, the variable will be created/updated in the directory of the key. But it's possible to put it at another place:
 
@@ -1593,9 +1600,9 @@ ON_PRESS;::mypage:VAR_FOO<=bar
 The first example below shows how this can be used to display different texts depending on a state. This example will also show how to use "expressions" (surrounded by `{` and `}`, and, via `VAR_STATE=value=state_$VAR_STATE_VALUE` that a variable value can use a variable itself, and that a variable does not need to be the full value of a configuration option:
 
 ```
-TEXT;text=1;fit;disabled={"$VAR_STATE" != "state_one"}
-TEXT;text=2;fit;disabled={"$VAR_STATE" != "state_two"}
-TEXT;text=3;fit;disabled={"$VAR_STATE" != "state_three"}
+TEXT;text=1;fit;enabled={"$VAR_STATE" == "state_one"}
+TEXT;text=2;fit;enabled={"$VAR_STATE" == "state_two"}
+TEXT;text=3;fit;enabled={"$VAR_STATE" == "state_three"}
 VAR_STATE;value=state_$VAR_STATE_VALUE
 VAR_STATE_VALUE;value=one
 ```
@@ -1675,9 +1682,9 @@ So we have:
 - A text defined like this: `TEXT;fit;text=$VAR_EMOJI`
 - A variable file defined like this: `VAR_EMOJI;value=:joy:`
 - And three `ON_PRESS` where only one will be activated depending on the emoji, to display the next one:
-    - `ON_PRESS;VAR_EMOJI=:joy:;disabled={"$VAR_EMOJI" != ":sob:"}`
-    - `ON_PRESS;VAR_EMOJI=:neutral_face:;disabled={"$VAR_EMOJI" != ":joy:"}`
-    - `ON_PRESS;VAR_EMOJI=:sob:;disabled={"$VAR_EMOJI" != ":neutral_face:"}`
+    - `ON_PRESS;VAR_EMOJI=:joy:;enabled={"$VAR_EMOJI" == ":sob:"}`
+    - `ON_PRESS;VAR_EMOJI=:neutral_face:;enabled={"$VAR_EMOJI" == ":joy:"}`
+    - `ON_PRESS;VAR_EMOJI=:sob:;enabled={"$VAR_EMOJI" == ":neutral_face:"}`
 
 Another way to write this example if we don't want to hardcode emojis in many files:
 
@@ -1688,9 +1695,9 @@ Another way to write this example if we don't want to hardcode emojis in many fi
     - `VAR_EMOJI2;value=:neutral_face:`
     - `VAR_EMOJI3;value=:sob:`
 - And our three `ON_PRESS`:
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;disabled={"$VAR_EMOJI" != "$VAR_EMOJI3"}`
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;disabled={"$VAR_EMOJI" != "$VAR_EMOJI1"}`
-    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;disabled={"$VAR_EMOJI" != "$VAR_EMOJI2"}`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI1;enabled={"$VAR_EMOJI" == "$VAR_EMOJI3"}`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI2;enabled={"$VAR_EMOJI" == "$VAR_EMOJI1"}`
+    - `ON_PRESS;VAR_EMOJI=$VAR_EMOJI3;enabled={"$VAR_EMOJI" == "$VAR_EMOJI2"}`
 
 It could even be made more generic:
 
@@ -1701,9 +1708,9 @@ It could even be made more generic:
     - `VAR_TEXT2;value=:neutral_face:`
     - `VAR_TEXT3;value=:sob:`
 - And three `ON_PRESS` where only one will be activated depending on the index, to display the next one:
-    - `ON_PRESS;VAR_INDEX=1;disabled={"$VAR_INDEX" != "3"}`
-    - `ON_PRESS;VAR_INDEX=2;disabled={"$VAR_INDEX" != "1"}`
-    - `ON_PRESS;VAR_INDEX=3;disabled={"$VAR_INDEX" != "2"}`
+    - `ON_PRESS;VAR_INDEX=1;enabled={$VAR_INDEX == 3}`
+    - `ON_PRESS;VAR_INDEX=2;enabled={$VAR_INDEX == 1}`
+    - `ON_PRESS;VAR_INDEX=3;enabled={$VAR_INDEX == 2}`
 
   The magic is in `TEXT;fit;text=$VAR_TEXT$VAR_INDEX`, because `$VAR_TEXT` is not an existing variable but `$VAR_INDEX` is, so `$VAR_INDEX` is converted first, to `1`, and then we have `$VAR_TEXT1` that can be converted.
 
@@ -3138,7 +3145,7 @@ We can do it without any code, just using filenames. We need 3 variables:
 - `VAR_START`: The timestamp when the stop watch was started
 - `VAR_LAST`: The "actual" timestamp (the elapsed time is the difference between `VAR_LAST` and `VAR_START`)
 
-To update `VAR_LAST` at fixed interval, we'll use the `every` configuration option, and we'll use the `ON_START` event of the key, that will only be enabled when the state is `running`, by using `;disabled={"$VAR_STATE" != "running"}`
+To update `VAR_LAST` at fixed interval, we'll use the `every` configuration option, and we'll use the `ON_START` event of the key, that will only be enabled when the state is `running`, by using `;enabled={"$VAR_STATE" == "running"}`
 
 We need a different action on press depending on the state
 
@@ -3156,29 +3163,29 @@ We first need a `VAR_STATE` file, with a state being `off`. We create an empty f
 
 We don't need to create the `VAR_START` and `VAR_LAST` command as they'll be created (and updated) bu the commands.
 
-Next we need a button to go from the `off` state to the `running` state that will also set the current timestamp in `VAR_START`. We create an empty file `ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;disabled={"$VAR_STATE" != "off"};quiet`
+Next we need a button to go from the `off` state to the `running` state that will also set the current timestamp in `VAR_START`. We create an empty file `ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;enabled={"$VAR_STATE" == "off"};quiet`
 
 Let's review the configuration options:
 
 - `VAR_STATE<=running`: will remove the `;value=off` from the `VAR_STATE;value=off` file (so it will be just `VAR_STATE`) and will put `running` as the content of the file. We use `<=` to set the value inside the file instead of just `=` to update the name, because it's slightly faster from the `streamdeckfs` side.
 - `command=date +%s>VAR_START`: execute the `date +%s` command and put the result in the `VAR_START` file
-- `disabled={"$VAR_STATE" != "off"}`: only enable this button when the state is `off`, so when pressed, the state becomes `running` and this event will be disabled
+- `enabled={"$VAR_STATE" == "off"}`: only enable this button when the state is `off`, so when pressed, the state becomes `running` and this event will be disabled
 - `quiet`: to avoid displaying the start and stop of the command on the `streamdeckfs` output
 
 Now that we can go to the `running` state, we need to update the `VAR_LAST` variable at fixed interval. As explained above, it's done via a `ON_START` event that is only enabled when the state is `running` (taking advantage of the fact that `ON_START` is automatically started/stopped when its `disabled` state changes). 
 
-We create an empty file `ON_START;every=1000;command=date +%s>VAR_LAST;disabled={"$VAR_STATE" != "running"};quiet`.
+We create an empty file `ON_START;every=1000;command=date +%s>VAR_LAST;enabled={"$VAR_STATE" == "running"};quiet`.
 
 Let's review the configuration options:
 
 - `every=1000`: will run the command every second, to have the elapsed time changing over time
 - `command=date +%s>VAR_LAST`: execute the `date +%s` command and put the result in the `VAR_START` file
-- `disabled={"$VAR_STATE" != "running"}`: only enable this button when the state is `running`
+- `enabled={"$VAR_STATE" == "running"}`: only enable this button when the state is `running`
 - `quiet`: to avoid displaying the start and stop of the repeated commands on the `streamdeckfs` output
 
-Next we need a button to stop the stop watch, and display the frozen elapsed time. We create an empty file `ON_PRESS;VAR_STATE<=result;disabled={"$VAR_STATE" != "running"}` that will put `result` in the `VAR_STATE` file.
+Next we need a button to stop the stop watch, and display the frozen elapsed time. We create an empty file `ON_PRESS;VAR_STATE<=result;enabled={"$VAR_STATE" == "running"}` that will put `result` in the `VAR_STATE` file.
 
-And finally a button to go back to the `off` state. We create an empty file `ON_PRESS;VAR_STATE<=off;disabled={"$VAR_STATE" != "result"}` that will put `off` in the `VAR_STATE` file.
+And finally a button to go back to the `off` state. We create an empty file `ON_PRESS;VAR_STATE<=off;enabled={"$VAR_STATE" == "result"}` that will put `off` in the `VAR_STATE` file.
 
 We now have our state, our variables and our actions, so we can display the elapsed time on the key. As explained above, the format will be `H::MM:SS`, so we'll have three parts, but thanks to expressions, we can have only one text, using `text={compute-hours}:{compute-minutes}:{compute-seconds}`
 
@@ -3224,10 +3231,10 @@ That's it, we have everything we need. Here a listing of all the files (here put
 ```
 PAGE_1;name=main/KEY_ROW_1_COL_4;name=stop-watch/
 ├── IMAGE;$VAR_ICON_STYLE -> /home/twidi/dev/streamdeck-scripts/assets/stopwatch.png
-├── ON_PRESS;VAR_STATE<=off;disabled={"$VAR_STATE" != "result"}
-├── ON_PRESS;VAR_STATE<=result;disabled={"$VAR_STATE" != "running"}
-├── ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;disabled={"$VAR_STATE" != "off"};quiet
-├── ON_START;every=1000;command=date +%s>VAR_LAST;disabled={"$VAR_STATE" != "running"};quiet
+├── ON_PRESS;VAR_STATE<=off;enabled={"$VAR_STATE" == "result"}
+├── ON_PRESS;VAR_STATE<=result;enabled={"$VAR_STATE" == "running"}
+├── ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;enabled={"$VAR_STATE" == "off"};quiet
+├── ON_START;every=1000;command=date +%s>VAR_LAST;enabled={"$VAR_STATE" == "running"};quiet
 ├── TEXT;fit;text={($VAR_LAST-$VAR_START)||3600}:{format(($VAR_LAST-$VAR_START)%3600||60,"02")}:{format(($VAR_LAST-$VAR_START)%3600%60,"02")};disabled={"$VAR_STATE"=="off"}
 ├── VAR_ICON_STYLE;if={"$VAR_STATE"=="off"};then=colorize=#5db0e8;elif={"$VAR_STATE"=="running"};then=colorize=#bdf57f^opacity=30;else=colorize=#5db0e8^opacity=30
 └── VAR_STATE;value=off

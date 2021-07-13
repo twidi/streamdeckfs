@@ -615,7 +615,7 @@ class KeyEvent(BaseEvent, KeyContent):
                 if var.value is None and value == var.resolved_value:
                     logger.debug(f"[{self}] Variable `VAR_{name}` already had the correct value in `{var.path}`")
                     return
-                filename = var.make_new_filename(update_args={}, remove_args={"value", "disabled"})
+                filename = var.make_new_filename(update_args={}, remove_args={"value", "disabled", "enabled"})
 
             else:
                 if value == var.value:
@@ -623,7 +623,9 @@ class KeyEvent(BaseEvent, KeyContent):
                         f"[{self}] Variable `VAR_{name}` already had the correct value configuration option in `{var.path}`"
                     )
                     return
-                filename = var.make_new_filename(update_args={"value": conf["value"]}, remove_args={"disabled"})
+                filename = var.make_new_filename(
+                    update_args={"value": conf["value"]}, remove_args={"disabled", "enabled"}
+                )
 
             try:
                 renamed, path = var.rename(new_filename=filename)
