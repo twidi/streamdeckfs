@@ -1,4 +1,4 @@
-# StopWatch example
+# Pomodoro example
 
 This example is a key providing a [pomodoro timer](https://en.wikipedia.org/wiki/Pomodoro_Technique) application (without any external script, only a simple bash command) 
 
