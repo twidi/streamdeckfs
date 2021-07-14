@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.7.1` - *IN PROGRESS*
+## Release `1.7.1` - *2021-07-14*
 
 - Handle semicolon and slash replacements in texts
 - Add the `enabled` configuration option, reverse of `disabled`
