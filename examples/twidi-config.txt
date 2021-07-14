@@ -1,17 +1,50 @@
+# Here is my complete actual config
+
 twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree --prune .
 .
 ├── PAGE_1;name=main
 │   ├── KEY_ROW_1_COL_1;ref=spotify:toggle;name=spotify-toggle
 │   │   └── ON_LONGPRESS;page=spotify;duration-min=300
-│   ├── KEY_ROW_1_COL_4;name=stop-watch
+│   ├── KEY_ROW_1_COL_4;name=stopwatch
 │   │   ├── IMAGE;$VAR_ICON_STYLE -> /home/twidi/dev/streamdeck-scripts/assets/stopwatch.png
-│   │   ├── ON_PRESS;VAR_STATE<=off;disabled={"$VAR_STATE" != "result"}
-│   │   ├── ON_PRESS;VAR_STATE<=result;disabled={"$VAR_STATE" != "running"}
-│   │   ├── ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;disabled={"$VAR_STATE" != "off"};quiet
-│   │   ├── ON_START;every=1000;command=date +%s>VAR_LAST;disabled={"$VAR_STATE" != "running"};quiet
+│   │   ├── ON_PRESS;VAR_STATE<=off;enabled={"$VAR_STATE" == "result"}
+│   │   ├── ON_PRESS;VAR_STATE<=result;enabled={"$VAR_STATE" == "running"}
+│   │   ├── ON_PRESS;VAR_STATE<=running;command=date +%s>VAR_START;enabled={"$VAR_STATE" == "off"};quiet
+│   │   ├── ON_START;every=1000;command=date +%s>VAR_LAST;enabled={"$VAR_STATE" == "running"};quiet
 │   │   ├── TEXT;fit;text={($VAR_LAST-$VAR_START)||3600}:{format(($VAR_LAST-$VAR_START)%3600||60,"02")}:{format(($VAR_LAST-$VAR_START)%3600%60,"02")};disabled={"$VAR_STATE"=="off"}
 │   │   ├── VAR_ICON_STYLE;if={"$VAR_STATE"=="off"};then=colorize=#5db0e8;elif={"$VAR_STATE"=="running"};then=colorize=#bdf57f^opacity=30;else=colorize=#5db0e8^opacity=30
-│   │   └── VAR_STATE;value=off
+│   │   ├── VAR_LAST
+│   │   ├── VAR_START
+│   │   └── VAR_STATE
+│   ├── KEY_ROW_1_COL_5;name=pomodoro
+│   │   ├── alert.wav
+│   │   ├── IMAGE;layer=1;name=progress-pause;draw=line;outline=white;width=3;coords=0,99%,$VAR_ELAPSED%,99%;enabled=$VAR_IS_BREAK
+│   │   ├── IMAGE;layer=2;name=progress-work;draw=pieslice;coords=22%,36%,78%,92%;angles=0,$VAR_ELAPSED%;width=0;fill=red;enabled=$VAR_IS_WORK
+│   │   ├── ON_LONGPRESS;VAR_STATE<=off;duration-min=300;quiet
+│   │   ├── ON_PRESS;VAR_IDX<=$VAR_NIDX;VAR_STATE<=$VAR_NSTATE;command=date +%s>VAR_START;duration-max=300;disabled=$VAR_IS_OFF;quiet
+│   │   ├── ON_PRESS;VAR_IDX<=1;VAR_STATE<=work;command=date +%s>VAR_START;duration-max=300;enabled=$VAR_IS_OFF;quiet
+│   │   ├── ON_START;wait=500;command=bash -c 'SECONDS=$(date +%s)^while((SECONDS<$VAR_END))^do echo $SECONDS>VAR_LAST^sleep $VAR_CONF_REFRESH^done^aplay alert.wav&date +%s>VAR_START&echo $VAR_NIDX >VAR_IDX&echo $VAR_NSTATE >VAR_STATE';disabled=$VAR_IS_OFF;quiet
+│   │   ├── TEXT;line=1;name=off;fit;text=🍅;enabled=$VAR_IS_OFF
+│   │   ├── TEXT;line=2;name=tomatoes;fit;text={"🍅"*($VAR_IDX-if("$VAR_STATE"=="work",0,1))}{"⚫️"*($VAR_CONF_NB-$VAR_IDX+if("$VAR_STATE"=="work",0,1))};margin=3%,0,77%,0;disabled=$VAR_IS_OFF
+│   │   ├── TEXT;line=3;name=pause;text=⏸;margin=30%,0,10%,0;fit;opacity={100-round($VAR_ELAPSED)};enabled=$VAR_IS_BREAK
+│   │   ├── TEXT;line=4;name=work;text=⏲;margin=30%,0,0,0;fit;opacity=50;enabled=$VAR_IS_WORK
+│   │   ├── VAR_CONF_LONG_BREAK_TIME;value=30
+│   │   ├── VAR_CONF_NB;value=4
+│   │   ├── VAR_CONF_REFRESH;value=10
+│   │   ├── VAR_CONF_SHORT_BREAK_TIME;value=5
+│   │   ├── VAR_CONF_WORK_TIME;value=25
+│   │   ├── VAR_DURATION;if={"$VAR_STATE"=="shortbreak"};then=$VAR_CONF_SHORT_BREAK_TIME;elif={"$VAR_STATE"=="longbreak"};then=$VAR_CONF_LONG_BREAK_TIME;else=$VAR_CONF_WORK_TIME
+│   │   ├── VAR_ELAPSED;value={100*max(1+$VAR_LAST-$VAR_START, 0)|($VAR_DURATION*60)}
+│   │   ├── VAR_END;value={$VAR_START+$VAR_DURATION*60}
+│   │   ├── VAR_IDX
+│   │   ├── VAR_IS_BREAK;value={"break" in "$VAR_STATE"}
+│   │   ├── VAR_IS_OFF;value={"$VAR_STATE"=="off"}
+│   │   ├── VAR_IS_WORK;value={"$VAR_STATE"=="work"}
+│   │   ├── VAR_LAST
+│   │   ├── VAR_NIDX;if={not $VAR_IS_WORK};then=$VAR_IDX;elif={$VAR_IDX>=$VAR_CONF_NB};then=1;else={$VAR_IDX+1}
+│   │   ├── VAR_NSTATE;if={$VAR_IS_WORK and $VAR_IDX<$VAR_CONF_NB};then=shortbreak;elif={$VAR_IS_WORK and $VAR_IDX==$VAR_CONF_NB};then=longbreak;else=work
+│   │   ├── VAR_START
+│   │   └── VAR_STATE
 │   ├── KEY_ROW_2_COL_1;name=volume-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
 │   │   ├── IMAGE;ref=ref:img:overlay
