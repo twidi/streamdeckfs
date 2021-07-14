@@ -491,7 +491,8 @@ class Manager:
             # TODO: handle the remaining processes
             logger.error(f'{base_str} [FAIL: still running: {" ".join([p.pid for p in alive])} ]')
         else:
-            logger.info(f"{base_str} [done]")
+            if not process_info["quiet"]:
+                logger.info(f"{base_str} [done]")
         cls.check_process_running(pid, process_info)  # to update the `done_event`
 
     @classmethod
