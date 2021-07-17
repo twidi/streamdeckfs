@@ -7,23 +7,71 @@
 # License: MIT, see https://opensource.org/licenses/MIT
 #
 import logging
+import re
 import signal
 import threading
 from time import sleep
 
 import click
+import cloup
+import cloup.constraints as cons
 
 from ..common import Manager, logger
 from ..entities import Deck
 from .base import cli, common_options
+
+WEB_HOST_RE = re.compile(
+    r"""^(?:
+(?P<addr>
+    (?P<ipv4>\d{1,3}(?:\.\d{1,3}){3}) |         # IPv4 address
+    (?P<fqdn>[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*) # FQDN
+):)?(?P<port>\d+)$""",
+    re.VERBOSE,
+)
+
+DEFAULT_WEB_HOST = "0.0.0.0"
+DEFAULT_WEB_PORT = "1910"
+
+
+def validate_web_host(value):
+    if value is None:
+        return {"host": DEFAULT_WEB_HOST, "port": DEFAULT_WEB_PORT}
+    if not (match := WEB_HOST_RE.match(value)):
+        raise click.BadParameter("Not a valid port, ip:port or fqdn:port", param_hint="'--web'")
+    addr, ipv4, fqdn, port = match.groups()
+    if not port.isdigit():
+        raise click.BadParameter("%r is not a valid port number." % port, param_hint="'--web'")
+    return {"host": addr or ipv4 or DEFAULT_WEB_HOST, "port": port or DEFAULT_WEB_PORT}
 
 
 @cli.command()
 @common_options["optional_serials"]
 @click.argument("directory", type=click.Path(file_okay=False, dir_okay=True, resolve_path=True, exists=False))
 @click.option("--scroll/--no-scroll", default=True, help="If scroll in keys is activated. Default to true.")
+@click.option(
+    "--web",
+    type=str,
+    help=f"Web server optional port number, or ip:port, or fqdn:port. Default to {DEFAULT_WEB_HOST}:{DEFAULT_WEB_PORT}",
+)
+@click.option("--no-web", is_flag=True, default=False, help="Deactivate web server.")
+@click.option(
+    "--web-password",
+    is_flag=True,
+    help="Will ask for a password for web access. No password by default",
+)
+@click.option(
+    "--ssl-cert",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Path to SSL certificate file for the web server.",
+)
+@click.option(
+    "--ssl-key",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Path to SSL private key file for the web server.",
+)
 @common_options["verbosity"]
-def run(serials, directory, scroll):
+@cloup.constraint(cons.mutually_exclusive, ["web", "no_web"])
+def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key):
     """Run, Forrest, Run!
 
     Arguments:
@@ -35,6 +83,11 @@ def run(serials, directory, scroll):
 
     if serials is None:
         serials = []
+
+    if not no_web:
+        web = validate_web_host(web)
+        if web_password:
+            web_password = click.prompt("Password for web access", hide_input=True)
 
     current_decks = {}
 
@@ -90,6 +143,8 @@ def run(serials, directory, scroll):
             if serial not in current_decks:
                 start_deck(device, serial)
 
+    if not no_web:
+        Manager.start_web_server(web["host"], web["port"], ssl_cert, ssl_key, web_password)
     Manager.start_files_watcher()
 
     end_event = threading.Event()
@@ -121,6 +176,8 @@ def run(serials, directory, scroll):
         if nb_decks and not len(current_decks):
             logger.warning("No more deck. Waiting for some to be ready...")
 
+    if not no_web:
+        Manager.end_web_server()
     Manager.end_files_watcher()
     Manager.end_processes_checker()
 

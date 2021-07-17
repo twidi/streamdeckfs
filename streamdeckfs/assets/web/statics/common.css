@@ -1,0 +1,31 @@
+/*
+#
+# Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
+#
+# This file is part of StreamDeckFS
+# (see https://github.com/twidi/streamdeckfs).
+#
+# License: MIT, see https://opensource.org/licenses/MIT
+#
+*/
+.alert {
+    position: absolute;
+    background: #000c;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 400 20px/1.5 Helvetica, Verdana, sans-serif;
+}
+.alert span {
+    display: block;
+    background: #000;
+    width: 100%;
+    text-align: center;
+    padding: 2em 0;
+    font-style: italic;
+}

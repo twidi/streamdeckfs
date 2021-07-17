@@ -10,10 +10,11 @@ import logging
 import os
 import platform
 import signal
+import ssl
 import sys
 import threading
 from pathlib import Path
-from queue import Empty
+from queue import Empty, SimpleQueue
 from subprocess import DEVNULL
 from time import sleep, time
 
@@ -71,6 +72,18 @@ class FakeDevice:
     def __del__(self):
         pass
 
+    def connected(self):
+        return False
+
+    def set_brightness(self, percent):
+        pass
+
+    def set_key_callback(self, callback):
+        pass
+
+    def set_key_image(self, key, image):
+        pass
+
 
 class FakeStreamDeckMini(FakeDevice, StreamDeckMini):
     pass
@@ -88,6 +101,9 @@ class FakeStreamDeckXL(FakeDevice, StreamDeckXL):
     pass
 
 
+WEB_QUEUE_ALL_IMAGES = "WEB_QUEUE_ALL_IMAGES"
+
+
 class Manager:
     open_decks = {}
     seen_ids = set()
@@ -97,6 +113,11 @@ class Manager:
     processes = {}
     processes_checker_thread = None
     exited = False
+    render_queues = {}
+    started_decks = {}
+    to_web_queue = None
+    from_web_queue = None
+    _stop_web_thread = None
 
     @classmethod
     def get_manager(cls):
@@ -159,6 +180,9 @@ class Manager:
                     continue
                 deck.set_brightness(DEFAULT_BRIGHTNESS)
             decks[serial] = deck
+            image_format = deck.key_image_format()
+            key_width, key_height = image_format["size"]
+            flip_h, flip_v = image_format["flip"]
             deck.info = {
                 "connected": connected,
                 "serial": serial if connected else "Unknown",
@@ -167,11 +191,14 @@ class Manager:
                 "class": device_class,
                 "firmware": deck.get_firmware_version() if connected else "Unknown",
                 "nb_keys": deck.key_count(),
-                "rows": (layout := deck.key_layout())[0],
-                "cols": layout[1],
+                "nb_rows": (layout := deck.key_layout())[0],
+                "nb_cols": layout[1],
                 "format": (image_format := deck.key_image_format())["format"],
-                "key_width": image_format["size"][0],
-                "key_height": image_format["size"][1],
+                "key_width": key_width,
+                "key_height": key_height,
+                "flip_horizontal": flip_h,
+                "flip_vertical": flip_v,
+                "rotation": image_format["rotation"],
             }
             if connected:
                 deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
@@ -245,31 +272,77 @@ class Manager:
         device_class = (Path(directory) / ".model").read_text().split(":")[0]
         fake_device = cls.get_fake_device(cls.get_device_class(device_class))
         nb_rows, nb_cols = fake_device.key_layout()
-        key_width, key_height = fake_device.key_image_format()["size"]
+        image_format = fake_device.key_image_format()
+        key_width, key_height = image_format["size"]
+        flip_h, flip_v = image_format["flip"]
         return {
+            "device": fake_device,
             "model": device_class,
             "nb_rows": nb_rows,
             "nb_cols": nb_cols,
+            "format": image_format["format"],
             "key_width": key_width,
             "key_height": key_height,
+            "flip_horizontal": flip_h,
+            "flip_vertical": flip_v,
+            "rotation": image_format["rotation"],
         }
 
+    @classmethod
+    def start_render_thread(cls, deck):
+        queue = SimpleQueue()
+        thread = threading.Thread(
+            name="ImgRenderer",
+            target=Manager.render_deck_images,
+            args=(deck.serial, deck.device, queue, cls.to_web_queue),
+        )
+        thread.start()
+        cls.render_queues[deck.serial] = queue
+        return queue, thread
+
+    @classmethod
+    def stop_render_thread(cls, deck):
+        del cls.render_queues[deck.serial]
+        deck.render_images_queue.put(None)
+        deck.render_images_thread.join(0.5)
+
     @staticmethod
-    def render_deck_images(deck, queue):
+    def render_deck_images(serial, deck, queue, web_queue):
         set_thread_name("ImgRenderer")
         delay = RENDER_IMAGE_DELAY
         future_margin = RENDER_IMAGE_DELAY / 10
         timeout = None
         images = {}
+        sent_images = {}
 
         def get_ordered():
-            return sorted((ts, index) for index, (ts, image) in images.items())
+            return sorted((ts, index) for index, (ts, key, image) in images.items())
 
         def extract_ready(ordered):
             if not ordered:
                 return []
             limit = time() + future_margin
             return [(index, images.pop(index)) for ts, index in ordered if ts < limit]
+
+        def web_queue_one(key, image, extra=None):
+            if web_queue is None:
+                return
+            try:
+                web_queue.sync_put(
+                    {
+                        "event": "deck.key.updated",
+                        "serial": serial,
+                        "key": key,
+                        "image": image,
+                    }
+                    | (extra or {})
+                )
+            except Exception:
+                pass
+
+        def web_queue_all(extra):
+            for index, (key, image) in sorted(sent_images.items()):
+                web_queue_one(key, image, extra)
 
         def render(force_all=False):
             if force_all:
@@ -282,12 +355,15 @@ class Manager:
 
             if ready:
                 with deck:
-                    for index, (ts, image) in ready:
+                    for index, (ts, key, image) in ready:
                         try:
                             deck.set_key_image(index, image)
                         except TransportError:
                             queue.put(None)
                             break
+                        sent_images[index] = (key, image)
+                        if web_queue is not None:
+                            web_queue_one(key, image)
                 ordered = get_ordered()
 
             return ordered[0] if ordered else (None, None)
@@ -310,9 +386,13 @@ class Manager:
                     # we were asked to exit, so we render waiting ones then we exit
                     render(force_all=True)
                     break
+                if work[0] == WEB_QUEUE_ALL_IMAGES:
+                    # we were asked to send all to the web queue
+                    web_queue_all(work[1])
+                    continue
                 # we have some work: we received a new image to queue
-                index, image = work
-                images[index] = (time() + delay, image)
+                index, key, image = work
+                images[index] = (time() + delay, key, image)
                 if index == next_index:
                     next_ts = next_index = None
 
@@ -501,3 +581,109 @@ class Manager:
         if executable.endswith(f"{LIBRARY_NAME}/__main__.py"):
             executable = f"{sys.executable} -m {LIBRARY_NAME}"
         return executable
+
+    @classmethod
+    def start_web_server(cls, host, port, ssl_cert, ssl_key, password):
+        from .web import start_web_thread
+
+        ssl_context = None
+        if ssl_cert:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+        cls.to_web_queue, cls.from_web_queue, cls._stop_web_thread = start_web_thread(
+            host, port, ssl_context, password
+        )
+
+    @classmethod
+    def end_web_server(cls):
+        cls._stop_web_thread()
+        cls.to_web_queue = cls.from_web_queue = None
+
+    @classmethod
+    def on_deck_started(cls, deck, client_id=None):
+        cls.started_decks[deck.serial] = deck
+        cls.on_deack_ready(deck.serial)
+
+    @classmethod
+    def on_deack_ready(cls, serial, client_id=None):
+        if cls.to_web_queue is None:
+            return
+        deck = cls.started_decks[serial]
+        cls.to_web_queue.sync_put(
+            {
+                "event": "deck.started",
+                "serial": deck.serial,
+                "client_id": client_id,
+                "deck": {
+                    "model": (parts := deck.model.split("Deck"))[0] + "Deck " + parts[1],
+                    "serial": deck.serial,
+                    "nb_cols": deck.nb_cols,
+                    "nb_rows": deck.nb_rows,
+                    "image_format": deck.image_format,
+                    "key_width": deck.key_width,
+                    "key_height": deck.key_height,
+                    "flip_horizontal": deck.flip_horizontal,
+                    "flip_vertical": deck.flip_vertical,
+                    "rotation": deck.rotation,
+                },
+            }
+        )
+
+    @classmethod
+    def on_deck_stopped(cls, serial, client_id=None):
+        if cls.to_web_queue is None:
+            return
+        cls.to_web_queue.sync_put(
+            {
+                "event": "deck.stopped",
+                "serial": serial,
+                "client_id": client_id,
+            }
+        )
+        cls.started_decks.pop(serial, None)
+
+    @classmethod
+    def on_key_pressed(cls, key):
+        if cls.to_web_queue is None:
+            return
+        cls.to_web_queue.sync_put(
+            {
+                "event": "deck.key.pressed",
+                "serial": key.deck.serial,
+                "key": key.key,
+            }
+        )
+
+    @classmethod
+    def on_key_released(cls, key):
+        if cls.to_web_queue is None:
+            return
+        cls.to_web_queue.sync_put(
+            {
+                "event": "deck.key.released",
+                "serial": key.deck.serial,
+                "key": key.key,
+            }
+        )
+
+    @classmethod
+    def on_web_ready(cls, client_id, serial):
+        if serial:
+            if not (render_queue := cls.render_queues.get(serial)):
+                return
+            render_queue.put((WEB_QUEUE_ALL_IMAGES, {"client_id": client_id}))
+        else:
+            for deck in cls.started_decks.values():
+                cls.on_deack_ready(deck.serial, client_id)
+
+    @classmethod
+    def on_web_key_pressed(cls, serial, key):
+        if not (deck := cls.started_decks.get(serial)):
+            return
+        deck.on_key_pressed(None, deck.key_to_index(key), True)
+
+    @classmethod
+    def on_web_key_released(cls, serial, key):
+        if not (deck := cls.started_decks.get(serial)):
+            return
+        deck.on_key_pressed(None, deck.key_to_index(key), False)

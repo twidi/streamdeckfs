@@ -8,9 +8,7 @@
 #
 import json
 import logging
-import threading
 from dataclasses import dataclass
-from queue import SimpleQueue
 
 from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
@@ -45,24 +43,25 @@ class Deck(EntityDir):
         if self.device:
             self.model = self.device.info["class"].__name__
             self.serial = self.device.info["serial"]
-            self.nb_cols = self.device.info["cols"]
-            self.nb_rows = self.device.info["rows"]
-            self.key_width = self.device.info["key_width"]
-            self.key_height = self.device.info["key_height"]
+            info = self.device.info
         else:
-            self.serial = None
             try:
                 info = Manager.get_info_from_model_file(self.path)
+                self.device = info["device"]  # a fake device
                 self.model = info["model"]
-                self.nb_rows = info["nb_rows"]
-                self.nb_cols = info["nb_cols"]
-                self.key_width = info["key_width"]
-                self.key_height = info["key_height"]
+                self.serial = self.path.name
             except Exception:
-                from traceback import print_exc
-
-                print_exc()
                 Manager.exit(1, 'Cannot guess model, please run the "make-dirs" command.')
+
+        self.nb_cols = info["nb_cols"]
+        self.nb_rows = info["nb_rows"]
+        self.key_width = info["key_width"]
+        self.key_height = info["key_height"]
+        self.flip_horizontal = info["flip_horizontal"]
+        self.flip_vertical = info["flip_vertical"]
+        self.rotation = info["rotation"]
+        self.image_format = info["format"]
+
         self.nb_keys = self.nb_rows * self.nb_cols
         self.brightness = DEFAULT_BRIGHTNESS
         self.pages = versions_dict_factory()
@@ -413,7 +412,7 @@ class Deck(EntityDir):
     def current_page(self):
         return self.pages.get(self.current_page_number) or None
 
-    def on_key_pressed(self, deck, index, pressed):
+    def on_key_pressed(self, __, index, pressed):
         row, col = row_col = self.index_to_key(index)
 
         if pressed:
@@ -431,12 +430,14 @@ class Deck(EntityDir):
 
             self.pressed_key = key
             key.pressed()
+            Manager.on_key_pressed(key)
 
         else:
             if not self.pressed_key or self.pressed_key.key != row_col:
                 return
             pressed_key, self.pressed_key = self.pressed_key, None
             pressed_key.released()
+            Manager.on_key_released(pressed_key)
 
     def set_brightness(self, operation, level, quiet=False):
         old_brightness = self.brightness
@@ -456,6 +457,7 @@ class Deck(EntityDir):
     def render(self):
         from .page import FIRST
 
+        Manager.on_deck_started(self)
         self.set_brightness_from_file(minimum=5)
         self.is_running = True
         self.device.set_key_callback(self.on_key_pressed)
@@ -469,6 +471,7 @@ class Deck(EntityDir):
         for page_number in self.visible_pages:
             if page := self.pages.get(page_number):
                 page.unrender()
+        Manager.on_deck_stopped(self.serial)
         self.deactivate_events()
         for file in (self.current_page_state_file, self.set_current_page_state_file):
             try:
@@ -476,20 +479,14 @@ class Deck(EntityDir):
             except Exception:
                 pass
         if self.render_images_thread is not None:
-            self.render_images_queue.put(None)
-            self.render_images_thread.join(0.5)
+            Manager.stop_render_thread(self)
             self.render_images_thread = self.render_images_queue = None
         self.is_running = False
 
     def set_image(self, row, col, image):
         if self.render_images_thread is None:
-            self.render_images_queue = SimpleQueue()
-            self.render_images_thread = threading.Thread(
-                name="ImgRenderer", target=Manager.render_deck_images, args=(self.device, self.render_images_queue)
-            )
-            self.render_images_thread.start()
-
-        self.render_images_queue.put((self.key_to_index(row, col), image))
+            self.render_images_queue, self.render_images_thread = Manager.start_render_thread(self)
+        self.render_images_queue.put((self.key_to_index(row, col), (row, col), image))
 
     def remove_image(self, row, col):
         self.set_image(row, col, None)

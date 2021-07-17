@@ -82,7 +82,7 @@ def make_dirs(serial, directory, pages, yes, dry_run):
         for page in range(1, pages + 1):
             page_dir = directory / Page.compose_main_part({"page": page})
             page_dir = create_dir(page_dir, f"Directory for content of page {page}", directory, "\t")[1]
-            for row in range(1, deck.info["rows"] + 1):
-                for col in range(1, deck.info["cols"] + 1):
+            for row in range(1, deck.info["nb_rows"] + 1):
+                for col in range(1, deck.info["nb_cols"] + 1):
                     key_dir = page_dir / Key.compose_main_part({"row": row, "col": col})
                     create_dir(key_dir, f"Directory for key {col} on row {row} on page {page}", page_dir, "\t\t")

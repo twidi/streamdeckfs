@@ -1,0 +1,93 @@
+{#
+# Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
+#
+# This file is part of StreamDeckFS
+# (see https://github.com/twidi/streamdeckfs).
+#
+# License: MIT, see https://opensource.org/licenses/MIT
+#
+#}<!DOCTYPE html>
+<html>
+    <head>
+        <title>StreamDeckFS Home</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" type="text/css" href="/statics/common.css">
+    <style type="text/css">
+html, body {
+    height: 100%;
+    width: 100%;
+}
+body {
+    background: #222;
+    margin: 0em;
+    font-family: sans-serif;
+    position: relative;
+    color:  #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+h2 {
+    font: 400 40px/1.5 Helvetica, Verdana, sans-serif;
+    padding: 0.6em 1em 0.5em;
+    margin:  0;
+}
+h3 {
+    font: 400 32px/1.5 Helvetica, Verdana, sans-serif;
+    padding: 0.6em 1em 0.5em;
+    margin:  0;
+}
+form, form * {
+    font: 400 24px/1.5 Helvetica, Verdana, sans-serif;
+}
+form {
+    display: flex;
+    background: black;
+}
+input {
+    border: none;
+    cursor: pointer;
+    background: #000;
+    color: #eee;
+    padding: 1em 2em;
+}
+input:focus {
+    outline: solid 1px #eee;
+}
+input[type="password"] {
+    max-width: 10em;
+}
+input[type="submit"] {
+    margin-left: 1px;
+}
+@media screen and (max-width: 500px) {
+    form {
+        flex-direction: column;
+        background: transparent;
+        margin: 10px;
+    }
+    input {
+        width: 100vw;
+        box-sizing: border-box;
+    }
+    input[type="password"] {
+        max-width: auto;
+    }
+    input[type="submit"] {
+        margin-left: 0;
+        margin-top:  0.5em;
+    }
+}
+</style>
+    </head>
+    <body>
+        <h2>StreamDecksFS</h2>
+        <h3>Enter password to access:</h3>
+        <form method="post">
+            <input type="hidden" name="next" value="{{ next }}" />
+            <input type="password" name="password" autofocus />
+            <input type="submit" value="Send" />
+        </form>
+    </body>
+</html>

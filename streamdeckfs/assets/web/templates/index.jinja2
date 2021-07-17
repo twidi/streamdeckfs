@@ -1,0 +1,169 @@
+{#
+# Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
+#
+# This file is part of StreamDeckFS
+# (see https://github.com/twidi/streamdeckfs).
+#
+# License: MIT, see https://opensource.org/licenses/MIT
+#
+#}<!DOCTYPE html>
+<html>
+    <head>
+        <title>StreamDeckFS Home</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" type="text/css" href="/statics/common.css">
+        <script src="/statics/jquery-3.6.0.min.js"></script>
+        <script src="/statics/common.js"></script>
+        <script language="javascript" type="text/javascript">
+            $(function() {
+                var token=document.body.getAttribute('data-token'),
+                    conn = connect(),
+                    $list = $('#decks-list'),
+                    $template = $('#deck-tmpl'),
+                    $alert = $('.alert'),
+                    decks = {
+                        {% for serial, deck in decks.items() %}
+                            "{{ deck.serial }}": $("#deck-{{ deck.serial }}"){% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    },
+                    client_id;
+                function sort_decks(a, b) {
+                    return ($(b).text().toUpperCase()) < ($(a).text().toUpperCase()) ? 1 : -1;
+                }
+                conn.onopen = function() {
+                    $alert.hide();
+                };
+                function replace(tpl, data) {
+                    return tpl.replace(/%\(([^\)]+)?\)s/g, function(a, b) { return data[b]; });
+                }
+                conn.onmessage = function(event) {
+                    var data = JSON.parse(event.data);
+                    switch (data.event) {
+                        case "ws.ready":
+                            client_id = data.client_id;
+                            conn.sendJson({"token": token, "event": "web.ready", "client_id": client_id});
+                            break;
+                        case "ws.fail":
+                            window.location.href = data.auth_url;
+                            break;
+                        case "deck.started":
+                            if (!decks[data.serial]) {
+                                var $deck = $(replace($template.html(), data.deck));
+                                $list.append($deck);
+                                decks[data.serial] = $deck;
+                                $list.children("li").sort(sort_decks).appendTo($list);
+                            }
+                            break;
+                        case "deck.stopped":
+                            if (decks[data.serial]) {
+                                decks[data.serial].remove()
+                                decks[data.serial] = null;
+                            }
+                            break;
+                    }
+                };
+                function onclose() {
+                    $alert.show();
+                    decks = {};
+                    $list.empty();
+                };
+                conn.onclose = onclose;
+                conn.onerror = function() {
+                    try {
+                        conn.close()
+                    } catch (e) {
+                        onclose();
+                    }
+                };
+         });
+        </script>
+    <style type="text/css">
+html, body {
+    height: 100%;
+    width: 100%;
+}
+body {
+    background: #222;
+    margin: 0em;
+    font-family: sans-serif;
+    position: relative;
+    color:  #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+h2 {
+    font: 400 40px/1.5 Helvetica, Verdana, sans-serif;
+    padding: 0.6em 1em 0.5em;
+    margin:  0;
+}
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+li {
+    font: 400 24px/1.5 Helvetica, Verdana, sans-serif;
+    border-bottom: 1px solid #000;
+}
+li:first-child {
+    border-top: 1px solid #000;
+}
+li a {
+    text-decoration: none;
+    color: #eee;
+    padding: 1em 2em;
+    display: flex;
+    align-items:  center;
+}
+li a:hover {
+    background: #000;
+}
+li a strong {
+    font-weight: inherit;
+    margin-right: 3em;
+}
+li a span {
+    font-size:  16px;
+    color:  #bbb;
+    font-style: italic;
+}
+@media screen and (max-width: 500px) {
+    ul {
+        width: 100%;
+    }
+    li a {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1em;
+    }
+    li a strong {
+        width:  auto;
+    }
+}
+</style>
+    </head>
+    <body data-token="{{ auth_token }}">
+        <h2>StreamDecks</h2>
+        <ul id="decks-list">
+            {% for serial, deck in decks|dictsort %}
+                <li id="deck-{{ serial }}">
+                    <a href="/{{ serial }}">
+                        <strong>{{ serial }}</strong>
+                        <span>{{ deck.model }} ({{ deck.nb_rows }} x {{ deck.nb_cols }})</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+        <div class="alert"><span>Connecting...</span></div>
+        <template id="deck-tmpl">
+            <li id="deck-%(serial)s">
+                <a href="/%(serial)s">
+                    <strong>%(serial)s</strong>
+                    <span>%(model)s (%(nb_rows)s x %(nb_cols)s)</span>
+                </a>
+            </li>
+        </template>
+    </body>
+ </html>

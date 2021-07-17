@@ -1,0 +1,242 @@
+{#
+# Copyright (C) 2021 Stephane "Twidi" Angel <s.angel@twidi.com>
+#
+# This file is part of StreamDeckFS
+# (see https://github.com/twidi/streamdeckfs).
+#
+# License: MIT, see https://opensource.org/licenses/MIT
+#
+#}<!DOCTYPE html>
+<html>
+    <head>
+        <title>StreamDeckFS {{ deck.serial }}</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" type="text/css" href="/statics/common.css">
+        <script src="/statics/jquery-3.6.0.min.js"></script>
+        <script src="/statics/common.js"></script>
+        <script language="javascript" type="text/javascript">
+            $(function() {
+                var doc=document, docElm=doc.documentElement;
+                function update_vh() {
+                    var vh = window.innerHeight * 0.01;
+                    docElm.style.setProperty('--vh', `${vh}px`);
+                }
+                window.addEventListener('resize', update_vh);
+                update_vh();
+                function toggle_fullscreen(event) {
+                    if (event.target.classList.contains("cell")) {
+                        event.stopPropagation();
+                        return;
+                    }
+                    if (!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement)) {
+                        if(docElm.requestFullscreen) {
+                            docElm.requestFullscreen();
+                        } else if(docElm.webkitRequestFullscreen ) {
+                            docElm.webkitRequestFullscreen();
+                        } else if(docElm.mozRequestFullScreen) {
+                            docElm.mozRequestFullScreen();
+                        }
+                    } else {
+                        if (doc.exitFullscreen) {
+                            doc.exitFullscreen();
+                        } else if(doc.webkitExitFullscreen ) {
+                            doc.webkitExitFullscreen();
+                        } else if(doc.mozCancelFullScreen) {
+                            doc.mozCancelFullScreen();
+                        }
+                    }
+                }
+                window.addEventListener('dblclick', toggle_fullscreen);
+                var token = doc.body.getAttribute('data-token'),
+                    conn = connect(),
+                    serial = doc.body.getAttribute('data-serial'),
+                    img_prefix = 'data:image/' + doc.body.getAttribute('data-img-format') + ';base64,',
+                    black = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=',
+                    $alert = $('.alert'),
+                    connected = false, deck_plugged = false,
+                    client_id;
+                conn.onopen = function() {
+                    connected = true;
+                };
+                conn.onmessage = function(event) {
+                    var data = JSON.parse(event.data);
+                    switch (data.event) {
+                        case "ws.ready":
+                            client_id = data.client_id;
+                            conn.sendJson({"token": token, "event": "web.ready", "serial": serial, "client_id": client_id});
+                            break;
+                        case "ws.fail":
+                            window.location.href = data.auth_url;
+                            break;
+                        case "deck.started":
+                            if (data.serial == serial) {
+                                deck_plugged = true;
+                                $alert.hide();
+                            }
+                            break;
+                        case "deck.stopped":
+                            if (data.serial == serial) {
+                                deck_plugged = false;
+                                $alert.show();
+                            }
+                            break;
+                        case "deck.key.updated":
+                            if (data.serial == serial) {
+                                var img = doc.querySelector('.cell[data-key="' + data.key[0] + ',' + data.key[1] + '"] > img'),
+                                    src = data["image"] ? img_prefix + data["image"] : black;
+                                if (src != img.getAttribute('src')) {
+                                    img.setAttribute('src', src);
+                                }
+                            }
+                            break;
+                        case "deck.key.pressed":
+                            if (data.serial == serial) {
+                                var cell = doc.querySelector('.cell[data-key="' + data.key[0] + ',' + data.key[1] + '"]');
+                                cell.classList.add('pressed');
+                            }
+                            break
+                        case "deck.key.released":
+                            if (data.serial == serial) {
+                                var cell = doc.querySelector('.cell[data-key="' + data.key[0] + ',' + data.key[1] + '"]');
+                                cell.classList.remove('pressed');
+                            }
+                            break
+                    }
+                };
+
+                 function onclose() {
+                    connected = false;
+                    deck_plugged = false;
+                    $alert.show();
+                };
+                conn.onclose = onclose;
+                conn.onerror = function() {
+                    try {
+                        conn.close()
+                    } catch (e) {
+                        onclose();
+                    }
+                };
+
+                function on_cell_press(event) {
+                    var cell = this;
+                    conn.sendJson({
+                        "token": token,
+                        "event": "web.key.pressed",
+                        "serial": serial,
+                        "key": [parseInt(cell.getAttribute("data-row")), parseInt(cell.getAttribute("data-col"))]
+                    })
+                    return false;
+                }
+                function on_cell_release(event) {
+                    var cell = this;
+                    conn.sendJson({
+                        "token": token,
+                        "event": "web.key.released",
+                        "serial": serial,
+                        "key": [parseInt(cell.getAttribute("data-row")), parseInt(cell.getAttribute("data-col"))]
+                    })
+                    return false;
+                }
+
+                var touchMode = 'ontouchstart' in window, lastTouchTime = 0;
+                function disableTouchMode() {
+                    if (new Date() - lastTouchTime < 500) return;
+                    if (!touchMode) { return; }
+                    touchMode = false;
+                    document.removeEventListener('mousemove', disableTouchMode);
+                }
+                function enableTouchMode() {
+                    lastTouchTime = new Date();
+                    if (touchMode) { return; }
+                    touchMode = true;
+                    document.addEventListener('mousemove', disableTouchMode, true);
+                }
+                document.addEventListener('touchstart', enableTouchMode, true);
+                document.addEventListener('mousemove', disableTouchMode, true);
+
+                var $cell = $(".cell");
+                $cell.on("mousedown", function(event) { if (!touchMode) { return on_cell_press.bind(this)(event); }});
+                $cell.on("touchstart", function(event) { if (touchMode) { return on_cell_press.bind(this)(event); }});
+                $cell.on("mouseup", function(event) { if (!touchMode) { return on_cell_release.bind(this)(event); }});
+                $cell.on("touchend", function(event) { if (touchMode) { return on_cell_release.bind(this)(event); }});
+            });
+        </script>
+    <style type="text/css">
+:root {
+    --nb-cols: {{ deck.nb_cols }};
+    --nb-rows: {{ deck.nb_rows }};
+    --scaleX: {% if deck.flip_horizontal %}-1{% else %}1{% endif %};
+    --scaleY: {% if deck.flip_vertical %}-1{% else %}1{% endif %};
+    --rotate: {% if deck.rotation %}-{{ deck.rotation }}{% else %}0{% endif %}deg;
+    --deck-gap: 2;
+    --unit: 1vw;
+    --nb-cells: var(--nb-cols);
+    --vh: calc(100vh / 100);
+}
+@media (min-aspect-ratio: {{ deck.nb_cols}}/{{deck.nb_rows}}) {
+    :root {
+        --unit: var(--vh);
+        --nb-cells: var(--nb-rows);
+    }
+}
+html, body {
+    height: 100%;
+    width: 100%;
+}
+body {
+    margin: 0;
+    background: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.deck {
+    position: relative;
+}
+.cells {
+    --nb-gaps: calc(var(--nb-cells) - 1 + 2);  /* + 2 is for margins */
+    --cells-percent-used-by-gaps: calc(var(--deck-gap) * var(--nb-gaps));
+    --cells-percent-used-by-content: calc(100 - var(--cells-percent-used-by-gaps));
+    --cell-size: calc(var(--cells-percent-used-by-content) / var(--nb-cells));
+    display: grid;
+    grid-template-columns: repeat(var(--nb-cols), calc(var(--cell-size) * var(--unit)));
+    grid-template-rows: repeat(var(--nb-rows), calc(var(--cell-size) * var(--unit)));
+    gap: calc(var(--deck-gap) * var(--unit));
+    margin: calc(var(--deck-gap) * var(--unit));
+}
+
+.cell {
+    background: black;
+    border-radius: 10%;
+    overflow: hidden;
+    cursor: pointer;
+}
+.cell.pressed {
+    outline:  solid white calc(1 * var(--unit));
+}
+.cell img {
+    display: block;
+    width: 100%;
+    height: auto;
+    transform: scaleX(var(--scaleX)) scaleY(var(--scaleY)) rotate(var(--rotate));
+    pointer-events: none;
+}
+    </style>
+    </head>
+    <body data-token="{{ auth_token }}" data-serial="{{ deck.serial }}" data-img-format="{{ deck.image_format|lower() }}">
+        <div id="#deck-{{ deck.serial }}" class="deck">
+            <div class="cells">
+            {% for row in range(1, deck.nb_rows + 1) %}
+                {% for col in range(1, deck.nb_cols + 1) %}
+                    <div id="cell-{{row }}-{{ col }}" class="cell" data-row="{{ row }}" data-col="{{ col }}" data-key="{{ row }},{{ col }}">
+                        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="/>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+            </div>
+            <div class="alert"><span>Connecting...</span></div>
+        </div>
+    </body>
+ </html>

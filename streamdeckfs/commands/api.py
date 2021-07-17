@@ -847,7 +847,10 @@ FC.combine_options()
 def get_deck_info(directory):
     """Get some information about the deck"""
     try:
-        print(Manager.get_info_from_model_file(directory))
+        info = Manager.get_info_from_model_file(directory)
+        for key in ("device", "flip_horizontal", "flip_vertical", "rotation"):
+            del info[key]
+        print(json.dumps(info))
     except Exception:
         Manager.exit(1, f'Unable to read information from directory "{directory}')
 

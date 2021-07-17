@@ -12,7 +12,7 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Example configurations](#example-configurations)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Example configurations](#example-configurations) • [Web renderer](#web-renderer)
 
 # StreamDeckFS
 
@@ -282,7 +282,7 @@ To make an image a layer, set the `layer` configuration option to a number: `IMA
 
 If two images have the same layer number, the most recent one will be displayed, the other(s) will be ignored.
 
-So ok, we can have many layers that will be rendered on top of each other. But in this case, we'll only be able to see the last layer, right? Not exactly. There are many configuration options that you can apply on each layer, as you can see below. 
+So ok, we can have many layers that will be rendered on top of each other. But in this case, we'll only be able to see the last layer, right? Not exactly. There are many configuration options that you can apply on each layer, as you can see below.
 
 The list below presents the configuration options in the same order as they are applied on a layer (the order in the file name is not essential).
 
@@ -696,7 +696,7 @@ The text must be defined like this: `text=foo with space | or whatever (really)`
 
 #### Option "size"
 
-The size of the font. 
+The size of the font.
 
 It must be defined like this: `size=SIZE` with:
 
@@ -777,7 +777,7 @@ Examples:
 
 #### Option "align"
 
-Horizontal alignment of the text. 
+Horizontal alignment of the text.
 
 It must be defined like this: `align=ALIGN` with:
 
@@ -792,7 +792,7 @@ Example:
 
 #### Option "valign"
 
-Vertical alignment of the text. 
+Vertical alignment of the text.
 
 It must be defined like this: `valign=ALIGN` with:
 
@@ -858,7 +858,7 @@ Examples:
 
 The `margin` option allows placing the text in a key area by defining margin on all sides. The way it works is to remove the margins from the original key size and fit the text in the remaining area.
 
-The `align` and `valign` options will then be applied in the area limited by the margins (same for the `wrap` option: text will be displayed on many lines but only in this area). 
+The `align` and `valign` options will then be applied in the area limited by the margins (same for the `wrap` option: text will be displayed on many lines but only in this area).
 
 Values can be defined in pixels from the key or in percents (Using percents allow to have the same rendering whatever the key size is)
 
@@ -1256,10 +1256,10 @@ It must be defined like this: `page=PAGE` with:
 
 - `PAGE`: the number or name (it will use the name in the page directory name: `PAGE_NUMBER;name=NAME`) of the page to display or one of these specific values:
 
-	- `__first__` will go to the first page number available
-	- `__previous__` will go to the previous page number (i.e., the actual page number minus 1)
-	- `__next__` will go to the following page number (i.e., the actual page number plus 1)
-	- `__back__` will go to the previous page that was displayed before the current one
+    - `__first__` will go to the first page number available
+    - `__previous__` will go to the previous page number (i.e., the actual page number minus 1)
+    - `__next__` will go to the following page number (i.e., the actual page number plus 1)
+    - `__back__` will go to the previous page that was displayed before the current one
 
 
 See the `Pages` section below to know more about how pages work.
@@ -1288,9 +1288,9 @@ It's not possible to set [variables](#variables) on deck events.
 
 # Pages
 
-Pages are a way to extend the number of keys available on your StreamDeck and regroup some actions together. 
+Pages are a way to extend the number of keys available on your StreamDeck and regroup some actions together.
 
-Some examples: 
+Some examples:
 
 - a key on your first page with a simple press that will toggle your microphone, and, on a long press, display an overlay with keys to decrease/increase the microphone sensitivity (and a key to close the overlay)
 
@@ -1314,7 +1314,7 @@ The `run` command will start with the first page, using page numbers. You can ch
 
 ## Option "overlay"
 
-The `overlay` flag allows opening the page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website. 
+The `overlay` flag allows opening the page as an overlay over the current one. The keys defined on the new page will be displayed, and for the others, the keys from the current page will be displayed with a black overlay and all events deactivated. It's like a "modal" on a website.
 
 It must be defined like this:
 
@@ -1757,9 +1757,9 @@ And finally to make it works whatever the number of lines in `VAR_TEXTS`, we can
 
 # API
 
-As everything is done in file names (except sometimes for texts/images/variables), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically. 
+As everything is done in file names (except sometimes for texts/images/variables), it's easy to update a key: simply rename the file to change its configuration options. And the StreamDeck will be updated in near real time. It can be done manually, or programmatically.
 
-But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name. 
+But when you do it programmatically you need to know the exact path and name of the file... that will change when you'll rename it, so by doing this you would have to keep the name.
 
 `streamdeckfs` provides an API as a few commands to avoid doing that, that allow to do things like "disable the layer named foobar of the key mykey on the page mypage", or "move the right coordinate of this line to 90%" (now you can see why things like "coords.2" are useful). You can even create everything from this API.
 
@@ -1858,10 +1858,10 @@ streamdeckfs set-current-page SERIAL_DIRECTORY PAGE
 with:
 
 - `PAGE`: the number or name of the wanted page, or one of:
-	- `__first__` to go to the first page number available
-	- `__previous__` to go to the previous page number (i.e., the actual page number minus 1)
-	- `__next__` to go to the following page number (i.e., the actual page number plus 1)
-	- `__back__` to go to the previous page that was displayed before the current one
+    - `__first__` to go to the first page number available
+    - `__previous__` to go to the previous page number (i.e., the actual page number minus 1)
+    - `__next__` to go to the following page number (i.e., the actual page number plus 1)
+    - `__back__` to go to the previous page that was displayed before the current one
 
 Example, to open the spotify page:
 
@@ -3128,3 +3128,46 @@ $ streamdeckfs delete-var ~/streamdeck-data/MYDECKSERIAL -p spotify -v ALBUM
 # Example configurations
 
 You can find example configurations in the [examples directory](examples/) of the [Git repository](https://github.com/twidi/streamdeckfs)
+
+
+# Web renderer
+
+By default, when executing the `run` command, decks are also accessible in the web browser via the http://0.0.0.0:1910 address, without any password.
+
+## Configuration
+
+You can disable the webserver by passing `--no-web` option.
+
+But if not, there are some options to change the behavior of the web server:
+
+- `--web`: allows to use a different address or port than the default one `http://0.0.0.0:1910`. You can pass:
+    - a port, for example `--web 8080` will use the address `http://0.0.0.0:8080`.
+    - an ip address + port can be passed, for example `--web 127.0.0.1:8080`
+    - a fully qualified domain name + port, for example `--web mycomputer.local:8080`
+
+- `--web-password`: it's a flag that will ask on the prompt for a password that will be required to access the decks in the browser
+
+- `--ssl-cert`: path to the SSL certificate file to activate https
+- `--ssl-key`: path to the SSL private key file used to generate the certificate
+
+To generate a local self signed certificate you can use this command:
+
+```bash
+ openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=<Country Code>/ST=<State>/L=<City>/O=<Organization>/CN=<Common Name>" -keyout certificate.key -out certificate.crt
+```
+
+Don't forget to replace values between `<` and `>` (including the `<` and `>`)
+
+## Usage
+
+When going to the address (displayed at the beginning of the output of the `run` command), a list of connected StreamDecks will be displayed. Clicking on one will go to the deck page.
+
+Keys will be visually updated on the web page when they are updated on the real deck. Press/release events from the deck are visible by a white border arround the pressed key.
+
+And of course it's possible to click/tap a key on the web browser to simulate a click on the deck. To simulate a long press on the deck, simply keep the click/tag as long as you want.
+
+If a password is asked, you'll be redirected to a page to enter it, then if ok you'll be redirected back to the wanted page.
+
+Deconnections are handled: a "connecting" overlay will be displayed on the web page when the `streamdeckfs` command is stopped, or when the current deck is disconnected.
+
+To display a deck "full screen", double click on an "empty" area (i.e., not on a key).

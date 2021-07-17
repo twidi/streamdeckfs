@@ -140,7 +140,12 @@ dmypy.json
 cython_debug/
 
 
-# In addition to file from github:
+#### In addition to file from github:
 
+# sublime text related:
 *.sublime-project
 *.sublime-workspace
+
+# ssl certificates
+*.key
+*.crt
