@@ -21,7 +21,7 @@ import aiohttp_jinja2
 import jinja2
 from aiohttp import WSMsgType, web
 
-from .common import ASSETS_PATH, Manager, logger
+from .common import ASSETS_PATH, SERIAL_RE_PART, Manager, logger
 
 CLIENTS = ContextVar("CLIENTS", default={})
 DECKS = ContextVar("DECKS", default={})
@@ -56,7 +56,7 @@ def create_app_runner(host, port, is_ssl, password, from_web_queue):
             web.get("/", page_index),
             web.get(AUTH_PATH, page_auth),
             web.post(AUTH_PATH, page_auth),
-            web.get(r"/{serial:[A-Z[0-9]+}", page_deck),
+            web.get(r"/{serial:" + SERIAL_RE_PART + "}", page_deck),
             web.static("/statics", ASSETS_PATH / "web/statics"),
         ]
     )

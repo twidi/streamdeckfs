@@ -10,13 +10,14 @@ import logging
 import re
 import signal
 import threading
+from pathlib import Path
 from time import sleep
 
 import click
 import cloup
 import cloup.constraints as cons
 
-from ..common import Manager, logger
+from ..common import SERIAL_RE, Manager, logger
 from ..entities import Deck
 from .base import cli, common_options
 
@@ -84,6 +85,8 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
     if serials is None:
         serials = []
 
+    directory = Path(directory)
+
     if not no_web:
         web = validate_web_host(web)
         if web_password:
@@ -95,7 +98,9 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
         deck_directory = Manager.normalize_deck_directory(directory, serial)
         if not deck_directory.exists() or not deck_directory.is_dir():
             return
-        logger.info(f'[DECK {serial}] Ready to run in directory "{deck_directory}"')
+        logger.info(
+            f'[DECK {serial}] Ready to run{"" if device else " (for web only)"} in directory "{deck_directory}"'
+        )
         deck = Deck(
             path=deck_directory,
             path_modified_at=deck_directory.lstat().st_ctime,
@@ -104,7 +109,8 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
             device=device,
             scroll_activated=scroll,
         )
-        Manager.write_deck_model(deck_directory, device.info["class"])
+        if device:
+            Manager.write_deck_model(deck_directory, device.info["class"])
         deck.on_create()
         deck.render()
         current_decks[serial] = deck
@@ -112,37 +118,90 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
     def stop_deck(deck, close=True):
         deck.unrender()
         deck.on_delete()
-        if close:
+        if close and not deck.device.is_fake:
             Manager.close_deck(deck.device)
         current_decks.pop(deck.serial)
 
-    def check_decks_and_directories():
-        # first check that decks are still connected and have their directories
-        # else we stop them
-        for deck in list(current_decks.values()):
-            stop = close = False
-            if deck.directory_removed:
-                logger.critical(f'[{deck}] Configuration directory "{deck.path}" was removed. Waiting for it...')
-                stop = True
-            if not deck.device.connected():
-                logger.critical(f"[{deck}] Unplugged. Waiting for it...")
-                stop = close = True
-            if stop:
-                stop_deck(deck, close=close)
+    if no_web:
 
-        # if we have wanted serials not running and not connected, check if they are now connected
-        if serials and len(serials) != len(current_decks):
-            if missing_serials := [serial for serial in serials if serial not in Manager.open_decks]:
-                Manager.get_decks(limit_to_serials=missing_serials, exit_if_none=False)
+        # in non-web mode we'll only run decks that are really connected
+        def check_decks_and_directories():
+            # first check that decks are still connected and have their directories
+            # else we stop them
+            for deck in list(current_decks.values()):
+                stop = close = False
+                if deck.directory_removed:
+                    logger.critical(f'[{deck}] Configuration directory "{deck.path}" was removed. Waiting for it...')
+                    stop = True
+                if not deck.device.connected():
+                    logger.critical(f"[{deck}] Unplugged. Waiting for it...")
+                    stop = close = True
+                if stop:
+                    stop_deck(deck, close=close)
 
-        # if we didn't specify any serial, check if new decks are now connected
-        elif not serials:
-            Manager.get_decks(exit_if_none=False)
+            # if we have wanted serials not running and not connected, check if they are now connected
+            if serials and len(serials) != len(current_decks):
+                if missing_serials := [serial for serial in serials if serial not in Manager.open_decks]:
+                    Manager.get_decks(limit_to_serials=missing_serials, exit_if_none=False)
 
-        # start decks that are not yet started
-        for serial, device in Manager.open_decks.items():
-            if serial not in current_decks:
-                start_deck(device, serial)
+            # if we didn't specify any serial, check if new decks are now connected
+            elif not serials:
+                Manager.get_decks(exit_if_none=False)
+
+            # start decks that are not yet started
+            for serial, device in Manager.open_decks.items():
+                if serial not in current_decks:
+                    start_deck(device, serial)
+
+    else:
+
+        # in web mode, we run for all directories that hold a deck configuration if they are valid
+        def check_decks_and_directories():
+            # first we get the connected decks
+            Manager.get_decks(limit_to_serials=serials or None, exit_if_none=False)
+
+            # first check that decks have their directories else we stop them
+            for deck in list(current_decks.values()):
+                if deck.directory_removed:
+                    logger.critical(f'[{deck}] Configuration directory "{deck.path}" was removed. Waiting for it...')
+                    stop_deck(deck, close=False)
+
+            # if the connected state of a deck changes, we stop it (will be restarted with the correct state just after)
+            for deck in list(current_decks.values()):
+                is_connected = deck.serial in Manager.open_decks and Manager.open_decks[deck.serial].connected()
+                if deck.device.is_fake and is_connected:
+                    logger.info(f"[{deck}] Now connected")
+                    stop_deck(deck, close=True)
+                elif not deck.device.is_fake and not is_connected:
+                    logger.info(f"[{deck}] Not connected anymore")
+                    stop_deck(deck, close=True)
+
+            # now go through directories to handle the ones that look likes a deck
+            for child_dir in directory.iterdir():
+                if not child_dir.is_dir():
+                    continue
+                serial = str(child_dir.name)
+                if not SERIAL_RE.match(serial):
+                    continue
+                if serial in current_decks:
+                    # we already handle it
+                    continue
+                if serials and serial not in serials:
+                    # not in the serials we were asked to render
+                    continue
+                # first check if it's one of the opened decks
+                if serial in Manager.open_decks:
+                    # in this case we start the deck with the real device
+                    start_deck(Manager.open_decks[serial], serial)
+                    continue
+                # else we try to load model information
+                try:
+                    Manager.get_info_from_model_file(child_dir)
+                except Exception:
+                    # not a valid directory
+                    continue
+                # we can start the deck with a fake device (created by the `Deck` class itself)
+                start_deck(None, serial)
 
     if not no_web:
         Manager.start_web_server(web["host"], web["port"], ssl_cert, ssl_key, web_password)

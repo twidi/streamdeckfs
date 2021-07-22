@@ -29,7 +29,7 @@
                     },
                     client_id;
                 function sort_decks(a, b) {
-                    return ($(b).text().toUpperCase()) < ($(a).text().toUpperCase()) ? 1 : -1;
+                    return ($(b).text().trim().toUpperCase()) < ($(a).text().trim().toUpperCase()) ? 1 : -1;
                 }
                 conn.onopen = function() {
                     $alert.hide();
@@ -88,7 +88,7 @@ body {
     margin: 0em;
     font-family: sans-serif;
     position: relative;
-    color:  #eee;
+    color: #eee;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -96,7 +96,7 @@ body {
 h2 {
     font: 400 40px/1.5 Helvetica, Verdana, sans-serif;
     padding: 0.6em 1em 0.5em;
-    margin:  0;
+    margin: 0;
 }
 ul {
     list-style-type: none;
@@ -115,7 +115,7 @@ li a {
     color: #eee;
     padding: 1em 2em;
     display: flex;
-    align-items:  center;
+    align-items: center;
 }
 li a:hover {
     background: #000;
@@ -125,11 +125,27 @@ li a strong {
     margin-right: 3em;
 }
 li a span {
-    font-size:  16px;
-    color:  #bbb;
+    font-size: 16px;
+    color: #bbb;
     font-style: italic;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
-@media screen and (max-width: 500px) {
+li a span:after {
+    display: block;
+    background: #b93c3c;
+    height: 10px;
+    width: 10px;
+    content: "";
+    border-radius: 100%;
+    margin-left: 2em;
+}
+li.plugged-true a span:after {
+    background: green;
+}
+@media screen and (max-width: 600px) {
     ul {
         width: 100%;
     }
@@ -139,7 +155,14 @@ li a span {
         padding: 1em;
     }
     li a strong {
-        width:  auto;
+        width: auto;
+        margin-right: 0;
+    }
+    li a span {
+        width: 100%;
+    }
+    li a span:after {
+        margin-top: -2em;
     }
 }
 </style>
@@ -148,7 +171,7 @@ li a span {
         <h2>StreamDecks</h2>
         <ul id="decks-list">
             {% for serial, deck in decks|dictsort %}
-                <li id="deck-{{ serial }}">
+                <li id="deck-{{ serial }}" class="plugged-{{ deck.plugged|string()|lower() }}">
                     <a href="/{{ serial }}">
                         <strong>{{ serial }}</strong>
                         <span>{{ deck.model }} ({{ deck.nb_rows }} x {{ deck.nb_cols }})</span>
@@ -158,7 +181,7 @@ li a span {
         </ul>
         <div class="alert"><span>Connecting...</span></div>
         <template id="deck-tmpl">
-            <li id="deck-%(serial)s">
+            <li id="deck-%(serial)s" class="plugged-%(plugged)s">
                 <a href="/%(serial)s">
                     <strong>%(serial)s</strong>
                     <span>%(model)s (%(nb_rows)s x %(nb_cols)s)</span>

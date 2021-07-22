@@ -3160,7 +3160,7 @@ Don't forget to replace values between `<` and `>` (including the `<` and `>`)
 
 ## Usage
 
-When going to the address (displayed at the beginning of the output of the `run` command), a list of connected StreamDecks will be displayed. Clicking on one will go to the deck page.
+When going to the address (displayed at the beginning of the output of the `run` command), a list of all StreamDecks will be displayed. Clicking on one will go to the deck page.
 
 Keys will be visually updated on the web page when they are updated on the real deck. Press/release events from the deck are visible by a white border arround the pressed key.
 
@@ -3168,6 +3168,6 @@ And of course it's possible to click/tap a key on the web browser to simulate a 
 
 If a password is asked, you'll be redirected to a page to enter it, then if ok you'll be redirected back to the wanted page.
 
-Deconnections are handled: a "connecting" overlay will be displayed on the web page when the `streamdeckfs` command is stopped, or when the current deck is disconnected.
+Not connected decks are correctly handled in the browser so it's possible to plug/unplug decks without affecting the web usage.
 
 To display a deck "full screen", double click on an "empty" area (i.e., not on a key).

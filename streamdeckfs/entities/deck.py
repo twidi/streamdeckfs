@@ -53,6 +53,7 @@ class Deck(EntityDir):
             except Exception:
                 Manager.exit(1, 'Cannot guess model, please run the "make-dirs" command.')
 
+        self.plugged = not self.device.is_fake
         self.nb_cols = info["nb_cols"]
         self.nb_rows = info["nb_rows"]
         self.key_width = info["key_width"]

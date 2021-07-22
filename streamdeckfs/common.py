@@ -9,6 +9,7 @@
 import logging
 import os
 import platform
+import re
 import signal
 import ssl
 import sys
@@ -40,6 +41,10 @@ PLATFORM = platform.system()
 LIBRARY_NAME = "streamdeckfs"
 
 
+SERIAL_RE_PART = r"[A-Z0-9]+"
+SERIAL_RE = re.compile(r"^" + SERIAL_RE_PART + "$")
+
+
 class ColorFormatter(click_log.ColorFormatter):
     # NOT thanks to click-log that does not format when there is an exception info
     # https://github.com/click-contrib/click-log/blob/0d72a212ae7a45ab890d6e88a690679f8b946937/click_log/core.py#L35
@@ -69,6 +74,8 @@ RENDER_IMAGE_DELAY = 0.01
 
 
 class FakeDevice:
+    is_fake = True
+
     def __del__(self):
         pass
 
@@ -210,6 +217,7 @@ class Manager:
             device.open()
         except Exception:
             return
+        device.is_fake = False
         serial = device.get_serial_number()
         logger.debug(f"[DECK {serial}] Connection opened")
         cls.open_decks[serial] = device
@@ -229,11 +237,11 @@ class Manager:
         try:
             serial = deck.info["serial"]
         except AttributeError:
-            pass
+            serial = None
         else:
             if serial:
                 cls.open_decks.pop(serial, None)
-        logger.debug(f"[DECK {serial or deck.id()}] Connection closed")
+        logger.debug(f"[DECK {serial or deck.id() if hasattr(deck, 'id') else '???'}] Connection closed")
         sleep(0.05)  # https://github.com/abcminiuser/python-elgato-streamdeck/issues/68
 
     @classmethod
@@ -616,6 +624,7 @@ class Manager:
                 "client_id": client_id,
                 "deck": {
                     "model": (parts := deck.model.split("Deck"))[0] + "Deck " + parts[1],
+                    "plugged": deck.plugged,
                     "serial": deck.serial,
                     "nb_cols": deck.nb_cols,
                     "nb_rows": deck.nb_rows,
