@@ -110,7 +110,7 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
             scroll_activated=scroll,
         )
         if device:
-            Manager.write_deck_model(deck_directory, device.info["class"])
+            Manager.write_deck_model(deck_directory, device.info)
         deck.on_create()
         deck.render()
         current_decks[serial] = deck
@@ -163,7 +163,12 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
             # first check that decks have their directories else we stop them
             for deck in list(current_decks.values()):
                 if deck.directory_removed:
-                    logger.critical(f'[{deck}] Configuration directory "{deck.path}" was removed. Waiting for it...')
+                    if not deck.path.exists():
+                        logger.critical(
+                            f'[{deck}] Configuration directory "{deck.path}" was removed. Waiting for it...'
+                        )
+                    else:
+                        logger.warning(f'[{deck}] Configuration directory "{deck.path}" changed. Reloading...')
                     stop_deck(deck, close=False)
 
             # if the connected state of a deck changes, we stop it (will be restarted with the correct state just after)

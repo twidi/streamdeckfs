@@ -3,7 +3,8 @@
 
 ## Release `1.8` - *IN PROGRESS*
 
-- [WIP] web server
+- Decks access via browser
+- Virtual decks
 
 
 ## Release `1.7.1` - *2021-07-14*

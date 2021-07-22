@@ -122,7 +122,7 @@ li a:hover {
 }
 li a strong {
     font-weight: inherit;
-    margin-right: 3em;
+    width: 10em;
 }
 li a span {
     font-size: 16px;
@@ -145,6 +145,9 @@ li a span:after {
 li.plugged-true a span:after {
     background: green;
 }
+li.model-StreamDeckWeb a span:after {
+    background: #4d4dc1;
+}
 @media screen and (max-width: 600px) {
     ul {
         width: 100%;
@@ -156,7 +159,6 @@ li.plugged-true a span:after {
     }
     li a strong {
         width: auto;
-        margin-right: 0;
     }
     li a span {
         width: 100%;
@@ -171,20 +173,20 @@ li.plugged-true a span:after {
         <h2>StreamDecks</h2>
         <ul id="decks-list">
             {% for serial, deck in decks|dictsort %}
-                <li id="deck-{{ serial }}" class="plugged-{{ deck.plugged|string()|lower() }}">
+                <li id="deck-{{ serial }}" class="plugged-{{ deck.plugged|string()|lower() }} model-{{ deck.model }}">
                     <a href="/{{ serial }}">
                         <strong>{{ serial }}</strong>
-                        <span>{{ deck.model }} ({{ deck.nb_rows }} x {{ deck.nb_cols }})</span>
+                        <span>{{ deck.model_human }} ({{ deck.nb_rows }} x {{ deck.nb_cols }})</span>
                     </a>
                 </li>
             {% endfor %}
         </ul>
         <div class="alert"><span>Connecting...</span></div>
         <template id="deck-tmpl">
-            <li id="deck-%(serial)s" class="plugged-%(plugged)s">
+            <li id="deck-%(serial)s" class="plugged-%(plugged)s model-%(model)s">
                 <a href="/%(serial)s">
                     <strong>%(serial)s</strong>
-                    <span>%(model)s (%(nb_rows)s x %(nb_cols)s)</span>
+                    <span>%(model_human)s (%(nb_rows)s x %(nb_cols)s)</span>
                 </a>
             </li>
         </template>

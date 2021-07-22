@@ -1040,7 +1040,7 @@ If no available page match the request, a error will be raised."""
 @FC.options["dry_run"]
 @FC.options["verbosity"]
 def create_page(directory, page, names_and_values, dry_run):
-    """Create a new image layer with configuration"""
+    """Create a new page with configuration"""
     deck = FC.get_deck(
         directory,
         key_filter=FILTER_DENY,
@@ -1202,7 +1202,7 @@ If no available key match the request, a error will be raised."""
 @FC.options["dry_run"]
 @FC.options["verbosity"]
 def create_key(directory, page_filter, key, names_and_values, dry_run):
-    """Create a new image layer with configuration"""
+    """Create a new key with configuration"""
     page = FC.find_page(
         FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY),
         page_filter,

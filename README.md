@@ -12,11 +12,11 @@ License: MIT, see https://opensource.org/licenses/MIT
 [![Isshub.io](https://img.shields.io/badge/Sponsor-isshub.io-%23cc133f)](https://isshub.io)
 
 
-**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Example configurations](#example-configurations) • [Web renderer](#web-renderer)
+**Sections**: [StreamDeckFS](#streamdeckfs) • [Examples](#examples) • [Why](#why) • [Installation](#installation) • [Starting](#starting) • [Configuration](#configuration-format) ([Images](#images-layers) • [Drawings](#drawings) • [Texts](#texts) • [Events](#configuring-key-events-press-long-press-release-start-end)) • [Pages](#pages) • [References](#references) • [Variables](#variables) • [API](#api) • [Example configurations](#example-configurations) • [Web renderer and virtual decks](#web-renderer)
 
 # StreamDeckFS
 
-StreamDeckFS is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and soon Darwin (mac) and Windows)
+StreamDeckFS is a tool, written in Python (3.9+), to configure a StreamDeck ([by Elgato](https://www.elgato.com/fr/stream-deck)) for Linux (and maybe soon, I need help for this!) Darwin (mac) and Windows)
 
 It's not a graphical interface, but if you can use a file system and create directories and files (no content needed, see later), you'll have all the necessary power.
 
@@ -28,6 +28,8 @@ It provides numerous features:
 - references (explained later, but see this as a way to have templates, or to repeat keys on pages, or have many times the same key with a few differences)
 - variables with (small) logic and cascading
 - api
+- web access
+- virtual decks (create a deck the size you want and access it via your browser)
 
 `streamdeckfs` will look at the directory passed on the command line and read all the configuration from directories and files.
 
@@ -3171,3 +3173,31 @@ If a password is asked, you'll be redirected to a page to enter it, then if ok y
 Not connected decks are correctly handled in the browser so it's possible to plug/unplug decks without affecting the web usage.
 
 To display a deck "full screen", double click on an "empty" area (i.e., not on a key).
+
+
+## Virtual decks (aka "web decks")
+
+It's possible to use `streamdeckfs` without real Stream Decks! Or to create virtual ones in addition to the one(s) you already have. We call these virtual decks "web decks".
+
+To create a "web deck", use the command `create-web-deck`:
+
+```bash
+streamdeckfs create-web-deck BASE_DIRECTORY -s SERIAL -r NB_ROWS -c NB_COLS
+```
+
+with:
+
+- `DIRECTORY`: the directory in which to create the configuration directory for the web deck
+- `SERIAL`: the serial number for the new web deck. It's a string composed of 12 characters (it must only contains capital letters from `A` to `Z`, digits from `0` to `9`), starting with a `W` (serial numbers of real Stream Decks have the same format, except the first letter that depends on the model)
+- `NB_ROWS`: number of rows for the web deck. From 1 to 8
+- `NB_COLS`: number of cols for the web deck. From 1 to 12
+
+
+To change the number of rows or cols of an already created web deck, repeat the command with the new values, the rest of the configuration (pages, keys...) will be untouched.
+
+Once the web deck created, you can use [the `make-dirs` command](#preparing-the-configuration-directory) like this:
+
+```bash
+streamdeckfs make-dirs SERIAL BASE_DIRECTORY --pages PAGES
+```
+

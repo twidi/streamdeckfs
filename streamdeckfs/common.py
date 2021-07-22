@@ -40,9 +40,10 @@ PLATFORM = platform.system()
 
 LIBRARY_NAME = "streamdeckfs"
 
-
-SERIAL_RE_PART = r"[A-Z0-9]+"
+SERIAL_RE_PART = r"[A-Z][A-Z0-9]{11}"
 SERIAL_RE = re.compile(r"^" + SERIAL_RE_PART + "$")
+
+MODEL_FILE_NAME = ".model"
 
 
 class ColorFormatter(click_log.ColorFormatter):
@@ -108,7 +109,42 @@ class FakeStreamDeckXL(FakeDevice, StreamDeckXL):
     pass
 
 
+class FakeStreamDeckWeb(FakeStreamDeckXL):
+    KEY_PIXEL_WIDTH = 100
+    KEY_PIXEL_HEIGHT = 100
+
+    def __init__(self, device, nb_rows, nb_cols):
+        self.KEY_ROWS = nb_rows
+        self.KEY_COLS = nb_cols
+        super().__init__(device)
+
+    @property
+    def KEY_COUNT(self):
+        return self.KEY_COLS * self.KEY_ROWS
+
+
 WEB_QUEUE_ALL_IMAGES = "WEB_QUEUE_ALL_IMAGES"
+
+
+DEVICE_CLASSES = {
+    "Stream Deck Mini": StreamDeckMini,
+    "Stream Deck Original": StreamDeckOriginal,
+    "Stream Deck Original (V2)": StreamDeckOriginalV2,
+    "Stream Deck XL": StreamDeckXL,
+    "StreamDeckMini": StreamDeckMini,
+    "StreamDeckOriginal": StreamDeckOriginal,
+    "StreamDeckOriginalV2": StreamDeckOriginalV2,
+    "StreamDeckXL": StreamDeckXL,
+    "StreamDeckWeb": FakeStreamDeckWeb,
+}
+
+FAKE_DEVICE_CLASSES = {
+    StreamDeckMini: FakeStreamDeckMini,
+    StreamDeckOriginal: FakeStreamDeckOriginal,
+    StreamDeckOriginalV2: FakeStreamDeckOriginalV2,
+    StreamDeckXL: FakeStreamDeckXL,
+    FakeStreamDeckWeb: FakeStreamDeckWeb,
+}
 
 
 class Manager:
@@ -134,25 +170,11 @@ class Manager:
 
     @staticmethod
     def get_device_class(device_type):
-        return {
-            "Stream Deck Mini": StreamDeckMini,
-            "Stream Deck Original": StreamDeckOriginal,
-            "Stream Deck Original (V2)": StreamDeckOriginalV2,
-            "Stream Deck XL": StreamDeckXL,
-            "StreamDeckMini": StreamDeckMini,
-            "StreamDeckOriginal": StreamDeckOriginal,
-            "StreamDeckOriginalV2": StreamDeckOriginalV2,
-            "StreamDeckXL": StreamDeckXL,
-        }[device_type]
+        return DEVICE_CLASSES[device_type]
 
     @staticmethod
-    def get_fake_device(device_class):
-        return {
-            StreamDeckMini: FakeStreamDeckMini,
-            StreamDeckOriginal: FakeStreamDeckOriginal,
-            StreamDeckOriginalV2: FakeStreamDeckOriginalV2,
-            StreamDeckXL: FakeStreamDeckXL,
-        }[device_class](None)
+    def get_fake_device(device_class, **args):
+        return FAKE_DEVICE_CLASSES[device_class](None, **args)
 
     @classmethod
     def get_decks(cls, limit_to_serials=None, need_open=True, exit_if_none=True):
@@ -163,7 +185,7 @@ class Manager:
             already_seen = device_id in cls.seen_ids
             cls.seen_ids.add(device_id)
             try:
-                device_class = cls.get_device_class(device_type)
+                cls.get_device_class(device_type)
             except KeyError:
                 if not already_seen:
                     logger.warning(f'Stream Deck "{device_type}" (ID {device_id}) is not a type we can manage.')
@@ -187,29 +209,35 @@ class Manager:
                     continue
                 deck.set_brightness(DEFAULT_BRIGHTNESS)
             decks[serial] = deck
-            image_format = deck.key_image_format()
-            key_width, key_height = image_format["size"]
-            flip_h, flip_v = image_format["flip"]
-            deck.info = {
+            deck.info = cls.get_device_info(deck) | {
                 "connected": connected,
                 "serial": serial if connected else "Unknown",
                 "id": device_id,
-                "type": device_type,
-                "class": device_class,
                 "firmware": deck.get_firmware_version() if connected else "Unknown",
-                "nb_keys": deck.key_count(),
-                "nb_rows": (layout := deck.key_layout())[0],
-                "nb_cols": layout[1],
-                "format": (image_format := deck.key_image_format())["format"],
-                "key_width": key_width,
-                "key_height": key_height,
-                "flip_horizontal": flip_h,
-                "flip_vertical": flip_v,
-                "rotation": image_format["rotation"],
             }
             if connected:
                 deck.reset()  # see https://github.com/abcminiuser/python-elgato-streamdeck/issues/38
         return decks
+
+    @classmethod
+    def get_device_info(cls, device):
+        image_format = device.key_image_format()
+        key_width, key_height = image_format["size"]
+        flip_h, flip_v = image_format["flip"]
+        return {
+            "device": device,
+            "class": device.__class__,
+            "model": device.__class__.__name__.replace("Fake", ""),
+            "nb_keys": device.key_count(),
+            "nb_rows": (layout := device.key_layout())[0],
+            "nb_cols": layout[1],
+            "format": (image_format := device.key_image_format())["format"],
+            "key_width": key_width,
+            "key_height": key_height,
+            "flip_horizontal": flip_h,
+            "flip_vertical": flip_v,
+            "rotation": image_format["rotation"],
+        }
 
     @classmethod
     def open_deck(cls, device):
@@ -252,9 +280,10 @@ class Manager:
 
     @classmethod
     def get_deck(cls, serial):
-        if len(serial) > 1:
-            return cls.exit(1, f'Invalid serial "{" ".join(serial)}".')
-        serial = serial[0] if serial else None
+        if isinstance(serial, (tuple, list)):
+            if len(serial) > 1:
+                return cls.exit(1, f'Invalid serial "{" ".join(serial)}".')
+            serial = serial[0]
         decks = cls.get_decks(limit_to_serials=[serial] if serial else None)
         if not serial:
             if len(decks) > 1:
@@ -271,30 +300,36 @@ class Manager:
         return decks[serial]
 
     @classmethod
-    def write_deck_model(cls, directory, device_class):
-        model_path = directory / ".model"
-        model_path.write_text(device_class.__name__)
+    def read_deck_model(cls, directory):
+        return (Path(directory) / MODEL_FILE_NAME).read_text().split(":")
+
+    @classmethod
+    def write_deck_model(cls, directory, device_info):
+        model_path = directory / MODEL_FILE_NAME
+        device_class = device_info["class"]
+        parts = [device_class.__name__]
+        if device_class is FakeStreamDeckWeb:
+            parts = ["StreamDeckWeb", str(device_info["nb_rows"]), str(device_info["nb_cols"])]
+        else:
+            parts = [device_class.__name__]
+        try:
+            if parts == cls.read_deck_model(directory):
+                return
+        except Exception:
+            pass
+        model_path.write_text(":".join(parts))
 
     @classmethod
     def get_info_from_model_file(cls, directory):
-        device_class = (Path(directory) / ".model").read_text().split(":")[0]
-        fake_device = cls.get_fake_device(cls.get_device_class(device_class))
-        nb_rows, nb_cols = fake_device.key_layout()
-        image_format = fake_device.key_image_format()
-        key_width, key_height = image_format["size"]
-        flip_h, flip_v = image_format["flip"]
-        return {
-            "device": fake_device,
-            "model": device_class,
-            "nb_rows": nb_rows,
-            "nb_cols": nb_cols,
-            "format": image_format["format"],
-            "key_width": key_width,
-            "key_height": key_height,
-            "flip_horizontal": flip_h,
-            "flip_vertical": flip_v,
-            "rotation": image_format["rotation"],
-        }
+        parts = cls.read_deck_model(directory)
+        device_class_name = parts[0]
+        args = {}
+        if device_class_name == "StreamDeckWeb":
+            args["nb_rows"] = int(parts[1])
+            args["nb_cols"] = int(parts[2])
+        fake_device = cls.get_fake_device(cls.get_device_class(device_class_name), **args)
+        fake_device.info = cls.get_device_info(fake_device)
+        return fake_device.info
 
     @classmethod
     def start_render_thread(cls, deck):
@@ -623,7 +658,8 @@ class Manager:
                 "serial": deck.serial,
                 "client_id": client_id,
                 "deck": {
-                    "model": (parts := deck.model.split("Deck"))[0] + "Deck " + parts[1],
+                    "model": deck.model,
+                    "model_human": (parts := deck.model.split("Deck"))[0] + "Deck " + parts[1],
                     "plugged": deck.plugged,
                     "serial": deck.serial,
                     "nb_cols": deck.nb_cols,

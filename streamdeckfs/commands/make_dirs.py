@@ -6,9 +6,11 @@
 #
 # License: MIT, see https://opensource.org/licenses/MIT
 #
+from pathlib import Path
+
 import click
 
-from ..common import Manager
+from ..common import SERIAL_RE, Manager
 from ..entities import Key, Page
 from .base import cli, common_options
 
@@ -29,16 +31,49 @@ from .base import cli, common_options
 )
 @common_options["verbosity"]
 def make_dirs(serial, directory, pages, yes, dry_run):
-    """Create keys directories for a Stream Deck.
+    """Create pages and keys directories for a Stream Deck.
 
     Arguments:
 
     SERIAL: Serial number of the Stream Deck to handle. Optional if only one Stream Deck connected.\n
     DIRECTORY: Path of the directory where to create pages and keys directories. If it does not ends with a subdirectory matching the SERIAL, it will be added.
     """
-    deck = Manager.get_deck(serial)
-    serial = deck.info["serial"]
-    directory = Manager.normalize_deck_directory(directory, serial)
+    if serial:
+        if len(serial) > 1:
+            raise click.BadParameter("Only one serial accepted", param_hint="SERIAL")
+        serial = serial[0]
+    else:
+        serial = None
+
+    directory = Path(directory)
+
+    deck = None
+    if not serial or not serial.startswith("W"):
+        try:
+            deck = Manager.get_deck(serial)
+        except IndexError:
+            pass
+        else:
+            serial = deck.info["serial"]
+            directory = Manager.normalize_deck_directory(directory, serial)
+
+    if not deck:
+        if SERIAL_RE.match(final_serial := (serial or directory.name)) and final_serial.startswith("w"):
+            serial = final_serial
+            directory = Manager.normalize_deck_directory(directory, serial)
+            try:
+                deck = Manager.get_info_from_model_file(directory)["device"]
+            except FileNotFoundError:
+                return Manager.exit(
+                    1,
+                    f'No web Stream Deck found with the serial "{serial}". Use the "create-web-deck" command to create the wanted web deck.',
+                )
+        else:
+            return Manager.exit(
+                1,
+                f'No Stream Deck found with the serial "{serial}". Use the "inspect" command to list all available decks.',
+            )
+
     if directory.exists() and not directory.is_dir():
         return Manager.exit(1, f'"{directory}" exists but is not a directory.')
 
@@ -68,12 +103,12 @@ def make_dirs(serial, directory, pages, yes, dry_run):
                 directory.mkdir(parents=True)
         except Exception:
             return Manager.exit(1, f'"{directory}" could not be created', log_exception=True)
-        click.echo("Created.")
+        click.echo("Would have been created." if dry_run else "Created.")
         return True, directory
 
     directory = create_dir(directory, f'Main directory for Stream Deck "{serial}"')[1]
     if not dry_run:
-        Manager.write_deck_model(directory, deck.info["class"])
+        Manager.write_deck_model(directory, deck.info)
 
     if pages:
         click.echo("Subdirectories:")

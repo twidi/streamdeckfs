@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
 
-from ..common import DEFAULT_BRIGHTNESS, Manager, file_flags, logger
+from ..common import DEFAULT_BRIGHTNESS, MODEL_FILE_NAME, Manager, file_flags, logger
 from .base import FILTER_DENY, NOT_HANDLED, Entity, EntityDir, versions_dict_factory
 
 
@@ -135,6 +135,10 @@ class Deck(EntityDir):
 
         if name == self.current_brightness_file_name:
             self.set_brightness_from_file()
+            return None
+
+        if name == MODEL_FILE_NAME:
+            self.on_directory_removed(self.path)
             return None
 
         if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:

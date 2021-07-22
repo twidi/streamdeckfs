@@ -51,6 +51,8 @@
                 var token = doc.body.getAttribute('data-token'),
                     conn = connect(),
                     serial = doc.body.getAttribute('data-serial'),
+                    nb_rows = parseInt(doc.body.getAttribute('data-nb-rows')),
+                    nb_cols = parseInt(doc.body.getAttribute('data-nb-cols')),
                     img_prefix = 'data:image/' + doc.body.getAttribute('data-img-format') + ';base64,',
                     black = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=',
                     $alert = $('.alert'),
@@ -71,8 +73,12 @@
                             break;
                         case "deck.started":
                             if (data.serial == serial) {
-                                deck_plugged = true;
-                                $alert.hide();
+                                if (data.deck.nb_rows != nb_rows || data.deck.nb_cols != nb_cols) {
+                                    window.location.reload();
+                                } else {
+                                    deck_plugged = true;
+                                    $alert.hide();
+                                }
                             }
                             break;
                         case "deck.stopped":
@@ -225,7 +231,7 @@ body {
 }
     </style>
     </head>
-    <body data-token="{{ auth_token }}" data-serial="{{ deck.serial }}" data-img-format="{{ deck.image_format|lower() }}">
+    <body data-token="{{ auth_token }}" data-serial="{{ deck.serial }}" data-img-format="{{ deck.image_format|lower() }}" data-nb-rows="{{ deck.nb_rows }}" data-nb-cols="{{ deck.nb_cols }}">
         <div id="#deck-{{ deck.serial }}" class="deck">
             <div class="cells">
             {% for row in range(1, deck.nb_rows + 1) %}
