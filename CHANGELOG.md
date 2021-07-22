@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.8` - *IN PROGRESS*
+## Release `1.8` - *2021-07-22*
 
 - Decks access via browser
 - Virtual decks
