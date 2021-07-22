@@ -111,6 +111,7 @@ def run(serials, directory, scroll, web, no_web, web_password, ssl_cert, ssl_key
 
     def stop_deck(deck, close=True):
         deck.unrender()
+        deck.on_delete()
         if close:
             Manager.close_deck(deck.device)
         current_decks.pop(deck.serial)

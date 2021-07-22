@@ -103,6 +103,11 @@ class Deck(EntityDir):
         Manager.add_watch(self.path, self)
         self.read_directory()
 
+    def on_delete(self):
+        for page in self.iter_all_children_versions(self.pages):
+            page.on_delete()
+        super().on_delete()
+
     def read_directory(self):
         super().read_directory()
         if self.filters.get("page") != FILTER_DENY:

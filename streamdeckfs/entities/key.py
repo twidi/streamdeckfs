@@ -16,7 +16,7 @@ from cached_property import cached_property
 from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
 
-from ..common import Manager, file_flags, logger
+from ..common import file_flags, logger
 from .base import (
     FILTER_DENY,
     NOT_HANDLED,
@@ -108,11 +108,6 @@ class Key(EntityDir, PageContent):
                 return ParseFilenameResult()
         return parsed
 
-    def on_create(self):
-        super().on_create()
-        Manager.add_watch(self.path, self)
-        self.read_directory()
-
     @property
     def resolved_layers(self):
         if not self.reference:
@@ -140,7 +135,6 @@ class Key(EntityDir, PageContent):
         return text_lines
 
     def on_delete(self):
-        Manager.remove_watch(self.path, self)
         for layer in self.iter_all_children_versions(self.layers):
             layer.on_delete()
         for text_line in self.iter_all_children_versions(self.text_lines):

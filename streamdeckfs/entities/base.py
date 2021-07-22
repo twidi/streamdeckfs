@@ -536,7 +536,11 @@ class Entity:
             ref.on_reference_deleted()
         self.reference = None
         self.used_vars = set()
-        if (parse_cache := self.__class__.parse_cache.get(self.name)) and parse_cache.used_vars:
+        if (
+            self.__class__.parse_cache
+            and (parse_cache := self.__class__.parse_cache.get(self.name))
+            and parse_cache.used_vars
+        ):
             self.__class__.parse_cache.pop(self.name, None)
 
     def on_reference_deleted(self):
@@ -871,6 +875,7 @@ class EntityFile(Entity):
 
     def on_delete(self):
         super().on_delete()
+        self.stop_watching_directory()
         self.used_vars_in_content = set()
 
     def replace_vars_in_content(self, content):
@@ -914,7 +919,13 @@ class EntityDir(Entity):
                 events[kind] = event
         return events
 
+    def on_create(self):
+        super().on_create()
+        Manager.add_watch(self.path, self)
+        self.read_directory()
+
     def on_delete(self):
+        Manager.remove_watch(self.path, self)
         for event in self.iter_all_children_versions(self.events):
             event.on_delete()
         for var in self.iter_all_children_versions(self.vars):

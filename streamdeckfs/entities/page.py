@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from cached_property import cached_property
 
-from ..common import Manager, file_flags
+from ..common import file_flags
 from .base import (
     FILTER_DENY,
     NOT_HANDLED,
@@ -88,13 +88,7 @@ class Page(EntityDir, DeckContent):
         page.overlay = args.get("overlay")
         return page
 
-    def on_create(self):
-        super().on_create()
-        Manager.add_watch(self.path, self)
-        self.read_directory()
-
     def on_delete(self):
-        Manager.remove_watch(self.path, self)
         for key in self.iter_all_children_versions(self.keys):
             key.on_delete()
         super().on_delete()
