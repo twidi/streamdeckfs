@@ -10,7 +10,7 @@ import click
 
 from ..common import Manager
 from ..entities import Key, Page
-from .base import cli, common_options, validate_positive_integer_or_zero
+from .base import cli, common_options
 
 
 @cli.command()
@@ -19,9 +19,8 @@ from .base import cli, common_options, validate_positive_integer_or_zero
 @click.option(
     "-p",
     "--pages",
-    type=int,
+    type=click.IntRange(min=0),
     default=0,
-    callback=validate_positive_integer_or_zero,
     help="Number of pages to generate. Default to 0 to only create the main directory.",
 )
 @click.option("-y", "--yes", is_flag=True, help="Automatically answer yes to confirmation demand")

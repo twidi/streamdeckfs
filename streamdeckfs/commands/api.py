@@ -29,7 +29,7 @@ from ..entities import (
     UnavailableVar,
 )
 from ..entities.var import ELIF_THEN_RE
-from .base import cli, validate_positive_integer
+from .base import cli
 
 NoneType = type(None)
 
@@ -529,12 +529,9 @@ class FilterCommands:
             return "first", None, None, value
         try:
             value = int(value)
-            try:
-                validate_positive_integer(ctx, param, value)
-            except click.BadParameter:
-                raise
-            else:
-                return "exact", int(value), None, value
+            if value <= 0:
+                raise click.BadParameter(f"{value} is not a positive integer.")
+            return "exact", int(value), None, value
         except ValueError:
             pass
         for r in cls.validate_number_expression_regexs.values():

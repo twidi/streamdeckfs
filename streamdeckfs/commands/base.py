@@ -34,19 +34,3 @@ common_options = {
         logger, "--verbosity", help="Either CRITICAL, ERROR, WARNING, INFO or DEBUG", show_default=True
     ),
 }
-
-
-def validate_positive_integer(ctx, param, value):
-    if not param.required and value is None:
-        return None
-    if value <= 0:
-        raise click.BadParameter(f"{value} is not a positive integer.")
-    return value
-
-
-def validate_positive_integer_or_zero(ctx, param, value):
-    if not param.required and value is None:
-        return None
-    if value < 0:
-        raise click.BadParameter(f"{value} is not 0 or a positive integer.")
-    return value
