@@ -1551,7 +1551,7 @@ Check the [py-expression-eval](https://github.com/axiacore/py-expression-eval/) 
 
 - you must use `|` instead of `/` for divisions, because `/` cannot be used in a filename
 - we added the floor division, using `||` (`//` is available if not used in filename)
-- we added the `int()` function
+- we added the `int()` and `float()` functions
 - we added the `str()` function
 - we removed the `concat()` function (`||` is used for floor division, and `+` can be used, in addition to `str()`, to emulate `concat()`)
 - we added the `True` and `False` values
