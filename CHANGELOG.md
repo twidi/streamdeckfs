@@ -4,6 +4,7 @@
 ## Release `1.8.1` - *IN PROGRESS*
 
 - Add `float` in expressions
+- Fix special case of some filenames using `$VAR_SDFS_*` variables
 
 
 ## Release `1.8` - *2021-07-22*

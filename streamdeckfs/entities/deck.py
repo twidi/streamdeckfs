@@ -162,6 +162,7 @@ class Deck(EntityDir):
                         ref_conf=parsed.ref_conf,
                         ref=parsed.ref,
                         used_vars=parsed.used_vars,
+                        used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
                     )
 

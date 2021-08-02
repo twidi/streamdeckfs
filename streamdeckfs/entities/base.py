@@ -60,10 +60,12 @@ class UnavailableVar(Exception):
 
 
 RawParseFilenameResult = namedtuple(
-    "RawParseFilenameResult", ["main", "args", "used_vars"], defaults=[None, None, None]
+    "RawParseFilenameResult", ["main", "args", "used_vars", "used_env_vars"], defaults=[None, None, None, None]
 )
 ParseFilenameResult = namedtuple(
-    "ParseFilenameResult", ["ref_conf", "ref", "main", "args", "used_vars"], defaults=[None, None, None, None, None]
+    "ParseFilenameResult",
+    ["ref_conf", "ref", "main", "args", "used_vars", "used_env_vars"],
+    defaults=[None, None, None, None, None, None],
 )
 
 
@@ -102,6 +104,7 @@ class Entity:
         self.referenced_by = set()
         self.children_waiting_for_references = {}
         self._used_vars = set()
+        self.used_env_vars = set()
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -138,12 +141,15 @@ class Entity:
         return cls.main_part_compose(args)
 
     @classmethod
-    def replace_var(cls, match, vars, filename, parent, used_vars):
+    def replace_var(cls, match, vars, filename, parent, used_vars, used_env_vars):
         data = match.groupdict()
         name = data["name"]
 
         if name.startswith("SDFS_"):
             try:
+                # we can ignore the env vars that cannot change, but the pages/keys ones cannot be cached
+                if name.startswith("SDFS_PAGE") or name.startswith("SDFS_KEY"):
+                    used_env_vars.add(name)
                 return parent.env_vars[name]
             except KeyError:
                 return match.group(0)
@@ -154,7 +160,7 @@ class Entity:
 
         if line := data.get("line"):
             if VAR_PREFIX in line:
-                line = cls.replace_vars(line, filename, parent, used_vars)[0]
+                line = cls.replace_vars(line, filename, parent, used_vars, used_env_vars)[0]
             if not VAR_RE_INDEX.match(line):
                 raise IndexError
             if line == "#":
@@ -166,12 +172,21 @@ class Entity:
         return value
 
     @classmethod
-    def replace_vars(cls, value, filename, parent, used_vars=None):
+    def replace_vars(cls, value, filename, parent, used_vars=None, used_env_vars=None):
         if used_vars is None:
             used_vars = set()
+        if used_env_vars is None:
+            used_env_vars = set()
         var_names = set()
         vars = {}
-        replace = partial(cls.replace_var, vars=vars, filename=filename, parent=parent, used_vars=used_vars)
+        replace = partial(
+            cls.replace_var,
+            vars=vars,
+            filename=filename,
+            parent=parent,
+            used_vars=used_vars,
+            used_env_vars=used_env_vars,
+        )
 
         while VAR_PREFIX in value and (matches := VAR_RE.findall(value)):
             count_before = len(matches)
@@ -197,7 +212,7 @@ class Entity:
                 parent.add_waiting_for_vars(cls, filename, var_names)
                 raise UnavailableVar(var_names=var_names)
 
-        return value, used_vars
+        return value, used_vars, used_env_vars
 
     @classmethod
     def get_expr_parser(cls):
@@ -238,10 +253,13 @@ class Entity:
             cls.parse_cache = {}
 
         if name in cls.parse_cache:
-            if not (parse_cache := cls.parse_cache[name]).used_vars or use_cache_if_vars:
+            if (
+                not (parse_cache := cls.parse_cache[name]).used_vars and not parse_cache.used_env_vars
+            ) or use_cache_if_vars:
                 return parse_cache
 
         used_vars = set()
+        used_env_vars = set()
 
         main_part, *__, conf_part = name.partition(";")
         if not (match := cls.main_part_re.match(main_part)):
@@ -252,7 +270,7 @@ class Entity:
 
             if conf_part:
                 try:
-                    conf_part, used_vars = cls.replace_vars(conf_part, name, parent)
+                    conf_part, used_vars, used_env_vars = cls.replace_vars(conf_part, name, parent)
                 except UnavailableVar:
                     return RawParseFilenameResult()  # we don't cache the result
 
@@ -278,7 +296,7 @@ class Entity:
                                     values = values is None or isinstance(values, str) and values.lower() == "true"
                             cls.save_raw_arg(arg_name, values, args)
 
-        cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars)
+        cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars, used_env_vars)
         return cls.parse_cache[name]
 
     def get_raw_args(self):
@@ -294,8 +312,8 @@ class Entity:
 
     @classmethod
     def parse_filename(cls, name, parent):
-        main, args, used_vars = cls.raw_parse_filename(name, parent)
-        main, args = map(deepcopy, (main, args))
+        raw_result = cls.raw_parse_filename(name, parent)
+        main, args = map(deepcopy, (raw_result.main, raw_result.args))
         if main is None or args is None:
             return ParseFilenameResult()
 
@@ -342,7 +360,9 @@ class Entity:
             main = cls.convert_main_args(main)
             if main is not None:
                 if (args := cls.convert_args(main, args)) is not None:
-                    return ParseFilenameResult(ref_conf, ref, main, args, used_vars)
+                    return ParseFilenameResult(
+                        ref_conf, ref, main, args, raw_result.used_vars, raw_result.used_env_vars
+                    )
         except InvalidArg as exc:
             logger.error(f"[{parent}] [{name}] {exc}")
 
@@ -555,7 +575,17 @@ class Entity:
         self.parent_container[self.identifier].remove_version(self.path)
 
     def on_child_entity_change(
-        self, path, flags, entity_class, data_identifier, args, ref_conf, ref, used_vars, modified_at=None
+        self,
+        path,
+        flags,
+        entity_class,
+        data_identifier,
+        args,
+        ref_conf,
+        ref,
+        used_vars,
+        used_env_vars,
+        modified_at=None,
     ):
         data_dict = getattr(self, entity_class.parent_container_attr)
 
@@ -591,6 +621,7 @@ class Entity:
             entity.ref_conf = ref_conf
 
         entity.used_vars = used_vars
+        entity.used_env_vars = used_env_vars
 
         data_dict[data_identifier].add_version(path, entity)
         entity.on_create()
@@ -881,7 +912,7 @@ class EntityFile(Entity):
     def replace_vars_in_content(self, content):
         if self.mode != "text" and content:
             try:
-                content, used_vars = self.replace_vars(content, self.path.name, self.parent)
+                content, used_vars, __ = self.replace_vars(content, self.path.name, self.parent)
             except UnavailableVar:
                 content = None
             else:
@@ -986,6 +1017,7 @@ class EntityDir(Entity):
                         ref_conf=parsed.ref_conf,
                         ref=parsed.ref,
                         used_vars=parsed.used_vars,
+                        used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
                     )
                 elif parsed.ref_conf:
@@ -1007,6 +1039,7 @@ class EntityDir(Entity):
                         ref_conf=None,
                         ref=None,
                         used_vars=parsed.used_vars,
+                        used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
                     )
         return NOT_HANDLED

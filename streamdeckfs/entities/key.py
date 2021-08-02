@@ -204,6 +204,7 @@ class Key(EntityDir, PageContent):
                         ref_conf=parsed.ref_conf,
                         ref=parsed.ref,
                         used_vars=parsed.used_vars,
+                        used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
                     )
                 elif parsed.ref_conf:
@@ -226,6 +227,7 @@ class Key(EntityDir, PageContent):
                         ref_conf=parsed.ref_conf,
                         ref=parsed.ref,
                         used_vars=parsed.used_vars,
+                        used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
                     )
                 elif parsed.ref_conf:
