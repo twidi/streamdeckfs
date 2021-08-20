@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.8.1` - *IN PROGRESS*
+## Release `1.8.1` - *2021-08-20*
 
 - Add `float` in expressions
 - Fix special case of some filenames using `$VAR_SDFS_*` variables
