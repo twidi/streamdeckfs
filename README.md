@@ -1005,6 +1005,7 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_DEVICE_DIRECTORY`: configuration directory for the current StreamDeck
 - `SDFS_DEVICE_NB_ROWS`: number of rows of the current StreamDeck
 - `SDFS_DEVICE_NB_COLS`: number of cols of the current StreamDeck
+- `SDFS_DEVICE_NB_KEYS`: number of keys of the current StreamDeck
 - `SDFS_DEVICE_KEY_WIDTH`: width, in pixels, of a key on the current Streamdeck
 - `SDFS_DEVICE_KEY_HEIGHT`: height, in pixels, of a key on the current Streamdeck
 - `SDFS_DEVICE_BRIGHTNESS`: the brightness (integer from 0 to 100) of the current StreamDeck

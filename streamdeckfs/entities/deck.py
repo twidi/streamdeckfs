@@ -517,6 +517,7 @@ class Deck(EntityDir):
                 "device_directory": self.path,
                 "device_nb_rows": self.nb_rows,
                 "device_nb_cols": self.nb_cols,
+                "device_nb_keys": self.nb_rows * self.nb_cols,
                 "device_key_width": self.key_width,
                 "device_key_height": self.key_height,
                 "device_brightness": self.brightness,
