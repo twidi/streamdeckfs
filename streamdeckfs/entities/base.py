@@ -136,6 +136,10 @@ class Entity:
         for var in vars:
             var.used_by.add(self)
 
+    @property
+    def uses_vars(self):
+        return bool(self._used_vars) or bool(self.used_env_vars)
+
     @classmethod
     def compose_main_part(cls, args):
         return cls.main_part_compose(args)
@@ -305,7 +309,7 @@ class Entity:
         return cls.parse_cache[name]
 
     def get_raw_args(self):
-        parse_cache = self.raw_parse_filename(self.path.name, self.path.parent, use_cache_if_vars=True)
+        parse_cache = self.raw_parse_filename(self.path.name, self.parent, use_cache_if_vars=True)
         return parse_cache.main, parse_cache.args
 
     def get_resovled_raw_args(self):
@@ -318,9 +322,9 @@ class Entity:
     @classmethod
     def parse_filename(cls, name, parent):
         raw_result = cls.raw_parse_filename(name, parent)
-        main, args = map(deepcopy, (raw_result.main, raw_result.args))
-        if main is None or args is None:
+        if raw_result.main is None or raw_result.args is None:
             return ParseFilenameResult()
+        main, args = map(deepcopy, (raw_result.main, raw_result.args))
 
         ref_conf = ref = None
         if ref_conf := args.get("ref"):
@@ -915,6 +919,10 @@ class EntityFile(Entity):
         self._used_vars_in_content = vars or set()
         for var in vars:
             var.used_by.add(self)
+
+    @property
+    def uses_vars(self):
+        return super().uses_vars or bool(self._used_vars_in_content)
 
     def on_delete(self):
         super().on_delete()
