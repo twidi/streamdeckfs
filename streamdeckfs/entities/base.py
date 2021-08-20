@@ -156,7 +156,12 @@ class Entity:
 
         if name not in vars:
             return match.group(0)
-        value = (var := vars[name]).resolved_value
+        try:
+            value = (var := vars[name]).resolved_value
+        except UnavailableVar:
+            value = None
+        if value is None:
+            return match.group(0)
 
         if line := data.get("line"):
             if VAR_PREFIX in line:
@@ -843,13 +848,20 @@ class EntityFile(Entity):
                 pass
         return path
 
+    def _get_file_path(self):
+        if self.mode == "inside":
+            return self.get_inside_path()
+        if self.file:
+            return self.file
+        return None
+
     def get_file_path(self):
         if self.mode == "inside":
             path = self.get_inside_path()
         elif self.file:
             path = self.file
 
-        if not path:
+        if not (path := self._get_file_path()):
             self.stop_watching_directory()
             return None
 
@@ -1067,7 +1079,10 @@ class EntityDir(Entity):
             if name in exclude or not var:
                 continue
             exclude.add(name)
-            result[name] = var.resolved_value
+            try:
+                result[name] = var.resolved_value
+            except UnavailableVar:
+                continue
         if parent := self.parent:
             result |= parent.get_available_vars_values(exclude=exclude)
         return result

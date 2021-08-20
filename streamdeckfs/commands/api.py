@@ -1758,8 +1758,11 @@ def get_var_value(directory, page_filter, key_filter, var_filter, names):
         )
     else:
         logger.debug(f"Variable found in [{container}]")
-        if value := var.resolved_value:
-            print(value)
+        try:
+            if value := var.resolved_value:
+                print(value)
+        except UnavailableVar:
+            Manager.exit(1)
 
 
 @cli.command()

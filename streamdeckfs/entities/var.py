@@ -10,7 +10,7 @@
 import re
 from dataclasses import dataclass
 
-from ..common import file_flags
+from ..common import file_flags, logger
 from .base import (
     RE_PARTS,
     VAR_PREFIX,
@@ -164,18 +164,22 @@ class BaseVar(EntityFile):
         if self.value is not None:
             self.cached_value = self.value
         else:
-            if self.mode == "content":
-                self.track_symlink_dir()
-                try:
-                    self.cached_value = self.resolved_path.read_text().strip()
-                except Exception:
-                    pass
-            elif self.mode in ("file", "inside"):
-                if path := self.get_file_path():
-                    try:
-                        self.cached_value = path.read_text().strip()
-                    except Exception:
-                        pass
+            try:
+                path = None
+                if self.mode == "content":
+                    path = self.resolved_path
+                elif self.mode in ("file", "inside"):
+                    path = self.get_file_path()
+                assert path
+            except Exception:
+                logger.error(f"[{self}] File to read cannot be found{'' if path is None else ' (path: %s)' % path}")
+                raise UnavailableVar
+            try:
+                self.cached_value = path.read_text().strip()
+            except Exception:
+                logger.error(f"[{self}] File could not be read: {path}")
+                raise UnavailableVar
+
         if VAR_PREFIX in self.cached_value:
             self.cached_value = self.replace_vars_in_content(self.cached_value)
         if "{" in self.cached_value and "}" in self.cached_value:
@@ -243,11 +247,15 @@ class BaseVar(EntityFile):
         super().on_file_content_changed()
         current_value = self.cached_value
         self.cached_value = None
-        new_value = self.resolved_value
-        if new_value != current_value:
-            for entity in list(self.used_by):
-                entity.on_var_deleted()
-            self.activate()
+        try:
+            new_value = self.resolved_value
+        except UnavailableVar:
+            pass
+        else:
+            if new_value != current_value:
+                for entity in list(self.used_by):
+                    entity.on_var_deleted()
+                self.activate()
 
 
 @dataclass(eq=False)

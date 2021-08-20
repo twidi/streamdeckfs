@@ -21,6 +21,7 @@ from .base import (
     Entity,
     EntityFile,
     InvalidArg,
+    UnavailableVar,
     file_char_allowed_args,
 )
 from .deck import DeckContent
@@ -612,9 +613,15 @@ class KeyEvent(BaseEvent, KeyContent):
         if var := parent.find_var(name, allow_disabled=True):
 
             if conf["infile"]:
-                if var.value is None and value == var.resolved_value:
-                    logger.debug(f"[{self}] Variable `VAR_{name}` already had the correct value in `{var.path}`")
-                    return
+                if var.value:
+                    try:
+                        if value == var.resolved_value:
+                            logger.debug(
+                                f"[{self}] Variable `VAR_{name}` already had the correct value in `{var.path}`"
+                            )
+                            return
+                    except UnavailableVar:
+                        pass
                 filename = var.make_new_filename(update_args={}, remove_args={"value", "disabled", "enabled"})
 
             else:

@@ -6,6 +6,7 @@
 - Add `float` in expressions
 - Fix special case of some filenames using `$VAR_SDFS_*` variables
 - Add `SDFS_DEVICE_NB_KEYS` env var 
+- Handle variables to read from files that don't exist
 
 
 ## Release `1.8` - *2021-07-22*
