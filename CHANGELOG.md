@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Release `1.8.2` - *IN PROGRESS*
+## Release `1.8.2` - *2021-08-23*
 
 - Internal rework of references to handle variables
 
