@@ -343,17 +343,17 @@ class FilterCommands:
             scroll_activated=False,
         )
         if page_filter is not None:
-            deck.filters["page"] = page_filter
+            deck.filters["pages"] = page_filter
         if key_filter is not None:
-            deck.filters["key"] = key_filter
+            deck.filters["keys"] = key_filter
         if event_filter is not None:
-            deck.filters["event"] = event_filter
+            deck.filters["events"] = event_filter
         if layer_filter is not None:
-            deck.filters["layer"] = layer_filter
+            deck.filters["layers"] = layer_filter
         if text_line_filter is not None:
-            deck.filters["text_line"] = text_line_filter
+            deck.filters["text_lines"] = text_line_filter
         if var_filter is not None:
-            deck.filters["var"] = var_filter
+            deck.filters["vars"] = var_filter
         deck.on_create()
         return deck
 
@@ -393,7 +393,7 @@ class FilterCommands:
 
     @classmethod
     def get_args_as_json(cls, entity, only_names=None):
-        main, args = entity.get_resovled_raw_args()
+        main, args = entity.get_raw_args(entity.get_available_vars())
         data = main | args
         if only_names is not None:
             data = {k: v for k, v in data.items() if k in only_names}
@@ -437,7 +437,7 @@ class FilterCommands:
             else:
                 # check name and value
                 filename = base_filename + f";{name}={value}"
-                parsed_args = entity.raw_parse_filename(filename, entity.path.parent).args
+                parsed_args = entity.raw_parse_filename(filename, entity.path.parent, {}).args
                 if parsed_args and (name in parsed_args or "VAR" in parsed_args):
                     entity.save_raw_arg(name, value, args)
                 else:
@@ -458,7 +458,10 @@ class FilterCommands:
         filename = entity.make_new_filename(updated_args, removed_args)
         try:
             # ensure the new filename is valid, but only if it does not have vars
-            if VAR_PREFIX not in filename and not entity.parse_filename(filename, entity.parent).main:
+            if (
+                VAR_PREFIX not in filename
+                and not entity.parse_filename(filename, entity.parent, entity.get_available_vars()).main
+            ):
                 raise ValueError
         except Exception:
             Manager.exit(1, f"[{error_msg_name_part}] Configuration is not valid")

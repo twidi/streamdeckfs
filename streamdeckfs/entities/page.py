@@ -36,6 +36,7 @@ class Page(EntityDir, DeckContent):
     path_glob = "PAGE_*"
     main_part_re = re.compile(r"^(?P<kind>PAGE)_(?P<page>\d+)$")
     main_part_compose = lambda args: f'PAGE_{args["page"]}'
+    get_main_args = lambda self: {"page": self.number}
 
     allowed_args = EntityDir.allowed_args | {
         "overlay": re.compile(r"^(?P<flag>overlay)(?:=(?P<value>" + RE_PARTS["bool"] + "))?$"),
@@ -95,7 +96,7 @@ class Page(EntityDir, DeckContent):
 
     def read_directory(self):
         super().read_directory()
-        if self.deck.filters.get("key") != FILTER_DENY:
+        if self.deck.filters.get("keys") != FILTER_DENY:
             from .key import Key
 
             for key_dir in sorted(self.path.glob(Key.path_glob)):
@@ -103,17 +104,25 @@ class Page(EntityDir, DeckContent):
                     self.path, key_dir.name, file_flags.CREATE | (file_flags.ISDIR if key_dir.is_dir() else 0)
                 )
 
-    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(
+        self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
+    ):
         if directory != self.path:
             return
-        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+        if available_vars is None:
+            available_vars = self.get_available_vars()
+        if (
+            result := super().on_file_change(
+                directory, name, flags, modified_at, entity_class, available_vars, is_virtual
+            )
+        ) is not NOT_HANDLED:
             return result
         path = self.path / name
-        if (key_filter := self.deck.filters.get("key")) != FILTER_DENY:
+        if (key_filter := self.deck.filters.get("keys")) != FILTER_DENY:
             from .key import Key
 
             if not entity_class or entity_class is Key:
-                if (parsed := Key.parse_filename(name, self)).main:
+                if (parsed := Key.parse_filename(name, self, available_vars)).main:
                     if key_filter is not None and not Key.args_matching_filter(parsed.main, parsed.args, key_filter):
                         return None
                     return self.on_child_entity_change(
@@ -127,8 +136,9 @@ class Page(EntityDir, DeckContent):
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
-                elif parsed.ref_conf:
+                elif not is_virtual and parsed.ref_conf:
                     Key.add_waiting_reference(self, path, parsed.ref_conf)
 
     def on_directory_removed(self, directory):

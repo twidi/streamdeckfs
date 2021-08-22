@@ -31,6 +31,7 @@ class BaseVar(EntityFile):
     path_glob = "VAR_*"
     main_part_re = re.compile(r"^(?P<kind>VAR)_" + VAR_RE_NAME_PART + "$")
     main_part_compose = lambda args: f'VAR_{args["name"]}'
+    get_main_args = lambda self: {"name": self.name}
 
     allowed_args = EntityFile.allowed_args | {
         "value": re.compile(r"^(?P<arg>value)=(?P<value>.+)$"),
@@ -270,4 +271,28 @@ class PageVar(BaseVar, PageContent):
 
 @dataclass(eq=False)
 class KeyVar(BaseVar, KeyContent):
-    pass
+    allowed_args = BaseVar.allowed_args | {
+        "ref": re.compile(
+            r"^(?P<arg>ref)=(?P<page>.+):(?P<key>.+):(?P<var>.+)$"  # for internal use only, so we can enforce all parts
+        ),
+    }
+
+    @classmethod
+    def find_reference(cls, parent, ref_conf, main, args):
+        final_ref_conf, key = cls.find_reference_key(parent, ref_conf)
+        final_ref_conf["var"] = main["name"]
+        if not key:
+            return final_ref_conf, None
+        return final_ref_conf, key.find_var(final_ref_conf["var"])
+
+    def get_waiting_references(self):
+        return [
+            (path, parent, ref_conf)
+            for key, path, parent, ref_conf in self.iter_waiting_references_for_key(self.key)
+            if (var := key.find_var(ref_conf["var"])) and var.name == self.name
+        ]
+
+    def on_file_content_changed(self):
+        super().on_file_content_changed()
+        for reference in self.referenced_by:
+            reference.on_file_content_changed()

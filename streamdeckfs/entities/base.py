@@ -11,6 +11,7 @@ from collections import defaultdict, namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
+from operator import attrgetter
 from pathlib import Path
 from threading import local
 from time import time
@@ -101,7 +102,8 @@ class Entity:
     def __post_init__(self):
         self.ref_conf = None
         self._reference = None
-        self.referenced_by = set()
+        self.referenced_by = []
+        self.is_virtual = False
         self.children_waiting_for_references = {}
         self._used_vars = set()
         self.used_env_vars = set()
@@ -119,10 +121,18 @@ class Entity:
     @reference.setter
     def reference(self, ref):
         if self._reference:
-            self._reference.referenced_by.discard(self)
+            try:
+                self._reference.referenced_by.remove(self)
+            except ValueError:
+                pass
         self._reference = ref
         if ref:
-            ref.referenced_by.add(self)
+            ref.referenced_by.append(self)
+            ref.referenced_by.sort(key=attrgetter("identifier"))
+
+    @property
+    def is_referenced(self):
+        return bool(self.referenced_by)
 
     @property
     def used_vars(self):
@@ -145,7 +155,7 @@ class Entity:
         return cls.main_part_compose(args)
 
     @classmethod
-    def replace_var(cls, match, vars, filename, parent, used_vars, used_env_vars):
+    def replace_var(cls, match, available_vars, filename, parent, used_vars, used_env_vars):
         data = match.groupdict()
         name = data["name"]
 
@@ -154,22 +164,18 @@ class Entity:
                 # we can ignore the env vars that cannot change, but the pages/keys ones cannot be cached
                 if name.startswith("SDFS_PAGE") or name.startswith("SDFS_KEY"):
                     used_env_vars.add(name)
-                return parent.env_vars[name]
+                return available_vars[name][1]
             except KeyError:
                 return match.group(0)
 
-        if name not in vars:
-            return match.group(0)
         try:
-            value = (var := vars[name]).resolved_value
-        except UnavailableVar:
-            value = None
-        if value is None:
+            var, value = available_vars[name]
+        except KeyError:
             return match.group(0)
 
         if line := data.get("line"):
             if VAR_PREFIX in line:
-                line = cls.replace_vars(line, filename, parent, used_vars, used_env_vars)[0]
+                line = cls.replace_vars(line, filename, parent, available_vars, used_vars, used_env_vars)[0]
             if not VAR_RE_INDEX.match(line):
                 raise IndexError
             if line == "#":
@@ -181,16 +187,15 @@ class Entity:
         return value
 
     @classmethod
-    def replace_vars(cls, value, filename, parent, used_vars=None, used_env_vars=None):
+    def replace_vars(cls, value, filename, parent, available_vars, used_vars=None, used_env_vars=None):
         if used_vars is None:
             used_vars = set()
         if used_env_vars is None:
             used_env_vars = set()
         var_names = set()
-        vars = {}
         replace = partial(
             cls.replace_var,
-            vars=vars,
+            available_vars=available_vars,
             filename=filename,
             parent=parent,
             used_vars=used_vars,
@@ -203,18 +208,10 @@ class Entity:
             var_names |= current_var_names
 
             try:
-                vars |= {
-                    name: var
-                    for name in current_var_names
-                    if name not in vars and (var := parent.get_var(name, default_none=True)) is not None
-                }
-                # will raise IndexError if wanted to access an invalid line number
                 value = VAR_RE.sub(replace, value)
-
                 if len(VAR_RE.findall(value)) == count_before:
                     # we had matches, but none were replaced, we can end the loop
                     raise UnavailableVar
-
             except (UnavailableVar, IndexError) as exc:
                 if isinstance(exc, UnavailableVar) and exc.var_names:
                     var_names |= exc.var_names
@@ -257,7 +254,7 @@ class Entity:
         args[name] = value
 
     @classmethod
-    def raw_parse_filename(cls, name, parent, use_cache_if_vars=False):
+    def raw_parse_filename(cls, name, parent, available_vars, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
 
@@ -279,7 +276,7 @@ class Entity:
 
             if conf_part:
                 try:
-                    conf_part, used_vars, used_env_vars = cls.replace_vars(conf_part, name, parent)
+                    conf_part, used_vars, used_env_vars = cls.replace_vars(conf_part, name, parent, available_vars)
                 except UnavailableVar:
                     return RawParseFilenameResult()  # we don't cache the result
 
@@ -308,20 +305,19 @@ class Entity:
         cls.parse_cache[name] = RawParseFilenameResult(main, args, used_vars, used_env_vars)
         return cls.parse_cache[name]
 
-    def get_raw_args(self):
-        parse_cache = self.raw_parse_filename(self.path.name, self.parent, use_cache_if_vars=True)
-        return parse_cache.main, parse_cache.args
-
-    def get_resovled_raw_args(self):
-        main, args = map(deepcopy, self.get_raw_args())
+    def get_raw_args(self, available_vars, parent=None):
+        raw_result = self.raw_parse_filename(
+            self.path.name, parent or self.parent, available_vars, use_cache_if_vars=parent is None
+        )
+        main, args = map(deepcopy, (raw_result.main, raw_result.args))
         if self.reference:
-            ref_main, ref_args = map(deepcopy, self.reference.get_resovled_raw_args())
-            return ref_main | main, ref_args | args
+            ref_main, ref_args = map(deepcopy, self.reference.get_raw_args(parent))
+            return ref_main | (main or {}), ref_args | (args or {})
         return main, args
 
     @classmethod
-    def parse_filename(cls, name, parent):
-        raw_result = cls.raw_parse_filename(name, parent)
+    def parse_filename(cls, name, parent, available_vars):
+        raw_result = cls.raw_parse_filename(name, parent, available_vars)
         if raw_result.main is None or raw_result.args is None:
             return ParseFilenameResult()
         main, args = map(deepcopy, (raw_result.main, raw_result.args))
@@ -333,7 +329,8 @@ class Entity:
             ref_conf, ref = cls.find_reference(parent, ref_conf, main, args)
             if not ref:
                 return ParseFilenameResult(ref_conf)
-            ref_main, ref_args = ref.get_resovled_raw_args()
+            available_vars = ref.get_available_vars() | available_vars
+            ref_main, ref_args = ref.get_raw_args(available_vars, parent if ref.uses_vars else None)
             if ref_main is None or ref_args is None:
                 return ParseFilenameResult(ref_conf)
 
@@ -514,7 +511,7 @@ class Entity:
     @property
     def resolved_path(self):
         try:
-            is_empty = self.path.stat().st_size == 0
+            is_empty = self.is_virtual or self.path.stat().st_size == 0
         except Exception:
             is_empty = False
         if is_empty and self.reference:
@@ -573,7 +570,7 @@ class Entity:
             self.__class__.parse_cache.pop(self.name, None)
 
     def on_reference_deleted(self):
-        if self.reference:
+        if self.reference and not self.is_virtual:
             self.add_waiting_reference(self.parent, self.path, self.ref_conf)
         self.on_delete()
         self.parent_container[self.identifier].remove_version(self.path)
@@ -595,6 +592,7 @@ class Entity:
         used_vars,
         used_env_vars,
         modified_at=None,
+        is_virtual=False,
     ):
         data_dict = getattr(self, entity_class.parent_container_attr)
 
@@ -617,14 +615,19 @@ class Entity:
                 return False
 
         if entity := data_dict[data_identifier].get_version(path):
-            entity.path_modified_at = modified_at
-            entity.on_file_content_changed()
-            return False
+            if entity.is_virtual:
+                entity.on_delete()
+                data_dict[data_identifier].remove_version(path)
+            else:
+                entity.path_modified_at = modified_at
+                entity.on_file_content_changed()
+                return False
 
         entity = entity_class.create_from_args(
             path=path, parent=self, identifier=data_identifier, args=args, path_modified_at=modified_at
         )
 
+        entity.is_virtual = is_virtual
         if ref:
             entity.reference = ref
             entity.ref_conf = ref_conf
@@ -636,11 +639,30 @@ class Entity:
         entity.on_create()
         return True
 
+    def get_ref_arg(self):
+        raise NotImplementedError
+
+    def copy_as_reference(self, dest):
+        if (self.deck.filters.get(self.parent_container_attr)) == FILTER_DENY:
+            return
+
+        if self.is_virtual:
+            return self.reference.copy_as_reference(dest)
+
+        return dest.on_file_change(
+            dest.path,
+            self.compose_main_part(self.get_main_args()) + ";ref=" + self.get_ref_arg(),
+            file_flags.CREATE | (file_flags.ISDIR if self.is_dir else 0),
+            modified_at=self.path_modified_at,
+            entity_class=self.__class__,
+            is_virtual=True,
+        )
+
     def version_activated(self):
-        logger.debug(f"[{self}] Version activated: {self.path}")
+        logger.debug(f"[{self}] Version activated: {self.path}{' (VIRTUAL)' if self.is_virtual else ''}")
 
     def version_deactivated(self):
-        logger.debug(f"[{self}] Version deactivated: {self.path}")
+        logger.debug(f"[{self}] Version deactivated: {self.path}{' (VIRTUAL)' if self.is_virtual else ''}")
 
     @classmethod
     def find_by_identifier_or_name(cls, data, filter, to_identifier, allow_disabled=False):
@@ -876,7 +898,9 @@ class EntityFile(Entity):
 
         return path
 
-    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(
+        self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
+    ):
         path = directory / name
         if (self.file and path == self.file) or (
             not self.file and self.path.is_symlink() and path == self.path.resolve()
@@ -891,10 +915,18 @@ class EntityFile(Entity):
         self.stop_watching_directory()
 
     def get_var(self, name, cascading=True, default_none=False):
-        return self.parent.get_var(name, cascading=cascading, default_none=default_none)
+        try:
+            self.parent.get_var(name, cascading=cascading)
+        except UnavailableVar:
+            if self.reference:
+                return self.reference.get_var(name, cascading=cascading, default_none=default_none)
+            if default_none:
+                return None
+            raise
 
-    def get_available_vars_values(self, exclude=None):
-        return self.parent.get_available_vars_values(exclude)
+    def get_available_vars(self, include_env_vars=True):
+        result = self.reference.get_available_vars(include_env_vars) if self.reference else {}
+        return result | self.parent.get_available_vars(include_env_vars)
 
     @property
     def used_vars(self):
@@ -932,7 +964,9 @@ class EntityFile(Entity):
     def replace_vars_in_content(self, content):
         if self.mode != "text" and content:
             try:
-                content, used_vars, __ = self.replace_vars(content, self.path.name, self.parent)
+                content, used_vars, __ = self.replace_vars(
+                    content, self.path.name, self.parent, self.get_available_vars()
+                )
             except UnavailableVar:
                 content = None
             else:
@@ -959,6 +993,7 @@ class EntityDir(Entity):
 
     @property
     def resolved_events(self):
+        # overrided in `Key` with a single addition, check there
         if not self.reference:
             return self.events
         events = {}
@@ -1002,7 +1037,7 @@ class EntityDir(Entity):
         return self.var_class.find_by_identifier_or_name(self.vars, var_filter, str, allow_disabled=allow_disabled)
 
     def read_directory(self):
-        if self.deck.filters.get("event") != FILTER_DENY:
+        if self.deck.filters.get("events") != FILTER_DENY:
             for event_file in sorted(self.path.glob(self.event_class.path_glob)):
                 self.on_file_change(
                     self.path,
@@ -1010,7 +1045,7 @@ class EntityDir(Entity):
                     file_flags.CREATE | (file_flags.ISDIR if event_file.is_dir() else 0),
                     entity_class=self.event_class,
                 )
-        if self.deck.filters.get("var") != FILTER_DENY:
+        if self.deck.filters.get("vars") != FILTER_DENY:
             for var_file in sorted(self.path.glob(self.var_class.path_glob)):
                 self.on_file_change(
                     self.path,
@@ -1019,11 +1054,15 @@ class EntityDir(Entity):
                     entity_class=self.var_class,
                 )
 
-    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
-        if (event_filter := self.deck.filters.get("event")) != FILTER_DENY:
+    def on_file_change(
+        self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
+    ):
+        if available_vars is None:
+            available_vars = self.get_available_vars()
+        if (event_filter := self.deck.filters.get("events")) != FILTER_DENY:
             if not entity_class or entity_class is self.event_class:
                 path = self.path / name
-                if (parsed := self.event_class.parse_filename(name, self)).main:
+                if (parsed := self.event_class.parse_filename(name, self, available_vars)).main:
                     if event_filter is not None and not self.event_class.args_matching_filter(
                         parsed.main, parsed.args, event_filter
                     ):
@@ -1039,12 +1078,13 @@ class EntityDir(Entity):
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
-                elif parsed.ref_conf:
+                elif not is_virtual and parsed.ref_conf:
                     self.event_class.add_waiting_reference(self, path, parsed.ref_conf)
-        if (var_filter := self.deck.filters.get("var")) != FILTER_DENY:
+        if (var_filter := self.deck.filters.get("vars")) != FILTER_DENY:
             if not entity_class or entity_class is self.var_class:
-                if (parsed := self.var_class.parse_filename(name, self)).main:
+                if (parsed := self.var_class.parse_filename(name, self, available_vars)).main:
                     if var_filter is not None and not self.var_class.args_matching_filter(
                         parsed.main, parsed.args, var_filter
                     ):
@@ -1056,12 +1096,15 @@ class EntityDir(Entity):
                         entity_class=self.var_class,
                         data_identifier=parsed.main["name"],
                         args=parsed.args,
-                        ref_conf=None,
-                        ref=None,
+                        ref_conf=parsed.ref_conf,
+                        ref=parsed.ref,
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
+                elif not is_virtual and parsed.ref_conf:
+                    self.var_class.add_waiting_reference(self, path, parsed.ref_conf)
         return NOT_HANDLED
 
     def iter_all_children_versions(self, content):
@@ -1074,25 +1117,29 @@ class EntityDir(Entity):
         if cascading and (parent := self.parent):
             return parent.get_var(name, cascading=True, default_none=default_none)
 
+        if self.reference:
+            return self.reference.get_var(name, cascading=cascading, default_none=default_none)
+
         if default_none:
             return None
 
         raise UnavailableVar
 
-    def get_available_vars_values(self, exclude=None):
-        if not exclude:
-            exclude = set()
-        result = {}
+    def get_available_vars(self, include_env_vars=True):
+        result = self.reference.get_available_vars(include_env_vars) if self.reference else {}
+        if parent := self.parent:
+            result |= parent.get_available_vars(include_env_vars)
         for name, var in self.vars.items():
-            if name in exclude or not var:
+            if not var:
                 continue
-            exclude.add(name)
             try:
-                result[name] = var.resolved_value
+                if (value := var.resolved_value) is None:
+                    continue
             except UnavailableVar:
                 continue
-        if parent := self.parent:
-            result |= parent.get_available_vars_values(exclude=exclude)
+            result[name] = (var, value)
+        if include_env_vars:
+            result |= {name: (None, value) for name, value in self.env_vars.items()}
         return result
 
     def add_waiting_for_vars(self, entity_class, name, var_names):

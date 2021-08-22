@@ -110,6 +110,7 @@ class KeyImageLayer(KeyImagePart):
     path_glob = "IMAGE*"
     main_part_re = re.compile(r"^(?P<kind>IMAGE)$")
     main_part_compose = lambda args: "IMAGE"
+    get_main_args = lambda self: {"kind": "IMAGE"}
 
     allowed_args = KeyImagePart.allowed_args | {
         "layer": re.compile(r"^(?P<arg>layer)=(?P<value>\d+)$"),

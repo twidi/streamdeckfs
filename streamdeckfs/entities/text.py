@@ -35,6 +35,7 @@ class KeyTextLine(KeyImagePart):
     path_glob = "TEXT*"
     main_part_re = re.compile(r"^(?P<kind>TEXT)$")
     main_part_compose = lambda args: "TEXT"
+    get_main_args = lambda self: {"kind": "TEXT"}
 
     allowed_args = KeyImagePart.allowed_args | {
         "line": re.compile(r"^(?P<arg>line)=(?P<value>\d+)$"),
@@ -201,13 +202,16 @@ class KeyTextLine(KeyImagePart):
                         self.text = path.read_text()
                     except Exception:
                         pass
-        self.text = self.replace_special_chars(
-            self.replace_vars_in_content(self.text),
-            {
-                "slash": self.slash_repl,
-                "semicolon": self.semicolon_repl,
-            },
-        )
+        if self.text:
+            self.text = self.replace_special_chars(
+                self.replace_vars_in_content(self.text),
+                {
+                    "slash": self.slash_repl,
+                    "semicolon": self.semicolon_repl,
+                },
+            )
+        else:
+            self.text = ""
         return self.text
 
     @classmethod

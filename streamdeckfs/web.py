@@ -258,7 +258,7 @@ async def page_deck(request):
     if not (deck := decks.get(serial, {})).get("connected"):
         return web.HTTPFound("/")
 
-    logger.debug(f'[WEB] Render page "deck" ({serial=})"')
+    logger.debug(f'[WEB] Render page "deck" ({serial=})')
     return aiohttp_jinja2.render_template(
         "deck.jinja2",
         request,

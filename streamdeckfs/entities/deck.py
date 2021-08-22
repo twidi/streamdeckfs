@@ -111,7 +111,7 @@ class Deck(EntityDir):
 
     def read_directory(self):
         super().read_directory()
-        if self.filters.get("page") != FILTER_DENY:
+        if self.filters.get("pages") != FILTER_DENY:
             from .page import Page
 
             for page_dir in sorted(self.path.glob(Page.path_glob)):
@@ -119,7 +119,9 @@ class Deck(EntityDir):
                     self.path, page_dir.name, file_flags.CREATE | (file_flags.ISDIR if page_dir.is_dir() else 0)
                 )
 
-    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+    def on_file_change(
+        self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
+    ):
         if directory != self.path:
             return
         path = self.path / name
@@ -141,14 +143,21 @@ class Deck(EntityDir):
             self.on_directory_removed(self.path)
             return None
 
-        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+        if available_vars is None:
+            available_vars = self.get_available_vars()
+
+        if (
+            result := super().on_file_change(
+                directory, name, flags, modified_at, entity_class, available_vars, is_virtual
+            )
+        ) is not NOT_HANDLED:
             return result
 
-        if (page_filter := self.filters.get("page")) != FILTER_DENY:
+        if (page_filter := self.filters.get("pages")) != FILTER_DENY:
             from .page import Page
 
             if not entity_class or entity_class is Page:
-                if (parsed := Page.parse_filename(name, self)).main:
+                if (parsed := Page.parse_filename(name, self, available_vars)).main:
                     if page_filter is not None and not Page.args_matching_filter(
                         parsed.main, parsed.args, page_filter
                     ):
@@ -164,6 +173,7 @@ class Deck(EntityDir):
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
 
     def on_directory_removed(self, directory):

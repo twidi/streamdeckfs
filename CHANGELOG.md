@@ -1,6 +1,11 @@
 # Changelog
 
 
+## Release `1.8.2` - *IN PROGRESS*
+
+- Internal rework of references to handle variables
+
+
 ## Release `1.8.1` - *2021-08-20*
 
 - Add `float` in expressions

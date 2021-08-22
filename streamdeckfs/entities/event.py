@@ -40,6 +40,7 @@ class BaseEvent(EntityFile):
     path_glob = "ON_*"
     main_part_re = re.compile(r"^ON_(?P<kind>START|END)$")
     main_part_compose = lambda args: f'ON_{args["kind"].upper()}'
+    get_main_args = lambda self: {"kind": self.kind.upper()}
 
     allowed_args = (
         Entity.allowed_args
@@ -276,7 +277,11 @@ class BaseEvent(EntityFile):
             detach=self.detach,
             shell=shell,
             done_event=self.ended_running,
-            env=self.env_vars | self.finalize_env_vars(self.get_available_vars_values(), "VAR_"),
+            env=self.env_vars
+            | self.finalize_env_vars(
+                {name: value for name, (var, value) in self.get_available_vars(include_env_vars=False).items()},
+                "VAR_",
+            ),
             working_dir=(self.activating_parent or self.parent).path,
             quiet=self.quiet,
         ):

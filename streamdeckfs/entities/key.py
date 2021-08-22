@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from time import time
 from typing import Tuple
 
+import networkx
 from cached_property import cached_property
 from PIL import Image
 from StreamDeck.ImageHelpers import PILHelper
@@ -34,6 +35,7 @@ class Key(EntityDir, PageContent):
     path_glob = "KEY_ROW_*_COL_*"
     main_part_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)$")
     main_part_compose = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
+    get_main_args = lambda self: {"row": self.row, "col": self.col}
 
     allowed_args = EntityDir.allowed_args | {
         "ref": re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$"),  # we'll use current row,col if no key given
@@ -96,8 +98,8 @@ class Key(EntityDir, PageContent):
         return args
 
     @classmethod
-    def parse_filename(cls, name, parent):
-        parsed = super().parse_filename(name, parent)
+    def parse_filename(cls, name, parent, available_vars):
+        parsed = super().parse_filename(name, parent, available_vars)
         if (main := parsed.main) is not None:
             if (
                 main["row"] < 1
@@ -117,7 +119,7 @@ class Key(EntityDir, PageContent):
             if layer:
                 layers[num_layer] = layer
         for num_layer, layer in self.reference.resolved_layers.items():
-            if num_layer not in layers and layer:
+            if num_layer not in layers and layer and not layer.uses_vars:
                 layers[num_layer] = layer
         return layers
 
@@ -130,9 +132,23 @@ class Key(EntityDir, PageContent):
             if text_line:
                 text_lines[line] = text_line
         for line, text_line in self.reference.resolved_text_lines.items():
-            if line not in text_lines and text_line:
+            if line not in text_lines and text_line and not text_line.uses_vars:
                 text_lines[line] = text_line
         return text_lines
+
+    @property
+    def resolved_events(self):
+        # same as `EntityDir.resolved_events` with the addition of ` and not event.uses_vars`
+        if not self.reference:
+            return self.events
+        events = {}
+        for kind, event in self.events.items():
+            if event:
+                events[kind] = event
+        for kind, event in self.reference.resolved_events.items():
+            if kind not in events and event and not event.uses_vars:
+                events[kind] = event
+        return events
 
     def on_delete(self):
         for layer in self.iter_all_children_versions(self.layers):
@@ -159,7 +175,7 @@ class Key(EntityDir, PageContent):
 
     def read_directory(self):
         super().read_directory()
-        if self.deck.filters.get("layer") != FILTER_DENY:
+        if self.deck.filters.get("layers") != FILTER_DENY:
             from . import KeyImageLayer
 
             for image_file in sorted(self.path.glob(KeyImageLayer.path_glob)):
@@ -169,7 +185,7 @@ class Key(EntityDir, PageContent):
                     file_flags.CREATE | (file_flags.ISDIR if image_file.is_dir() else 0),
                     entity_class=KeyImageLayer,
                 )
-        if self.deck.filters.get("text_line") != FILTER_DENY:
+        if self.deck.filters.get("text_lines") != FILTER_DENY:
             from . import KeyTextLine
 
             for text_file in sorted(self.path.glob(KeyTextLine.path_glob)):
@@ -179,18 +195,54 @@ class Key(EntityDir, PageContent):
                     file_flags.CREATE | (file_flags.ISDIR if text_file.is_dir() else 0),
                     entity_class=KeyTextLine,
                 )
+        if self.reference:
+            self.reference.copy_variable_references(self)
 
-    def on_file_change(self, directory, name, flags, modified_at=None, entity_class=None):
+    def copy_variable_references(self, dest):
+        from . import KeyImageLayer, KeyTextLine
+
+        for entity_class in (self.var_class, self.event_class, KeyTextLine, KeyImageLayer):
+            data_dict = getattr(self, entity_class.parent_container_attr)
+            dest_data_dict = getattr(dest, entity_class.parent_container_attr)
+            to_copy = [entity for identifier, entity in data_dict.items() if entity and entity.uses_vars]
+            if entity_class is self.var_class and len(to_copy) > 1:
+                # varables can depend on each other, we need to sort them
+                to_copy = reversed(  # the graph is reversed because we pass `{node: parent_nodes, ...}`
+                    [
+                        var
+                        for var in networkx.topological_sort(
+                            networkx.DiGraph(incoming_graph_data={var: var.used_vars for var in to_copy})
+                        )
+                        if var in to_copy  # some vars are in `used_vars` but not `in to_copy`
+                    ]
+                )
+
+            for entity in to_copy:
+                if not dest_data_dict.get(entity.identifier):
+                    entity.copy_as_reference(dest)
+
+    def get_ref_arg(self):
+        return f"{self.page.number}:{self.row},{self.col}"
+
+    def on_file_change(
+        self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
+    ):
         if directory != self.path:
             return
-        if (result := super().on_file_change(directory, name, flags, modified_at, entity_class)) is not NOT_HANDLED:
+        if available_vars is None:
+            available_vars = self.get_available_vars()
+        if (
+            result := super().on_file_change(
+                directory, name, flags, modified_at, entity_class, available_vars, is_virtual
+            )
+        ) is not NOT_HANDLED:
             return result
         path = self.path / name
-        if (layer_filter := self.deck.filters.get("layer")) != FILTER_DENY:
+        if (layer_filter := self.deck.filters.get("layers")) != FILTER_DENY:
             from . import KeyImageLayer
 
             if not entity_class or entity_class is KeyImageLayer:
-                if (parsed := KeyImageLayer.parse_filename(name, self)).main:
+                if (parsed := KeyImageLayer.parse_filename(name, self, available_vars)).main:
                     if layer_filter is not None and not KeyImageLayer.args_matching_filter(
                         parsed.main, parsed.args, layer_filter
                     ):
@@ -206,14 +258,15 @@ class Key(EntityDir, PageContent):
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
-                elif parsed.ref_conf:
+                elif not is_virtual and parsed.ref_conf:
                     KeyImageLayer.add_waiting_reference(self, path, parsed.ref_conf)
-        if (text_line_filter := self.deck.filters.get("text_line")) != FILTER_DENY:
+        if (text_line_filter := self.deck.filters.get("text_lines")) != FILTER_DENY:
             from . import KeyTextLine
 
             if not entity_class or entity_class is KeyTextLine:
-                if (parsed := KeyTextLine.parse_filename(name, self)).main:
+                if (parsed := KeyTextLine.parse_filename(name, self, available_vars)).main:
                     if text_line_filter is not None and not KeyTextLine.args_matching_filter(
                         parsed.main, parsed.args, text_line_filter
                     ):
@@ -229,8 +282,9 @@ class Key(EntityDir, PageContent):
                         used_vars=parsed.used_vars,
                         used_env_vars=parsed.used_env_vars,
                         modified_at=modified_at,
+                        is_virtual=is_virtual,
                     )
-                elif parsed.ref_conf:
+                elif not is_virtual and parsed.ref_conf:
                     KeyTextLine.add_waiting_reference(self, path, parsed.ref_conf)
 
     def on_directory_removed(self, directory):
@@ -481,3 +535,19 @@ class KeyContent(Entity):
                 and key.key == check_key.key
             ):
                 yield key, path, parent, ref_conf
+
+    def get_ref_arg(self):
+        return f"{self.page.number}:{self.key.row},{self.key.col}:{self.identifier}"
+
+    def copy_variable_reference_to_referencing_keys(self):
+        identifier = self.identifier
+        container_attr = self.parent_container_attr
+        for other_key in self.key.referenced_by:
+            if getattr(other_key, container_attr).get(identifier):
+                continue
+            self.copy_as_reference(other_key)
+
+    def on_create(self):
+        super().on_create()
+        if not self.is_virtual and self.uses_vars and self.key.is_referenced:
+            self.copy_variable_reference_to_referencing_keys()
