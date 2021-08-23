@@ -3,9 +3,9 @@
 twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 .
 ├── PAGE_1;name=main
-│   ├── KEY_ROW_1_COL_1;ref=spotify:toggle;name=spotify-toggle
+│   ├── KEY_1,1;ref=spotify:toggle;name=spotify-toggle
 │   │   └── ON_LONGPRESS;page=spotify;duration-min=300
-│   ├── KEY_ROW_1_COL_4;name=stopwatch
+│   ├── KEY_1,4;name=stopwatch
 │   │   ├── IMAGE;$VAR_ICON_STYLE -> /home/twidi/dev/streamdeck-scripts/assets/stopwatch.png
 │   │   ├── ON_PRESS;VAR_STATE<=off;enabled={"$VAR_STATE" == "result"}
 │   │   ├── ON_PRESS;VAR_STATE<=result;enabled={"$VAR_STATE" == "running"}
@@ -16,7 +16,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── VAR_LAST
 │   │   ├── VAR_START
 │   │   └── VAR_STATE
-│   ├── KEY_ROW_1_COL_5;name=pomodoro
+│   ├── KEY_1,5;name=pomodoro
 │   │   ├── alert.wav
 │   │   ├── IMAGE;layer=1;name=progress-pause;draw=line;outline=white;width=3;coords=0,99%,$VAR_ELAPSED%,99%;enabled=$VAR_IS_BREAK
 │   │   ├── IMAGE;layer=2;name=progress-work;draw=pieslice;coords=24%,38%,76%,90%;angles=0,$VAR_ELAPSED%;width=0;fill=red;enabled=$VAR_IS_WORK
@@ -45,22 +45,22 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── VAR_NSTATE;if={$VAR_IS_WORK and $VAR_IDX<$VAR_CONF_NB};then=shortbreak;elif={$VAR_IS_WORK and $VAR_IDX==$VAR_CONF_NB};then=longbreak;else=work
 │   │   ├── VAR_START
 │   │   └── VAR_STATE
-│   ├── KEY_ROW_2_COL_1;name=volume-up
+│   ├── KEY_2,1;name=volume-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-increase.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:volume-toggle:background
 │   │   └── ON_PRESS;every=250;max-runs=34;unique;quiet -> /home/twidi/dev/streamdeck-scripts/volume/increase.sh
-│   ├── KEY_ROW_2_COL_8;name=deck-brightness-up
+│   ├── KEY_2,8;name=deck-brightness-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-increase.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=#ffa000
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   └── ON_PRESS;brightness=+10;every=250;max-runs=10
-│   ├── KEY_ROW_3_COL_1;name=volume-down
+│   ├── KEY_3,1;name=volume-down
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,25,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-decrease.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:volume-toggle:background
 │   │   └── ON_PRESS;every=250;max-runs=34;unique;quiet -> /home/twidi/dev/streamdeck-scripts/volume/decrease.sh
-│   ├── KEY_ROW_3_COL_2;name=webcam
+│   ├── KEY_3,2;name=webcam
 │   │   ├── IMAGE;layer=1;name=off;ref=ref:draw:background;fill=red;disabled=$VAR_ACTIVE
 │   │   ├── IMAGE;layer=2;name=icon;colorize=white;margin=18,18,18,18 -> /home/twidi/dev/streamdeck-scripts/webcam/assets/icon.png
 │   │   ├── IMAGE;ref=ref:draw:background;fill=$VAR_WEBCAM_COLOR
@@ -68,12 +68,12 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/webcam/listen-changes.py
 │   │   ├── VAR_ACTIVE
 │   │   └── VAR_WEBCAM_COLOR;value=#29abe2
-│   ├── KEY_ROW_3_COL_8;name=deck-brightness-down
+│   ├── KEY_3,8;name=deck-brightness-down
 │   │   ├── IMAGE;layer=1;name=icon;colorize=#ffffff;margin=15,20,15,20 -> /home/twidi/dev/streamdeck-scripts/deck/assets/icon-brightness-decrease.png
 │   │   ├── IMAGE;ref=:deck-brightness-up:background
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   └── ON_PRESS;ref=:deck-brightness-up:;brightness=-10
-│   ├── KEY_ROW_4_COL_1;name=volume-toggle
+│   ├── KEY_4,1;name=volume-toggle
 │   │   ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled={not $VAR_MUTED}
 │   │   ├── IMAGE;layer=2;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/volume/assets/icon-mute.png
 │   │   ├── IMAGE;layer=3;name=volume;ref=ref:draw:progress;coords.2=$VAR_VOLUME%
@@ -84,33 +84,33 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── VAR_MUTED
 │   │   ├── VAR_VOLUME
 │   │   └── VAR_VOLUME_COLOR;value=#29abe2
-│   ├── KEY_ROW_4_COL_2;ref=microphone:toggle
+│   ├── KEY_4,2;ref=microphone:toggle
 │   │   └── ON_LONGPRESS;page=microphone;duration-min=300
-│   ├── KEY_ROW_4_COL_4;name=calculator
+│   ├── KEY_4,4;name=calculator
 │   │   ├── IMAGE
 │   │   └── ON_PRESS;command=gnome-calculator;quiet
-│   ├── KEY_ROW_4_COL_5;name=hangout
+│   ├── KEY_4,5;name=hangout
 │   │   ├── IMAGE
 │   │   └── ON_PRESS;command=wmctrl -a Wavebox && xdotool key --clearmodifiers alt+2;quiet
-│   └── KEY_ROW_4_COL_8;name=page-lights
+│   └── KEY_4,8;name=page-lights
 │       ├── IMAGE;layer=1;colorize=#ffa000;margin=10%,40%,40%,10%;opacity=100 -> /home/twidi/dev/streamdeck-scripts/assets/light.png
 │       ├── ON_PRESS;page=lights
 │       └── TEXT;ref=ref:text:3dots;color=#ffa000
 ├── PAGE_50;name=microphone;overlay
-│   ├── KEY_ROW_1_COL_2;ref=ref:close
-│   ├── KEY_ROW_2_COL_2;name=sensitivity-up
+│   ├── KEY_1,2;ref=ref:close
+│   ├── KEY_2,2;name=sensitivity-up
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=40,10,10,40 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
 │   │   ├── IMAGE;layer=2;name=increase;crop=70%,18%,100%,83%;colorize=white;margin=30,50,30,15 -> /home/twidi/dev/streamdeck-scripts/mic/assets/increase.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/increase.sh
-│   ├── KEY_ROW_3_COL_2;name=sensitivity-down
+│   ├── KEY_3,2;name=sensitivity-down
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=40,10,10,40 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
 │   │   ├── IMAGE;layer=2;name=decrease;crop=74%,35%,100%,70%;colorize=white;margin=35,50,35,32 -> /home/twidi/dev/streamdeck-scripts/mic/assets/decrease.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS;every=250;max-runs=34;unique -> /home/twidi/dev/streamdeck-scripts/mic/decrease.sh
-│   └── KEY_ROW_4_COL_2;name=toggle
+│   └── KEY_4,2;name=toggle
 │       ├── IMAGE;layer=1;name=muted;ref=ref:draw:background;fill=red;disabled={not $VAR_MUTED}
 │       ├── IMAGE;layer=2;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/mic/assets/icon.png
 │       ├── IMAGE;layer=3;name=sensitivity;ref=ref:draw:progress;coords.2=$VAR_SENSITIVITY%
@@ -131,7 +131,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── DURATION_TEXT
 │   │   ├── PROGRESS_TEXT
 │   │   └── SONG
-│   ├── KEY_ROW_1_COL_1;name=toggle
+│   ├── KEY_1,1;name=toggle
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
 │   │   ├── IMAGE;layer=2;name=pause;colorize=$VAR_SPOTIFY_COLOR;margin=20,20,20,20;opacity=$VAR_PAUSE_OPACITY -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
 │   │   ├── IMAGE;layer=3;ref=ref:draw:progress;coords.2=$VAR_PROGRESS_PERCENT%
@@ -140,61 +140,61 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── ON_LONGPRESS;ref=ref:ev:back
 │   │   ├── ON_PRESS;duration-max=300 -> /home/twidi/dev/streamdeck-scripts/spotify/play_pause.py
 │   │   └── ON_START -> /home/twidi/dev/streamdeck-scripts/spotify/listen_changes.py
-│   ├── KEY_ROW_1_COL_2;name=prev
+│   ├── KEY_1,2;name=prev
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/prev.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/go_prev.py
-│   ├── KEY_ROW_1_COL_3;name=next
+│   ├── KEY_1,3;name=next
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/next.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/go_next.py
-│   ├── KEY_ROW_1_COL_4;name=restart
+│   ├── KEY_1,4;name=restart
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,20,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/restart.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/restart_song.py
-│   ├── KEY_ROW_1_COL_5;ref=ref:close
-│   ├── KEY_ROW_1_COL_6;name=album-image
+│   ├── KEY_1,5;ref=ref:close
+│   ├── KEY_1,6;name=album-image
 │   │   ├── IMAGE;layer=1;name=cover;crop={($VAR_IMG_COL|$VAR_IMG_SPLIT)*100}%,{($VAR_IMG_ROW|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_COL+1)|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_ROW+1)|$VAR_IMG_SPLIT)*100}% -> ../DATA/COVER
 │   │   ├── VAR_IMG_COL;value={$VAR_SDFS_KEY_COL-$VAR_IMG_START_COL}
 │   │   └── VAR_IMG_ROW;value={$VAR_SDFS_KEY_ROW-$VAR_IMG_START_ROW}
-│   ├── KEY_ROW_1_COL_7;ref=:album-image
-│   ├── KEY_ROW_1_COL_8;ref=:album-image
-│   ├── KEY_ROW_2_COL_1;ref=main:volume-up
-│   ├── KEY_ROW_2_COL_2;name=seek-backward
+│   ├── KEY_1,7;ref=:album-image
+│   ├── KEY_1,8;ref=:album-image
+│   ├── KEY_2,1;ref=main:volume-up
+│   ├── KEY_2,2;name=seek-backward
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,20,30,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/seek-backward.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   ├── ON_PRESS;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_backward.py
 │   │   └── TEXT;line=1;name=label;text=-$VAR_SEEK_DELAYs;align=center;valign=bottom;margin=0,1,3,1
-│   ├── KEY_ROW_2_COL_3;name=seek-forward
+│   ├── KEY_2,3;name=seek-forward
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=20,15,30,20 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/seek-forward.png
 │   │   ├── IMAGE;ref=ref:img:overlay
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   ├── ON_PRESS;every=1000;unique -> /home/twidi/dev/streamdeck-scripts/spotify/seek_forward.py
 │   │   └── TEXT;ref=:seek-backward:label;text=+$VAR_SEEK_DELAYs
-│   ├── KEY_ROW_2_COL_4;name=progress
+│   ├── KEY_2,4;name=progress
 │   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=$VAR_SPOTIFY_COLOR;width=5;angles=0,0%;angles.1=$VAR_PROGRESS_PERCENT%;opacity=50
 │   │   ├── TEXT;line=1;name=progress;weight=black;color=$VAR_SPOTIFY_COLOR;fit;margin=25%,15,40%,15 -> ../DATA/PROGRESS_TEXT
 │   │   └── TEXT;line=2;name=duration;fit;margin=60%,25,5,25 -> ../DATA/DURATION_TEXT
-│   ├── KEY_ROW_2_COL_6;ref=:album-image
-│   ├── KEY_ROW_2_COL_7;ref=:album-image
-│   ├── KEY_ROW_2_COL_8;ref=:album-image
-│   ├── KEY_ROW_3_COL_1;ref=main:volume-down
-│   ├── KEY_ROW_3_COL_6;ref=:album-image
-│   ├── KEY_ROW_3_COL_7;ref=:album-image
-│   ├── KEY_ROW_3_COL_8;ref=:album-image
-│   ├── KEY_ROW_4_COL_1;ref=main:volume-toggle
-│   ├── KEY_ROW_4_COL_6;name=album
+│   ├── KEY_2,6;ref=:album-image
+│   ├── KEY_2,7;ref=:album-image
+│   ├── KEY_2,8;ref=:album-image
+│   ├── KEY_3,1;ref=main:volume-down
+│   ├── KEY_3,6;ref=:album-image
+│   ├── KEY_3,7;ref=:album-image
+│   ├── KEY_3,8;ref=:album-image
+│   ├── KEY_4,1;ref=main:volume-toggle
+│   ├── KEY_4,6;name=album
 │   │   ├── IMAGE;ref=ref:titled-text:separator;outline=$VAR_SPOTIFY_COLOR
 │   │   ├── TEXT;ref=ref:titled-text:content -> ../DATA/ALBUM
 │   │   └── TEXT;ref=ref:titled-text:title;text=Album;color=$VAR_SPOTIFY_COLOR
-│   ├── KEY_ROW_4_COL_7;name=artist;ref=:album
+│   ├── KEY_4,7;name=artist;ref=:album
 │   │   ├── TEXT;ref=:album:content -> ../DATA/ARTIST
 │   │   └── TEXT;ref=:album:title;text=Artist
-│   ├── KEY_ROW_4_COL_8;name=song;ref=:album
+│   ├── KEY_4,8;name=song;ref=:album
 │   │   ├── TEXT;ref=:album:content -> ../DATA/SONG
 │   │   └── TEXT;ref=:album:title;text=Track
 │   ├── VAR_IMG_SPLIT;value=3
@@ -205,7 +205,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   ├── VAR_SEEK_DELAY;value=20
 │   └── VAR_SPOTIFY_COLOR;value=#8cc63f
 ├── PAGE_70;name=lights
-│   ├── KEY_ROW_4_COL_1;name=keylight-toggle
+│   ├── KEY_4,1;name=keylight-toggle
 │   │   ├── IMAGE;layer=2;name=left-off;draw=rectangle;coords=0,0,49%,100%;fill=red;width=0;opacity=$VAR_OPACITY_LEFT
 │   │   ├── IMAGE;layer=3;name=right-off;draw=rectangle;coords=50%,0,100%,100%;fill=red;width=0;opacity=$VAR_OPACITY_RIGHT
 │   │   ├── IMAGE;layer=4;name=draw-light;draw=rectangle;coords=18%,10%,82%,60%;radius=15;width=5;outline=white;fill=#ffffff66
@@ -216,32 +216,32 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── ON_START -> /home/twidi/dev/streamdeck-scripts/elgato-key-light/listen_changes.py
 │   │   ├── VAR_OPACITY_LEFT
 │   │   └── VAR_OPACITY_RIGHT
-│   ├── KEY_ROW_4_COL_2;name=keylight-decrease
+│   ├── KEY_4,2;name=keylight-decrease
 │   │   ├── IMAGE;layer=10;colorize=white;margin=18%,23%,50%,23% -> /home/twidi/dev/streamdeck-scripts/elgato-key-light/assets/decrease.png
 │   │   ├── IMAGE;ref=:keylight:overlay
 │   │   ├── IMAGE;ref=:keylight-toggle:background
 │   │   ├── IMAGE;ref=:keylight-toggle:draw-light
 │   │   ├── IMAGE;ref=:keylight-toggle:draw-support
 │   │   └── ON_PRESS;every=250;max-runs=10;unique -> /home/twidi/dev/streamdeck-scripts/elgato-key-light/decrease_brightness.py
-│   ├── KEY_ROW_4_COL_3;name=keylight-increase;ref=:keylight-decrease
+│   ├── KEY_4,3;name=keylight-increase;ref=:keylight-decrease
 │   │   ├── IMAGE;layer=10;colorize=white;margin=18%,23%,50%,23% -> /home/twidi/dev/streamdeck-scripts/elgato-key-light/assets/increase.png
 │   │   └── ON_PRESS;every=250;max-runs=10;unique -> /home/twidi/dev/streamdeck-scripts/elgato-key-light/increase_brightness.py
-│   └── KEY_ROW_4_COL_8;ref=ref:close
+│   └── KEY_4,8;ref=ref:close
 └── PAGE_999;name=ref
-    ├── KEY_ROW_1_COL_1;name=img
+    ├── KEY_1,1;name=img
     │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    ├── KEY_ROW_1_COL_2;name=draw
+    ├── KEY_1,2;name=draw
     │   ├── IMAGE;layer=0;name=background;draw=fill;fill=
     │   └── IMAGE;name=progress;draw=line;coords=0%,92,100%,92;outline=white;width=7
-    ├── KEY_ROW_1_COL_3;name=text
+    ├── KEY_1,3;name=text
     │   └── TEXT;name=3dots;text=...;valign=bottom;align=right;size=40;margin=0,15%,10%,0
-    ├── KEY_ROW_1_COL_4;name=ev
+    ├── KEY_1,4;name=ev
     │   └── ON_LONGPRESS;name=back;page=__back__;duration-min=300
-    ├── KEY_ROW_2_COL_1;name=close
+    ├── KEY_2,1;name=close
     │   ├── IMAGE;layer=1;colorize=white;margin=20,10,10,10;name=icon -> /home/twidi/dev/streamdeck-scripts/assets/close.png
     │   ├── IMAGE;ref=:images:overlay
     │   └── ON_PRESS;page=__back__
-    └── KEY_ROW_2_COL_2;name=titled-text
+    └── KEY_2,2;name=titled-text
         ├── IMAGE;layer=1;name=separator;draw=line;coords=0,25,100%,25;outline=
         ├── TEXT;line=1;name=title;text=Title;weight=bold;align=center;valign=top;color=
         └── TEXT;line=2;name=content;size=18;align=center;valign=middle;margin=28,0,0,0;scroll=20;wrap

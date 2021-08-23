@@ -32,9 +32,9 @@ from .page import PageContent
 @dataclass(eq=False)
 class Key(EntityDir, PageContent):
 
-    path_glob = "KEY_ROW_*_COL_*"
-    main_part_re = re.compile(r"^(?P<kind>KEY)_ROW_(?P<row>\d+)_COL_(?P<col>\d+)$")
-    main_part_compose = lambda args: f'KEY_ROW_{args["row"]}_COL_{args["col"]}'
+    path_glob = "KEY_*"
+    main_part_re = re.compile(r"^(?P<kind>KEY)_(?:ROW_)?(?P<row>\d+)(?:_COL_|,)(?P<col>\d+)$")
+    main_part_compose = lambda args: f'KEY_{args["row"]},{args["col"]}'
     get_main_args = lambda self: {"row": self.row, "col": self.col}
 
     allowed_args = EntityDir.allowed_args | {

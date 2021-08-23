@@ -1,6 +1,10 @@
 # Changelog
 
 
+## Release `1.8.3` - *IN PROGRESS*
+
+- New format for keys directories: `KEY_$ROW,$COL` instead of `KEY_ROW_$ROW_COL_$COL` (old format still supported)
+
 ## Release `1.8.2` - *2021-08-23*
 
 - Internal rework of references to handle variables

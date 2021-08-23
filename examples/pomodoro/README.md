@@ -29,7 +29,7 @@ Possible actions are:
 - when state is `shortbreak` or `longbreak`, pressing the button will stop the timer and go to the next work period
 - doing a long press will stop the pomodoro application, going to the `off` state
 
-To use it, copy the directory `KEY_ROW_X_COL_Y;name=pomodoro` into a page directory and replace `X` and `Y` in the name by the row and column you want.
+To use it, copy the directory `KEY_ROW,COL;name=pomodoro` into a page directory and replace `ROW` and `COL` in the name by the row and column you want.
 
 It can be configured by changing the values in the name of the following files:
 

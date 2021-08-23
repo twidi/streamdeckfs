@@ -17,7 +17,7 @@ This example is a key providing a simple stopwatch application (without any exte
 
 We go from a state to another by a simple press on the key.
 
-To use it, copy the directory `KEY_ROW_X_COL_Y;name=stopwatch` into a page directory and replace `X` and `Y` in the name by the row and column you want.
+To use it, copy the directory `KEY_ROW,COL;name=stopwatch` into a page directory and replace `ROW` and `COL` in the name by the row and column you want.
 
 
 ## Tutorial
@@ -123,7 +123,7 @@ Notice how we use `^` between the `colorize` and the `opacity` parts. It's becau
 That's it, we have everything we need. Here a listing of all the files (here put in the key (1, 4) on the first page):
 
 ```
-PAGE_1;name=main/KEY_ROW_1_COL_4;name=stop-watch/
+PAGE_1;name=main/KEY_1,4;name=stop-watch/
 ├── IMAGE;$VAR_ICON_STYLE
 ├── ON_PRESS;VAR_STATE<=off;enabled={"$VAR_STATE" == "result"}
 ├── ON_PRESS;VAR_STATE<=result;enabled={"$VAR_STATE" == "running"}

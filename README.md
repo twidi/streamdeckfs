@@ -166,24 +166,26 @@ The resulting tree will look like this, for example for a deck with 3 rows of 5 
 ```
 BASE_DIRECTORY/YOUR_SERIAL_NUMBER
 ├── PAGE_1
-│   ├── KEY_ROW_1_COL_1
-│   ├── KEY_ROW_1_COL_2
-│   ├── KEY_ROW_1_COL_3
-│   ├── KEY_ROW_1_COL_4
-│   ├── KEY_ROW_1_COL_5
-│   ├── KEY_ROW_2_COL_1
-│   ├── KEY_ROW_2_COL_2
-│   ├── KEY_ROW_2_COL_3
-│   ├── KEY_ROW_2_COL_4
-│   ├── KEY_ROW_2_COL_5
-│   ├── KEY_ROW_3_COL_1
-│   ├── KEY_ROW_3_COL_2
-│   ├── KEY_ROW_3_COL_3
-│   ├── KEY_ROW_3_COL_4
-│   ├── KEY_ROW_3_COL_5
+│   ├── KEY_1,1
+│   ├── KEY_1,2
+│   ├── KEY_1,3
+│   ├── KEY_1,4
+│   ├── KEY_1,5
+│   ├── KEY_2,1
+│   ├── KEY_2,2
+│   ├── KEY_2,3
+│   ├── KEY_2,4
+│   ├── KEY_2,5
+│   ├── KEY_3,1
+│   ├── KEY_3,2
+│   ├── KEY_3,3
+│   ├── KEY_3,4
+│   ├── KEY_3,5
 ├── PAGE_2
 ...
 ```
+
+In `KEY_1,3`, `1` is the row, and `3` is the column
 
 Now you are ready to configure the keys. Here is the most straightforward configuration:
 
@@ -1303,7 +1305,7 @@ Each page is a directory with at least a page number: `PAGE_NUMBER` with `NUMBER
 
 A page can also have a name: `PAGE_NUMBER;name=NAME`, and then this name is available for the `page` configuration of key events. So if you have a page directory named `PAGE_50;name=spotify`, you can say "go to page 50" or "go to page spotify".
 
-In a page directory, you only need to define the key you need, not all, in the format `KEY_ROW_XX_COL_YY`. If a key directory exists but has no images/texts/events (or only disabled ones), it will be ignored.
+In a page directory, you only need to define the key you need, not all, in the format `KEY_ROW,COL` (`ROW` being the row on the StreamDeck, starting at 1, and `COL`, the column). If a key directory exists but has no images/texts/events (or only disabled ones), it will be ignored.
 
 Page navigation history is kept so you can easily go back to the previous page seen. It's helpful, for example, for overlays. Let's take the first example about the "microphone overlay". Let's say you have a directory `PAGE_60;name=microphone;overlay`; you would have a key with the long press event to display this overlay defined like this: `ON_LONGPRESS;page=microphone`, and in this `PAGE_60;name=microphone;overlay` directory, you would have a key to close this overlay (i.e., go back to the previous page), like this: `ON_PRESS;page=__back__`. Until you press this key, as this page is opened as an overlay, you would see the keys of this new page as regular keys and the others from the page below, still visible but darker and without any effect when pressing them.
 
@@ -1338,7 +1340,7 @@ Say you have a page dedicated to Spotify, and some of your keys are Spotify cont
 
 You can, on each key, have a file named `IMAGE;layer=0;name=background;draw=rectangle;coords=0,0,100%,100%;width=0;fill=#8cc63f`
 
-OR, you can have it only defined on the first key using it, say it's `KEY_ROW_1_COL_1;name=toggle` and in other keys, add a file named `IMAGE;ref=:toggle:background`. This will take the image named "background" in the key named "toggle" of the current page (nothing before the first `:` in the `ref` configuration option means "current page")
+OR, you can have it only defined on the first key using it, say it's `KEY_1,1;name=toggle` and in other keys, add a file named `IMAGE;ref=:toggle:background`. This will take the image named "background" in the key named "toggle" of the current page (nothing before the first `:` in the `ref` configuration option means "current page")
 
 So you can easily change how this background should look in one place, affecting all keys referencing this background. All configuration options are inherited. In this example the image defined by `IMAGE;ref=:toggle:background` will inherit the `name`, `layer`, `draw`, `coords`, `width` and `fill`. But these can be overridden. If you want to change the color but still have a rectangle, you can use `IMAGE;ref=toggle:background;fill=red`, and you'll have a red rectangle as the background.
 
@@ -1408,16 +1410,16 @@ Here is an example of such a page:
 
 ```
 └── PAGE_999;name=ref
-    ├── KEY_ROW_1_COL_1;name=img
+    ├── KEY_1,1;name=img
     │   └── IMAGE;layer=999;name=overlay -> /home/twidi/dev/streamdeck-scripts/assets/overlay.png
-    ├── KEY_ROW_1_COL_2;name=draw
+    ├── KEY_1,2;name=draw
     │   ├── IMAGE;layer=0;name=background;draw=fill;fill=
     │   └── IMAGE;name=progress;draw=line;coords=0%,92,32%,92;outline=white;width=7
-    ├── KEY_ROW_2_COL_1;name=close
+    ├── KEY_2,1;name=close
     │   ├── IMAGE;layer=1;colorize=white;margin=20,10,10,10;name=icon -> /home/twidi/dev/streamdeck-scripts/assets/close.png
     │   ├── IMAGE;ref=:images:overlay
     │   └── ON_PRESS;page=__back__
-    └── KEY_ROW_2_COL_2;name=titled-text
+    └── KEY_2,2;name=titled-text
         ├── IMAGE;layer=1;name=separator;draw=line;coords=0,25,100%,25;outline=
         ├── TEXT;line=1;name=title;text=Title;weight=bold;align=center;valign=top;color=
         └── TEXT;line=2;name=content;text=Some content that will scroll if too long;size=18;align=center;valign=middle;margin=28,0,0,0;scroll=20;wrap
@@ -1427,11 +1429,11 @@ Here you can see a page, number 999 (could have been any number) with the name `
 
 On this page, many keys are defined:
 
-- `KEY_ROW_1_COL_1;name=img`
+- `KEY_1,1;name=img`
 
 This key contains an image with a layer number of 999, named "overlay". The goal is to have an overlay over each defined key with a specific style (like a "glass" rendering). As the layer number is 999, it's almost certain that it will be the top layer. To use it, add an empty file in your `KEY...` directories named `IMAGE;ref=ref:img:overlay`.
 
-- `KEY_ROW_2_COL_2;name=draw`
+- `KEY_2,2;name=draw`
 
 This key contains two drawings:
 
@@ -1439,13 +1441,13 @@ One named `background` (where only the fill color is missing), which can be refe
 
 One named `progress` which draws a progress bar on the bottom of the key (where the `X2` coordinate must be updated to the proper progress value (here at `32%`)), which can be referenced like this: `IMAGE;layer=3;ref=ref:draw:progress;coords.2=50%` (here we change the progress to `50%` and set the layer number to `3` as the reference does not have it defined because each key using it may want to place the `progress` at a different layer)
 
-- `KEY_ROW_2_COL_1;name=close`
+- `KEY_2,1;name=close`
 
-This key represents a complete "close" key that can be used to close an overlay on press. To use it, add in your page a directory named `KEY_ROW_X_COL_Y;ref=ref:close` (set your row and col according to your needs): and voila, you have a close key that will work as expected.
+This key represents a complete "close" key that can be used to close an overlay on press. To use it, add in your page a directory named `KEY_ROW,COL;ref=ref:close` (set your row and col according to your needs): and voila, you have a close key that will work as expected.
 
 And if you want to change the color of the close key, you add in your directory an image that will reference the `icon`: `IMAGE;ref=ref:close:icon;colorize=red`. It will have, by inheritance, the same layer number as the image in the reference key, and it will be used instead of that one.
 
-- `KEY_ROW_2_COL_2;name=titled-text`
+- `KEY_2,2;name=titled-text`
 
 This key represents a key rendered with a title on top, a small line as a separator, and a text in the central area that is wrapped and will scroll if it does not fit. The key itself is not meant to be used as a reference because each part must be configured, so you define your key directory as usual, and inside, you add three empty files `IMAGE;ref=ref:titled-text:separator;outline=COLOR` (with `COLOR` being the color you want for the separator), `TEXT;ref=ref:titled-text:title;text=TITLE` (with `TITLE` being the text you want for the title) and `TEXT;ref=ref:titled-text:content;text=TEXT` (with `TEXT` being the text you want in the central area, or you can set `file=__self__` instead of `text=...` and put the text in the file itself)
 
@@ -2118,7 +2120,7 @@ Example:
 
 ```bash
 $ streamdeckfs get-key-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_2,4;name=progress
 ```
 
 ## get-key-conf
@@ -2193,14 +2195,14 @@ Example, to create a key in the first row and column, with `foo` as name:
 
 ```bash
 $ streamdeckfs create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1;name=foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1;name=foo
 ```
 
 Or to create it in an available random available key:
 
 ```bash
 $ streamdeckfs create-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k '?' -c name foo
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_3_COL_2;name=foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_3,2;name=foo
 ```
 
 ## copy-key
@@ -2232,7 +2234,7 @@ Example, to create a copy of the key `foo` from the page 20 to 30 on row 1, col 
 
 ```bash
 $ streamdeckfs copy-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1;name=bar
 ```
 
 ## move-key
@@ -2264,7 +2266,7 @@ Example, to move the key `foo` from the page 20 to 30 on row 1, col 1, with `bar
 
 ```bash
 $ streamdeckfs move-key ~/streamdeck-data/MYDECKSERIAL -p 20 -k foo -tp 30 -tk 1,1 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1;name=bar
 ```
 
 ## delete-key
@@ -2322,7 +2324,7 @@ Example:
 
 ```bash
 $ streamdeckfs get-image-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0%;angles.1=33%;opacity=50
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_2,4;name=progress/IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=#8cc63f;width=5;angles=0,0%;angles.1=33%;opacity=50
 ```
 
 Here you see `angles` and `angles.1` because `angles.1` was set by a call to `set-image-conf`
@@ -2402,14 +2404,14 @@ Example, to create an image layer drawing a red square
 
 ```bash
 $ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 -c draw rectangle -c coords '20%,20%,80%,80%' -c width 0 -c fill red
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo;draw=rectangle;coords=20%,20%,80%,80%;fill=red;width=0
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1/IMAGE;layer=1;name=foo;draw=rectangle;coords=20%,20%,80%,80%;fill=red;width=0
 ```
 
 Or to use an existing image:
 
 ```bash
 $ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/image
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/IMAGE;layer=1;name=foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1/IMAGE;layer=1;name=foo
 ```
 
 ## copy-image
@@ -2438,7 +2440,7 @@ Example, to create a copy of the layer `foo` from the key `4,8` in page 20 to th
 
 ```bash
 $ streamdeckfs copy-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/IMAGE;layer=2;name=bar
 ```
 
 ## move-image
@@ -2467,7 +2469,7 @@ Example, to move the layer `foo` from the key `4,8` in page 20 to the key `1,1` 
 
 ```bash
 $ streamdeckfs move-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c layer 2 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/IMAGE;layer=2;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/IMAGE;layer=2;name=bar
 ```
 
 ## delete-image
@@ -2526,7 +2528,7 @@ Example:
 
 ```bash
 $ streamdeckfs get-text-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k progress -l progress
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_4;name=progress/TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;text=2:23
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_2,4;name=progress/TEXT;line=1;name=progress;size=30;weight=black;color=#8cc63f;align=center;valign=middle;margin=12%,1,40%,1;text=2:23
 ```
 
 ## get-text-conf
@@ -2605,14 +2607,14 @@ Example, to create a centered text "foo":
 
 ```bash
 $ streamdeckfs create-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c line 1 -c text foo -c align center -c valign middle
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo;text=foo;align=center;valign=middle
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1/TEXT;line=1;name=foo;text=foo;align=center;valign=middle
 ```
 
 Or to use an existing text file:
 
 ```bash
 $ streamdeckfs create-image ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 -c name foo -c layer 1 --link /path/to/my/text-file
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/TEXT;line=1;name=foo
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1/TEXT;line=1;name=foo
 ```
 
 ## copy-text
@@ -2641,7 +2643,7 @@ Example, to create a copy of the text line `foo` from the key `4,8` in page 20 t
 
 ```bash
 $ streamdeckfs copy-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/TEXT;line=2;name=bar
 ```
 
 ## move-text
@@ -2670,7 +2672,7 @@ Example, to move the text line `foo` from the key `4,8` in page 20 to the key `1
 
 ```bash
 $ streamdeckfs move-text ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -l foo -tp 30 -tk 1,1 -c line 2 -c name bar
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/TEXT;line=2;name=bar
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/TEXT;line=2;name=bar
 ```
 
 ## delete-text
@@ -2729,7 +2731,7 @@ Example:
 
 ```bash
 $ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_2,2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 
 ## get-event-conf
@@ -2783,7 +2785,7 @@ Passing an empty string for the `every` configuration option removes it from the
 
 ```bash
 $ streamdeckfs get-event-path ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_ROW_2_COL_2;name=seek-backward/ON_PRESS;every=1000;unique
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_60;name=spotify/KEY_2,2;name=seek-backward/ON_PRESS;every=1000;unique
 ```
 ```
 $ streamdeckfs get-event-conf ~/streamdeck-data/MYDECKSERIAL -p spotify -k seek-backward -e press
@@ -2821,7 +2823,7 @@ Example, to create an event launching the gnome-calculator when the key is press
 
 ```bash
 $ streamdeckfs create-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 1,1 --link "$(which gnome-calculator)"
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_ROW_1_COL_1/ON_PRESS
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_20/KEY_1,1/ON_PRESS
 ```
 
 ## copy-event
@@ -2851,7 +2853,7 @@ Example, to create a copy of the `ON_PRESS` event from the key `4,8` in the page
 
 ```bash
 $ streamdeckfs copy-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/ON_PRESS
 ```
 
 ## move-event
@@ -2881,7 +2883,7 @@ Example, to move the `ON_PRESS` event from the key `4,8` in the page 20 to the k
 
 ```bash
 $ streamdeckfs move-event ~/streamdeck-data/MYDECKSERIAL -p 20 -k 4,8 -e press -tp 30 -tk 1,1
-/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_ROW_1_COL_1/ON_PRESS
+/home/twidi/streamdeck-data/MYDECKSERIAL/PAGE_30/KEY_1,1/ON_PRESS
 ```
 
 ## delete-event
