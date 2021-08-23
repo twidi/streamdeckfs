@@ -9,6 +9,7 @@
 import json
 import logging
 from dataclasses import dataclass
+from fnmatch import fnmatch
 
 from cached_property import cached_property
 from StreamDeck.Devices.StreamDeck import StreamDeck
@@ -156,7 +157,7 @@ class Deck(EntityDir):
         if (page_filter := self.filters.get("pages")) != FILTER_DENY:
             from .page import Page
 
-            if not entity_class or entity_class is Page:
+            if (not entity_class or entity_class is Page) and fnmatch(name, Page.path_glob):
                 if (parsed := Page.parse_filename(name, self, available_vars)).main:
                     if page_filter is not None and not Page.args_matching_filter(
                         parsed.main, parsed.args, page_filter

@@ -9,6 +9,7 @@
 import logging
 import re
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from time import time
 from typing import Tuple
 
@@ -241,7 +242,7 @@ class Key(EntityDir, PageContent):
         if (layer_filter := self.deck.filters.get("layers")) != FILTER_DENY:
             from . import KeyImageLayer
 
-            if not entity_class or entity_class is KeyImageLayer:
+            if (not entity_class or entity_class is KeyImageLayer) and fnmatch(name, KeyImageLayer.path_glob):
                 if (parsed := KeyImageLayer.parse_filename(name, self, available_vars)).main:
                     if layer_filter is not None and not KeyImageLayer.args_matching_filter(
                         parsed.main, parsed.args, layer_filter
@@ -265,7 +266,7 @@ class Key(EntityDir, PageContent):
         if (text_line_filter := self.deck.filters.get("text_lines")) != FILTER_DENY:
             from . import KeyTextLine
 
-            if not entity_class or entity_class is KeyTextLine:
+            if (not entity_class or entity_class is KeyTextLine) and fnmatch(name, KeyTextLine.path_glob):
                 if (parsed := KeyTextLine.parse_filename(name, self, available_vars)).main:
                     if text_line_filter is not None and not KeyTextLine.args_matching_filter(
                         parsed.main, parsed.args, text_line_filter

@@ -10,6 +10,7 @@ import re
 from collections import defaultdict, namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from functools import partial
 from operator import attrgetter
 from pathlib import Path
@@ -1059,7 +1060,7 @@ class EntityDir(Entity):
         if available_vars is None:
             available_vars = self.get_available_vars()
         if (event_filter := self.deck.filters.get("events")) != FILTER_DENY:
-            if not entity_class or entity_class is self.event_class:
+            if (not entity_class or entity_class is self.event_class) and fnmatch(name, self.event_class.path_glob):
                 path = self.path / name
                 if (parsed := self.event_class.parse_filename(name, self, available_vars)).main:
                     if event_filter is not None and not self.event_class.args_matching_filter(
@@ -1082,7 +1083,7 @@ class EntityDir(Entity):
                 elif not is_virtual and parsed.ref_conf:
                     self.event_class.add_waiting_reference(self, path, parsed.ref_conf)
         if (var_filter := self.deck.filters.get("vars")) != FILTER_DENY:
-            if not entity_class or entity_class is self.var_class:
+            if (not entity_class or entity_class is self.var_class) and fnmatch(name, self.var_class.path_glob):
                 if (parsed := self.var_class.parse_filename(name, self, available_vars)).main:
                     if var_filter is not None and not self.var_class.args_matching_filter(
                         parsed.main, parsed.args, var_filter

@@ -8,6 +8,7 @@
 #
 import re
 from dataclasses import dataclass
+from fnmatch import fnmatch
 
 from cached_property import cached_property
 
@@ -121,7 +122,7 @@ class Page(EntityDir, DeckContent):
         if (key_filter := self.deck.filters.get("keys")) != FILTER_DENY:
             from .key import Key
 
-            if not entity_class or entity_class is Key:
+            if (not entity_class or entity_class is Key) and fnmatch(name, Key.path_glob):
                 if (parsed := Key.parse_filename(name, self, available_vars)).main:
                     if key_filter is not None and not Key.args_matching_filter(parsed.main, parsed.args, key_filter):
                         return None
