@@ -47,6 +47,8 @@ class Key(EntityDir, PageContent):
 
     key: Tuple[int, int]
 
+    filter_to_identifier = lambda filter: tuple(int(val) for val in filter.split(","))
+
     @cached_property
     def event_class(self):
         from . import KeyEvent
@@ -425,14 +427,14 @@ class Key(EntityDir, PageContent):
         from . import KeyImageLayer
 
         return KeyImageLayer.find_by_identifier_or_name(
-            self.resolved_layers, layer_filter, int, allow_disabled=allow_disabled
+            self.resolved_layers, layer_filter, allow_disabled=allow_disabled
         )
 
     def find_text_line(self, text_line_filter, allow_disabled=False):
         from . import KeyTextLine
 
         return KeyTextLine.find_by_identifier_or_name(
-            self.resolved_text_lines, text_line_filter, int, allow_disabled=allow_disabled
+            self.resolved_text_lines, text_line_filter, allow_disabled=allow_disabled
         )
 
     @property

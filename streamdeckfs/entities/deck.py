@@ -516,7 +516,7 @@ class Deck(EntityDir):
     def find_page(self, page_filter, allow_disabled=False):
         from .page import Page
 
-        return Page.find_by_identifier_or_name(self.pages, page_filter, int, allow_disabled=allow_disabled)
+        return Page.find_by_identifier_or_name(self.pages, page_filter, allow_disabled=allow_disabled)
 
     @cached_property
     def env_vars(self):

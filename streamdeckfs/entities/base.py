@@ -99,6 +99,7 @@ class Entity:
     disabled: bool
 
     parse_cache = None
+    filter_to_identifier = str
 
     def __post_init__(self):
         self.ref_conf = None
@@ -665,13 +666,13 @@ class Entity:
         logger.debug(f"[{self}] Version deactivated: {self.path}{' (VIRTUAL)' if self.is_virtual else ''}")
 
     @classmethod
-    def find_by_identifier_or_name(cls, data, filter, to_identifier, allow_disabled=False):
+    def find_by_identifier_or_name(cls, data, filter, allow_disabled=False):
         if not filter:
             return None
 
         try:
             # find by identifier
-            if (identifier := to_identifier(filter)) not in data:
+            if (identifier := cls.filter_to_identifier(filter)) not in data:
                 raise ValueError()
             if entry := data[identifier]:
                 # we have an entry not disabled, we return the active version
@@ -1030,11 +1031,11 @@ class EntityDir(Entity):
 
     def find_event(self, event_filter, allow_disabled=False):
         return self.event_class.find_by_identifier_or_name(
-            self.resolved_events, event_filter, str, allow_disabled=allow_disabled
+            self.resolved_events, event_filter, allow_disabled=allow_disabled
         )
 
     def find_var(self, var_filter, allow_disabled=False):
-        return self.var_class.find_by_identifier_or_name(self.vars, var_filter, str, allow_disabled=allow_disabled)
+        return self.var_class.find_by_identifier_or_name(self.vars, var_filter, allow_disabled=allow_disabled)
 
     def read_directory(self):
         if self.deck.filters.get("events") != FILTER_DENY:

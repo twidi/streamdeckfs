@@ -48,6 +48,8 @@ class Page(EntityDir, DeckContent):
 
     number: int
 
+    filter_to_identifier = int
+
     @cached_property
     def event_class(self):
         from . import PageEvent
@@ -215,12 +217,7 @@ class Page(EntityDir, DeckContent):
     def find_key(self, key_filter, allow_disabled=False):
         from .key import Key
 
-        return Key.find_by_identifier_or_name(
-            self.keys,
-            key_filter,
-            lambda filter: tuple(int(val) for val in filter.split(",")),
-            allow_disabled=allow_disabled,
-        )
+        return Key.find_by_identifier_or_name(self.keys, key_filter, allow_disabled=allow_disabled)
 
     def version_activated(self):
         super().version_activated()

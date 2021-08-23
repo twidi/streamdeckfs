@@ -17,6 +17,7 @@ from .key import KeyContent
 
 @dataclass(eq=False)
 class KeyImagePart(KeyContent, EntityFile):
+    filter_to_identifier = int
 
     no_margins = {"top": ("int", 0), "right": ("int", 0), "bottom": ("int", 0), "left": ("int", 0)}
 
