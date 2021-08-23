@@ -131,6 +131,24 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── DURATION_TEXT
 │   │   ├── PROGRESS_TEXT
 │   │   └── SONG
+│   ├── KEY_$VAR_IMG_START_ROW,{$VAR_IMG_START_COL+1};ref=:album-image
+│   ├── KEY_$VAR_IMG_START_ROW,{$VAR_IMG_START_COL+2};ref=:album-image
+│   ├── KEY_$VAR_IMG_START_ROW,$VAR_IMG_START_COL;name=album-image
+│   │   ├── IMAGE;layer=1;name=cover;crop={($VAR_IMG_COL|$VAR_IMG_SPLIT)*100}%,{($VAR_IMG_ROW|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_COL+1)|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_ROW+1)|$VAR_IMG_SPLIT)*100}% -> ../DATA/COVER
+│   │   ├── VAR_IMG_COL;value={$VAR_SDFS_KEY_COL-$VAR_IMG_START_COL}
+│   │   └── VAR_IMG_ROW;value={$VAR_SDFS_KEY_ROW-$VAR_IMG_START_ROW}
+│   ├── KEY_{$VAR_IMG_START_ROW+1},{$VAR_IMG_START_COL+1};ref=:album-image
+│   ├── KEY_{$VAR_IMG_START_ROW+1},{$VAR_IMG_START_COL+2};ref=:album-image
+│   ├── KEY_{$VAR_IMG_START_ROW+1},$VAR_IMG_START_COL;name=album-image
+│   │   ├── IMAGE;layer=1;name=cover;crop={($VAR_IMG_COL|$VAR_IMG_SPLIT)*100}%,{($VAR_IMG_ROW|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_COL+1)|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_ROW+1)|$VAR_IMG_SPLIT)*100}% -> ../DATA/COVER
+│   │   ├── VAR_IMG_COL;value={$VAR_SDFS_KEY_COL-$VAR_IMG_START_COL}
+│   │   └── VAR_IMG_ROW;value={$VAR_SDFS_KEY_ROW-$VAR_IMG_START_ROW}
+│   ├── KEY_{$VAR_IMG_START_ROW+2},{$VAR_IMG_START_COL+1};ref=:album-image
+│   ├── KEY_{$VAR_IMG_START_ROW+2},{$VAR_IMG_START_COL+2};ref=:album-image
+│   ├── KEY_{$VAR_IMG_START_ROW+2},$VAR_IMG_START_COL;name=album-image
+│   │   ├── IMAGE;layer=1;name=cover;crop={($VAR_IMG_COL|$VAR_IMG_SPLIT)*100}%,{($VAR_IMG_ROW|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_COL+1)|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_ROW+1)|$VAR_IMG_SPLIT)*100}% -> ../DATA/COVER
+│   │   ├── VAR_IMG_COL;value={$VAR_SDFS_KEY_COL-$VAR_IMG_START_COL}
+│   │   └── VAR_IMG_ROW;value={$VAR_SDFS_KEY_ROW-$VAR_IMG_START_ROW}
 │   ├── KEY_1,1;name=toggle
 │   │   ├── IMAGE;layer=1;name=icon;colorize=white;margin=15,15,15,15 -> /home/twidi/dev/streamdeck-scripts/spotify/assets/logo.png
 │   │   ├── IMAGE;layer=2;name=pause;colorize=$VAR_SPOTIFY_COLOR;margin=20,20,20,20;opacity=$VAR_PAUSE_OPACITY -> /home/twidi/dev/streamdeck-scripts/spotify/assets/pause.png
@@ -156,11 +174,6 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── IMAGE;ref=:toggle:background
 │   │   └── ON_PRESS -> /home/twidi/dev/streamdeck-scripts/spotify/restart_song.py
 │   ├── KEY_1,5;ref=ref:close
-│   ├── KEY_1,6;name=album-image
-│   │   ├── IMAGE;layer=1;name=cover;crop={($VAR_IMG_COL|$VAR_IMG_SPLIT)*100}%,{($VAR_IMG_ROW|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_COL+1)|$VAR_IMG_SPLIT)*100}%,{(($VAR_IMG_ROW+1)|$VAR_IMG_SPLIT)*100}% -> ../DATA/COVER
-│   │   ├── VAR_IMG_COL;value={$VAR_SDFS_KEY_COL-$VAR_IMG_START_COL}
-│   │   └── VAR_IMG_ROW;value={$VAR_SDFS_KEY_ROW-$VAR_IMG_START_ROW}
-│   ├── KEY_1,7;ref=:album-image
 │   ├── KEY_1,8;ref=:album-image
 │   ├── KEY_2,1;ref=main:volume-up
 │   ├── KEY_2,2;name=seek-backward
@@ -179,13 +192,7 @@ twidi@twidi-beast:~/streamdeck-data/MYDECKSERIAL$ tree .
 │   │   ├── IMAGE;layer=0;name=progress;draw=arc;coords=0,0,100%,100%;outline=$VAR_SPOTIFY_COLOR;width=5;angles=0,0%;angles.1=$VAR_PROGRESS_PERCENT%;opacity=50
 │   │   ├── TEXT;line=1;name=progress;weight=black;color=$VAR_SPOTIFY_COLOR;fit;margin=25%,15,40%,15 -> ../DATA/PROGRESS_TEXT
 │   │   └── TEXT;line=2;name=duration;fit;margin=60%,25,5,25 -> ../DATA/DURATION_TEXT
-│   ├── KEY_2,6;ref=:album-image
-│   ├── KEY_2,7;ref=:album-image
-│   ├── KEY_2,8;ref=:album-image
 │   ├── KEY_3,1;ref=main:volume-down
-│   ├── KEY_3,6;ref=:album-image
-│   ├── KEY_3,7;ref=:album-image
-│   ├── KEY_3,8;ref=:album-image
 │   ├── KEY_4,1;ref=main:volume-toggle
 │   ├── KEY_4,6;name=album
 │   │   ├── IMAGE;ref=ref:titled-text:separator;outline=$VAR_SPOTIFY_COLOR

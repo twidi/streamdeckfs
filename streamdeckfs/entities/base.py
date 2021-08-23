@@ -267,6 +267,16 @@ class Entity:
         used_vars = set()
         used_env_vars = set()
 
+        try:
+            name, used_vars, used_env_vars = cls.replace_vars(name, name, parent, available_vars)
+        except UnavailableVar:
+            return RawParseFilenameResult()  # we don't cache the result
+        if "{" in name and "}" in name:
+            try:
+                name = cls.replace_exprs(name, name)
+            except Exception:
+                return RawParseFilenameResult()  # we don't cache the result
+
         main_part, *__, conf_part = name.partition(";")
         if not (match := cls.main_part_re.match(main_part)):
             main, args = None, None
@@ -275,17 +285,6 @@ class Entity:
             args = {}
 
             if conf_part:
-                try:
-                    conf_part, used_vars, used_env_vars = cls.replace_vars(conf_part, name, parent, available_vars)
-                except UnavailableVar:
-                    return RawParseFilenameResult()  # we don't cache the result
-
-                if "{" in conf_part and "}" in conf_part:
-                    try:
-                        conf_part = cls.replace_exprs(conf_part, name)
-                    except Exception:
-                        return RawParseFilenameResult()  # we don't cache the result
-
                 parts = conf_part.split(";")
                 for part in parts:
                     for regex in cls.allowed_args.values():

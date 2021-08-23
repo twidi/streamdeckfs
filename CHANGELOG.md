@@ -4,6 +4,7 @@
 ## Release `1.8.3` - *IN PROGRESS*
 
 - New format for keys directories: `KEY_$ROW,$COL` instead of `KEY_ROW_$ROW_COL_$COL` (old format still supported)
+- Variables and expressions work in whole names, not only in configuration part
 
 ## Release `1.8.2` - *2021-08-23*
 

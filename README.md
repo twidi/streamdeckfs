@@ -1454,7 +1454,7 @@ This key represents a key rendered with a title on top, a small line as a separa
 
 # Variables
 
-`streamdeckfs` can be used as a store for the commands launched by its events. For this it uses files that can be in decks, pages or keys directories, that are named `VAR_NAME` with `NAME` a name of your choice (it must only contains capital letters from `A` to `Z`, digits from `0` to `9` and the character `_`).
+`streamdeckfs` can use variables to ease configuration or to used as a store for the commands launched by its events. For this it uses files that can be in decks, pages or keys directories, that are named `VAR_NAME` with `NAME` a name of your choice (it must only contains capital letters from `A` to `Z`, digits from `0` to `9` and the character `_`).
 
 As for other kinds of objects, it can be disabled by adding `;disabled` (or `;disabled=true`, see [above](#disabled), or `;enabled=false`)
 
@@ -1486,8 +1486,6 @@ A variable can be used:
 - in the content of a `TEXT` or `VAR` file
 
 - in the paths defined in the content of `TEXT`, `IMAGE`, or `VAR` files when configured with `file=__inside__`, or `ON_` (events) files when configured with `command=__inside__`
-
-- in the right side of the "[equality](#equality)" rule (the part between the `"`)
 
 Note that a variable can be composed with other variables: `text=$VAR_$VAR_DISPLAY` will work, because the first `$VAR_` is not a valid variable, but `$VAR_DISPLAY` is, so, `$VAR_DISPLAY` will be converted, for example to `LASTNAME` if we have `VAR_DISPLAY;value=LASTNAME`, so we'll have `text=$VAR_LASTNAME`, then the `VAR_LASTNAME` variable will be read to have the final text. Likewise, in `text=$VAR_TEXT$VAR_INDEX`, if `VAR_TEXT` is not an existing variable, then on the first pass `$VAR_INDEX` will be converted, for example to `1`, then we have `$VAR_TEXT1` which is an existing variable, so its' converted
 
