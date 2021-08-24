@@ -166,7 +166,7 @@ class Entity:
         if name.startswith("SDFS_"):
             try:
                 # we can ignore the env vars that cannot change, but the pages/keys ones cannot be cached
-                if name.startswith("SDFS_PAGE") or name.startswith("SDFS_KEY"):
+                if name.startswith("SDFS_PAGE") or name.startswith("SDFS_KEY") or name.startswith("SDFS_SEQ"):
                     used_env_vars.add(name)
                 return available_vars[name][1]
             except KeyError:
@@ -261,6 +261,12 @@ class Entity:
         args[name] = value
 
     @classmethod
+    def parse_main_part(cls, main_part, parent):
+        if not (match := cls.main_part_re.match(main_part)):
+            raise ValueError
+        return match.groupdict()
+
+    @classmethod
     def raw_parse_filename(cls, name, is_virtual, parent, available_vars, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
@@ -285,10 +291,12 @@ class Entity:
                 return RawParseFilenameResult()  # we don't cache the result
 
         main_part, *__, conf_part = name.partition(";")
-        if not (match := cls.main_part_re.match(main_part)):
+
+        try:
+            main = cls.parse_main_part(main_part, parent)
+        except ValueError:
             main, args = None, None
         else:
-            main = match.groupdict()
             args = {}
 
             if conf_part:
@@ -652,16 +660,19 @@ class Entity:
     def get_ref_arg(self):
         raise NotImplementedError
 
-    def copy_as_reference(self, dest):
+    def copy_as_reference(self, dest, main_part=None):
         if (self.deck.filters.get(self.parent_container_attr)) == FILTER_DENY:
             return
 
         if self.is_virtual:
-            return self.reference.copy_as_reference(dest)
+            return self.reference.copy_as_reference(dest, main_part)
+
+        if main_part is None:
+            main_part = self.compose_main_part(self.get_main_args())
 
         return dest.on_file_change(
             dest.path,
-            self.compose_main_part(self.get_main_args()) + ";ref=" + self.get_ref_arg(),
+            main_part + ";ref=" + self.get_ref_arg(),
             file_flags.CREATE | (file_flags.ISDIR if self.is_dir else 0),
             modified_at=self.path_modified_at,
             entity_class=self.__class__,

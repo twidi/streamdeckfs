@@ -1,11 +1,12 @@
 # Changelog
 
 
-## Release `1.8.3` - *IN PROGRESS*
+## Release `1.9` - *IN PROGRESS*
 
 - New format for keys directories: `KEY_$ROW,$COL` instead of `KEY_ROW_$ROW_COL_$COL` (old format still supported)
 - Variables and expressions work in whole names, not only in configuration part
 - Add `SDFS_KEY_INDEX` and `SDFS_KEY_INDEX0` env vars
+- Adding new keys sequences features
 
 
 ## Release `1.8.2` - *2021-08-23*

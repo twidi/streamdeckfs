@@ -10,6 +10,7 @@ import logging
 import re
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from itertools import product
 from time import time
 from typing import Tuple
 
@@ -38,6 +39,8 @@ class Key(EntityDir, PageContent):
     main_part_compose = lambda args: f'KEY_{args["row"]},{args["col"]}'
     get_main_args = lambda self: {"row": self.row, "col": self.col}
 
+    template_re = re.compile(r"^KEY_(?P<row_start>\d+)-(?P<row_end>\d+),(?P<col_start>\d+)-(?P<col_end>\d+)$")
+
     allowed_args = EntityDir.allowed_args | {
         "ref": re.compile(r"^(?P<arg>ref)=(?P<page>.*):(?P<key>.*)$"),  # we'll use current row,col if no key given
     }
@@ -48,6 +51,20 @@ class Key(EntityDir, PageContent):
     key: Tuple[int, int]
 
     filter_to_identifier = lambda filter: tuple(int(val) for val in filter.split(","))
+
+    template_identifier_re = re.compile(r"^(\d+)-(\d+),(\d+)-(\d+)$")
+
+    @classmethod
+    def filter_to_identifier(cls, filter):
+        if filter.count(",") == 1:
+            if (nb_dashses := filter.count("-")) == 0:
+                return tuple(int(val) for val in filter.split(","))
+            if nb_dashses == 2:
+                raw_start, row_end, col_start, col_end = map(
+                    int, cls.template_identifier_re.match(filter.replace(" ", "")).groups()
+                )
+                return ((raw_start, row_end), (col_start, col_end))
+        raise ValueError
 
     @cached_property
     def event_class(self):
@@ -68,6 +85,7 @@ class Key(EntityDir, PageContent):
         self.layers = versions_dict_factory()
         self.text_lines = versions_dict_factory()
         self.rendered_overlay = None
+        self.template_for = None
 
     @property
     def row(self):
@@ -92,26 +110,86 @@ class Key(EntityDir, PageContent):
     def __str__(self):
         return f"{self.page}, {self.str}"
 
+    def is_renderable(self, allow_disabled=False):
+        return self.template_for is None and super().is_renderable(allow_disabled)
+
+    @classmethod
+    def convert_args(cls, main, args):
+        final_args = super().convert_args(main, args)
+        if "template_for" in main:
+            final_args["template_for"] = main["template_for"]
+        return final_args
+
     @classmethod
     def convert_main_args(cls, args):
         if (args := super().convert_main_args(args)) is None:
             return None
-        args["row"] = int(args["row"])
-        args["col"] = int(args["col"])
+        if "template_for" not in args:
+            args["row"] = int(args["row"])
+            args["col"] = int(args["col"])
         return args
+
+    def get_raw_args(self, available_vars, parent=None):
+        main, args = super().get_raw_args(available_vars, parent)
+        main.pop("template_for", None)
+        return main, args
+
+    @classmethod
+    def parse_main_part(cls, main_part, parent):
+        if not (match := cls.template_re.match(main_part)):
+            return super().parse_main_part(main_part, parent)
+
+        row_start, row_end, col_start, col_end = map(int, match.groups())
+        if not (
+            1 <= row_start <= row_end <= parent.deck.nb_rows and 1 <= col_start <= col_end <= parent.deck.nb_cols
+        ):
+            raise ValueError
+
+        return {
+            "kind": "KEY",
+            "row": (row_start, row_end),
+            "col": (col_start, col_end),
+            "template_for": list(product(range(row_start, row_end + 1), range(col_start, col_end + 1))),
+        }
 
     @classmethod
     def parse_filename(cls, name, is_virtual, parent, available_vars):
         parsed = super().parse_filename(name, is_virtual, parent, available_vars)
         if (main := parsed.main) is not None:
-            if (
-                main["row"] < 1
-                or main["row"] > parent.deck.nb_rows
-                or main["col"] < 1
-                or main["col"] > parent.deck.nb_cols
-            ):
-                return ParseFilenameResult()
+            if "template_for" not in main:
+                if (
+                    main["row"] < 1
+                    or main["row"] > parent.deck.nb_rows
+                    or main["col"] < 1
+                    or main["col"] > parent.deck.nb_cols
+                ):
+                    return ParseFilenameResult()
+
+                if (
+                    parsed.ref
+                    and (template := parsed.ref.template)
+                    and (key := (main["row"], main["col"])) not in template.template_for
+                ):
+                    logger.error(
+                        f"[{parent}, KEY `{name}`] Key {key} does not belong to sequence `{template.template_repr}`"
+                    )
+                    return ParseFilenameResult()
+
         return parsed
+
+    @classmethod
+    def create_from_args(cls, path, parent, identifier, args, path_modified_at):
+        obj = super().create_from_args(path, parent, identifier, args, path_modified_at)
+        if "template_for" in args:
+            obj.template_for = args["template_for"]
+        return obj
+
+    @classmethod
+    def identifier_sort_key(cls, identifier):
+        if isinstance(identifier[0], tuple):
+            # we have  `((row_start, row_end), (col_start, col_end))` for a template, so we'll use the first key
+            identifier = (identifier[0][0], identifier[1][0])
+        return identifier
 
     @property
     def resolved_layers(self):
@@ -226,8 +304,14 @@ class Key(EntityDir, PageContent):
                 if not dest_data_dict.get(entity.identifier):
                     entity.copy_as_reference(dest)
 
+    @property
+    def template_repr(self):
+        return f"{self.row[0]}-{self.row[1]},{self.col[0]}-{self.col[1]}"
+
     def get_ref_arg(self):
-        return f"{self.page.number}:{self.row},{self.col}"
+        if self.template_for is None:
+            return f"{self.page.number}:{self.row},{self.col}"
+        return f"{self.page.number}:{self.template_repr}"
 
     def on_file_change(
         self, directory, name, flags, modified_at=None, entity_class=None, available_vars=None, is_virtual=False
@@ -484,17 +568,57 @@ class Key(EntityDir, PageContent):
 
     @cached_property
     def env_vars(self):
-        return self.page.env_vars | self.finalize_env_vars(
-            {
-                "key": f"{self.row},{self.col}",
-                "key_index0": (index := self.deck.key_to_index(self.row, self.col)),
-                "key_index": index + 1,
-                "key_row": self.row,
-                "key_col": self.col,
-                "key_name": "" if self.name == self.unnamed else self.name,
-                "key_directory": self.path,
+        row, col = self.key
+        if self.template_for is not None:
+            row = row[0]
+            col = col[0]
+        key_vars = {
+            "key": f"{row},{col}",
+            "key_index0": (index := self.deck.key_to_index(row, col)),
+            "key_index": index + 1,
+            "key_row": row,
+            "key_col": col,
+            "key_name": "" if self.name == self.unnamed else self.name,
+            "key_directory": self.path,
+        }
+        if template := self.template:
+            start_row, start_col = template.template_for[0]
+            end_row, end_col = template.template_for[-1]
+            key_vars |= {
+                "seq_start_row": start_row,
+                "seq_end_row": end_row,
+                "seq_start_col": start_col,
+                "seq_end_col": end_col,
+                "seq_nb_rows": end_row - start_row + 1,
+                "seq_nb_cols": end_col - start_col + 1,
+                "seq_nb_keys": len(template.template_for),
+                "seq_row": row - start_row + 1,
+                "seq_col": col - start_col + 1,
+                "seq_index0": index,
+                "seq_index": index + 1,
             }
-        )
+        return self.page.env_vars | self.finalize_env_vars(key_vars)
+
+    def on_create(self):
+        super().on_create()
+        if self.template_for:
+            for row, col in self.template_for:
+                if key := self.page.keys.get((row, col)):
+                    if key.reference == self:
+                        # we have a key that references this template, so we copy the missing content
+                        self.copy_variable_references(key)
+                else:
+                    # no key exist, we create a virtual one
+                    self.copy_as_reference(self.page, self.compose_main_part({"row": row, "col": col}))
+
+    @property
+    def template(self):
+        reference = self
+        while reference:
+            if reference.template_for is not None:
+                return reference
+            reference = reference.reference
+        return None
 
 
 @dataclass(eq=False)
@@ -544,7 +668,7 @@ class KeyContent(Entity):
                 yield key, path, parent, ref_conf
 
     def get_ref_arg(self):
-        return f"{self.page.number}:{self.key.row},{self.key.col}:{self.identifier}"
+        return f"{self.key.get_ref_arg()}:{self.identifier}"
 
     def copy_variable_reference_to_referencing_keys(self):
         identifier = self.identifier
