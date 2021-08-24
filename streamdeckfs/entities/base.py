@@ -106,7 +106,7 @@ class Entity:
         self.referenced_by = []
         self.is_virtual = False
         self.children_waiting_for_references = {}
-        self._used_vars = set()
+        self._used_vars = {}
         self.used_env_vars = set()
 
     def __eq__(self, other):
@@ -144,22 +144,22 @@ class Entity:
 
     @used_vars.setter
     def used_vars(self, vars):
-        for var in self._used_vars:
+        for var in self._used_vars.values():
             var.used_by.discard(self)
-        self._used_vars = vars or set()
-        for var in vars:
+        self._used_vars = vars or {}
+        for var in vars.values():
             var.used_by.add(self)
 
     @property
     def uses_vars(self):
-        return bool(self._used_vars) or bool(self.used_env_vars)
+        return bool(self._used_vars or self.used_env_vars)
 
     @classmethod
     def compose_main_part(cls, args):
         return cls.main_part_compose(args)
 
     @classmethod
-    def replace_var(cls, match, available_vars, filename, parent, used_vars, used_env_vars):
+    def replace_var(cls, match, available_vars, filename, is_virtual, parent, used_vars, used_env_vars):
         data = match.groupdict()
         name = data["name"]
 
@@ -179,7 +179,9 @@ class Entity:
 
         if line := data.get("line"):
             if VAR_PREFIX in line:
-                line = cls.replace_vars(line, filename, parent, available_vars, used_vars, used_env_vars)[0]
+                line = cls.replace_vars(line, filename, is_virtual, parent, available_vars, used_vars, used_env_vars)[
+                    0
+                ]
             if not VAR_RE_INDEX.match(line):
                 raise IndexError
             if line == "#":
@@ -187,13 +189,13 @@ class Entity:
             elif line:
                 value = value.splitlines()[int(line)]
 
-        used_vars.add(var)
+        used_vars[var.name] = var
         return value
 
     @classmethod
-    def replace_vars(cls, value, filename, parent, available_vars, used_vars=None, used_env_vars=None):
+    def replace_vars(cls, value, filename, is_virtual, parent, available_vars, used_vars=None, used_env_vars=None):
         if used_vars is None:
-            used_vars = set()
+            used_vars = {}
         if used_env_vars is None:
             used_env_vars = set()
         var_names = set()
@@ -201,6 +203,7 @@ class Entity:
             cls.replace_var,
             available_vars=available_vars,
             filename=filename,
+            is_virtual=is_virtual,
             parent=parent,
             used_vars=used_vars,
             used_env_vars=used_env_vars,
@@ -219,7 +222,7 @@ class Entity:
             except (UnavailableVar, IndexError) as exc:
                 if isinstance(exc, UnavailableVar) and exc.var_names:
                     var_names |= exc.var_names
-                parent.add_waiting_for_vars(cls, filename, var_names)
+                parent.add_waiting_for_vars(cls, filename, is_virtual, var_names)
                 raise UnavailableVar(var_names=var_names)
 
         return value, used_vars, used_env_vars
@@ -258,7 +261,7 @@ class Entity:
         args[name] = value
 
     @classmethod
-    def raw_parse_filename(cls, name, parent, available_vars, use_cache_if_vars=False):
+    def raw_parse_filename(cls, name, is_virtual, parent, available_vars, use_cache_if_vars=False):
         if cls.parse_cache is None:
             cls.parse_cache = {}
 
@@ -268,11 +271,11 @@ class Entity:
             ) or use_cache_if_vars:
                 return parse_cache
 
-        used_vars = set()
+        used_vars = {}
         used_env_vars = set()
 
         try:
-            name, used_vars, used_env_vars = cls.replace_vars(name, name, parent, available_vars)
+            name, used_vars, used_env_vars = cls.replace_vars(name, name, is_virtual, parent, available_vars)
         except UnavailableVar:
             return RawParseFilenameResult()  # we don't cache the result
         if "{" in name and "}" in name:
@@ -310,20 +313,23 @@ class Entity:
 
     def get_raw_args(self, available_vars, parent=None):
         raw_result = self.raw_parse_filename(
-            self.path.name, parent or self.parent, available_vars, use_cache_if_vars=parent is None
+            self.path.name, self.is_virtual, parent or self.parent, available_vars, use_cache_if_vars=parent is None
         )
         main, args = map(deepcopy, (raw_result.main, raw_result.args))
         if self.reference:
-            ref_main, ref_args = map(deepcopy, self.reference.get_raw_args(parent))
+            ref_main, ref_args = map(deepcopy, self.reference.get_raw_args(available_vars, parent))
             return ref_main | (main or {}), ref_args | (args or {})
         return main, args
 
     @classmethod
-    def parse_filename(cls, name, parent, available_vars):
-        raw_result = cls.raw_parse_filename(name, parent, available_vars)
+    def parse_filename(cls, name, is_virtual, parent, available_vars):
+        raw_result = cls.raw_parse_filename(name, is_virtual, parent, available_vars)
         if raw_result.main is None or raw_result.args is None:
             return ParseFilenameResult()
+
         main, args = map(deepcopy, (raw_result.main, raw_result.args))
+        used_vars = raw_result.used_vars
+        used_env_vars = raw_result.used_env_vars
 
         ref_conf = ref = None
         if ref_conf := args.get("ref"):
@@ -338,6 +344,10 @@ class Entity:
                 return ParseFilenameResult(ref_conf)
 
             main = ref_main | main
+
+            for var_name, var in ref.used_vars.items():
+                used_vars[var_name] = available_vars[var_name][0]
+            used_env_vars = ref.used_env_vars | used_env_vars
 
             # do not inherit "sub arguments" (things like `margin.2` if whole argument is defined in the current conf, like, in this example, `margin`)
             sub_ref_args = {}
@@ -369,9 +379,7 @@ class Entity:
             main = cls.convert_main_args(main)
             if main is not None:
                 if (args := cls.convert_args(main, args)) is not None:
-                    return ParseFilenameResult(
-                        ref_conf, ref, main, args, raw_result.used_vars, raw_result.used_env_vars
-                    )
+                    return ParseFilenameResult(ref_conf, ref, main, args, used_vars, used_env_vars)
         except InvalidArg as exc:
             logger.error(f"[{parent}] [{name}] {exc}")
 
@@ -563,7 +571,7 @@ class Entity:
         for ref in list(self.referenced_by):
             ref.on_reference_deleted()
         self.reference = None
-        self.used_vars = set()
+        self.used_vars = {}
         if (
             self.__class__.parse_cache
             and (parse_cache := self.__class__.parse_cache.get(self.name))
@@ -578,7 +586,7 @@ class Entity:
         self.parent_container[self.identifier].remove_version(self.path)
 
     def on_var_deleted(self):
-        self.parent.add_waiting_for_vars(self.__class__, self.path.name, {var.name for var in self.used_vars})
+        self.parent.add_waiting_for_vars(self.__class__, self.path.name, self.is_virtual, set(self.used_vars.keys()))
         self.on_delete()
         self.parent_container[self.identifier].remove_version(self.path)
 
@@ -807,7 +815,7 @@ class EntityFile(Entity):
         self.slash_repl = DEFAULT_SLASH_REPL
         self.semicolon_repl = DEFAULT_SEMICOLON_REPL
         self.watched_directory = False
-        self._used_vars_in_content = set()
+        self._used_vars_in_content = {}
 
     @classmethod
     def convert_args(cls, main, args):
@@ -945,10 +953,11 @@ class EntityFile(Entity):
 
     @used_vars.setter
     def used_vars(self, vars):
-        for var in self._used_vars - self._used_vars_in_content:
-            var.used_by.discard(self)
-        self._used_vars = vars or set()
-        for var in vars:
+        for var_name, var in self.used_vars.items():
+            if var_name not in self._used_vars_in_content:
+                var.used_by.discard(self)
+        self._used_vars = vars or {}
+        for var in vars.values():
             var.used_by.add(self)
 
     @property
@@ -957,26 +966,27 @@ class EntityFile(Entity):
 
     @used_vars_in_content.setter
     def used_vars_in_content(self, vars):
-        for var in self._used_vars_in_content - self._used_vars:
-            var.used_by.discard(self)
-        self._used_vars_in_content = vars or set()
-        for var in vars:
+        for var_name, var in self._used_vars_in_content.items():
+            if var_name not in self._used_vars:
+                var.used_by.discard(self)
+        self._used_vars_in_content = vars or {}
+        for var in vars.values():
             var.used_by.add(self)
 
     @property
     def uses_vars(self):
-        return super().uses_vars or bool(self._used_vars_in_content)
+        return bool(super().uses_vars or self._used_vars_in_content)
 
     def on_delete(self):
         super().on_delete()
         self.stop_watching_directory()
-        self.used_vars_in_content = set()
+        self.used_vars_in_content = {}
 
     def replace_vars_in_content(self, content):
         if self.mode != "text" and content:
             try:
                 content, used_vars, __ = self.replace_vars(
-                    content, self.path.name, self.parent, self.get_available_vars()
+                    content, self.path.name, self.is_virtual, self.parent, self.get_available_vars()
                 )
             except UnavailableVar:
                 content = None
@@ -1073,7 +1083,7 @@ class EntityDir(Entity):
         if (event_filter := self.deck.filters.get("events")) != FILTER_DENY:
             if (not entity_class or entity_class is self.event_class) and fnmatch(name, self.event_class.path_glob):
                 path = self.path / name
-                if (parsed := self.event_class.parse_filename(name, self, available_vars)).main:
+                if (parsed := self.event_class.parse_filename(name, is_virtual, self, available_vars)).main:
                     if event_filter is not None and not self.event_class.args_matching_filter(
                         parsed.main, parsed.args, event_filter
                     ):
@@ -1095,7 +1105,7 @@ class EntityDir(Entity):
                     self.event_class.add_waiting_reference(self, path, parsed.ref_conf)
         if (var_filter := self.deck.filters.get("vars")) != FILTER_DENY:
             if (not entity_class or entity_class is self.var_class) and fnmatch(name, self.var_class.path_glob):
-                if (parsed := self.var_class.parse_filename(name, self, available_vars)).main:
+                if (parsed := self.var_class.parse_filename(name, is_virtual, self, available_vars)).main:
                     if var_filter is not None and not self.var_class.args_matching_filter(
                         parsed.main, parsed.args, var_filter
                     ):
@@ -1153,19 +1163,22 @@ class EntityDir(Entity):
             result |= {name: (None, value) for name, value in self.env_vars.items()}
         return result
 
-    def add_waiting_for_vars(self, entity_class, name, var_names):
+    def add_waiting_for_vars(self, entity_class, name, is_virtual, var_names):
         if name in self.children_waiting_for_vars:
-            var_names |= self.children_waiting_for_vars[name][1]
-        self.children_waiting_for_vars[name] = (entity_class, var_names)
+            var_names |= self.children_waiting_for_vars[name][-1]
+        self.children_waiting_for_vars[name] = (entity_class, is_virtual, var_names)
 
     def remove_waiting_for_vars(self, name):
         self.children_waiting_for_vars.pop(name, None)
 
     def get_waiting_for_vars(self, for_var_name=None):
-        for name, (entity_class, var_names) in list(self.children_waiting_for_vars.items()):
+        for name, (entity_class, is_virtual, var_names) in list(self.children_waiting_for_vars.items()):
             if for_var_name and for_var_name not in var_names:
                 continue
-            yield entity_class, name, var_names
+            yield entity_class, name, is_virtual, var_names
 
     def iterate_vars_holders(self):
         yield self
+        if self.referenced_by:
+            for entity in self.referenced_by:
+                yield from entity.iterate_vars_holders()

@@ -125,7 +125,7 @@ class Page(EntityDir, DeckContent):
             from .key import Key
 
             if (not entity_class or entity_class is Key) and fnmatch(name, Key.path_glob):
-                if (parsed := Key.parse_filename(name, self, available_vars)).main:
+                if (parsed := Key.parse_filename(name, is_virtual, self, available_vars)).main:
                     if key_filter is not None and not Key.args_matching_filter(parsed.main, parsed.args, key_filter):
                         return None
                     return self.on_child_entity_change(

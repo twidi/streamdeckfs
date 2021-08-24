@@ -158,7 +158,7 @@ class Deck(EntityDir):
             from .page import Page
 
             if (not entity_class or entity_class is Page) and fnmatch(name, Page.path_glob):
-                if (parsed := Page.parse_filename(name, self, available_vars)).main:
+                if (parsed := Page.parse_filename(name, is_virtual, self, available_vars)).main:
                     if page_filter is not None and not Page.args_matching_filter(
                         parsed.main, parsed.args, page_filter
                     ):

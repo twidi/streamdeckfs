@@ -440,7 +440,7 @@ class FilterCommands:
             else:
                 # check name and value
                 filename = base_filename + f";{name}={value}"
-                parsed_args = entity.raw_parse_filename(filename, entity.path.parent, {}).args
+                parsed_args = entity.raw_parse_filename(filename, False, entity.path.parent, {}).args
                 if parsed_args and (name in parsed_args or "VAR" in parsed_args):
                     entity.save_raw_arg(name, value, args)
                 else:
@@ -463,7 +463,7 @@ class FilterCommands:
             # ensure the new filename is valid, but only if it does not have vars
             if (
                 VAR_PREFIX not in filename
-                and not entity.parse_filename(filename, entity.parent, entity.get_available_vars()).main
+                and not entity.parse_filename(filename, False, entity.parent, entity.get_available_vars()).main
             ):
                 raise ValueError
         except Exception:

@@ -101,8 +101,8 @@ class Key(EntityDir, PageContent):
         return args
 
     @classmethod
-    def parse_filename(cls, name, parent, available_vars):
-        parsed = super().parse_filename(name, parent, available_vars)
+    def parse_filename(cls, name, is_virtual, parent, available_vars):
+        parsed = super().parse_filename(name, is_virtual, parent, available_vars)
         if (main := parsed.main) is not None:
             if (
                 main["row"] < 1
@@ -214,7 +214,9 @@ class Key(EntityDir, PageContent):
                     [
                         var
                         for var in networkx.topological_sort(
-                            networkx.DiGraph(incoming_graph_data={var: var.used_vars for var in to_copy})
+                            networkx.DiGraph(
+                                incoming_graph_data={var: tuple(var.used_vars.values()) for var in to_copy}
+                            )
                         )
                         if var in to_copy  # some vars are in `used_vars` but not `in to_copy`
                     ]
@@ -245,7 +247,7 @@ class Key(EntityDir, PageContent):
             from . import KeyImageLayer
 
             if (not entity_class or entity_class is KeyImageLayer) and fnmatch(name, KeyImageLayer.path_glob):
-                if (parsed := KeyImageLayer.parse_filename(name, self, available_vars)).main:
+                if (parsed := KeyImageLayer.parse_filename(name, is_virtual, self, available_vars)).main:
                     if layer_filter is not None and not KeyImageLayer.args_matching_filter(
                         parsed.main, parsed.args, layer_filter
                     ):
@@ -269,7 +271,7 @@ class Key(EntityDir, PageContent):
             from . import KeyTextLine
 
             if (not entity_class or entity_class is KeyTextLine) and fnmatch(name, KeyTextLine.path_glob):
-                if (parsed := KeyTextLine.parse_filename(name, self, available_vars)).main:
+                if (parsed := KeyTextLine.parse_filename(name, is_virtual, self, available_vars)).main:
                     if text_line_filter is not None and not KeyTextLine.args_matching_filter(
                         parsed.main, parsed.args, text_line_filter
                     ):

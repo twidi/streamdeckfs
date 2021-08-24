@@ -194,13 +194,16 @@ class BaseVar(EntityFile):
         if root is None:
             root = self.parent
         for vars_holder in root.iterate_vars_holders():
-            for entity_class, name, var_names in vars_holder.get_waiting_for_vars(self.name):
+            for entity_class, name, is_virtual, var_names in vars_holder.get_waiting_for_vars(self.name):
                 path = vars_holder.path / name
-                if not path.exists() or vars_holder.on_file_change(
+                if not (is_virtual or path.exists()) or vars_holder.on_file_change(
                     vars_holder.path,
                     name,
-                    file_flags.CREATE | (file_flags.ISDIR if path.is_dir() else 0),
+                    file_flags.CREATE
+                    | (file_flags.ISDIR if (entity_class.is_dir if is_virtual else path.is_dir()) else 0),
+                    modified_at=vars_holder.path_modified_at,
                     entity_class=entity_class,
+                    is_virtual=is_virtual,
                 ):
                     vars_holder.remove_waiting_for_vars(name)
 
@@ -222,6 +225,18 @@ class BaseVar(EntityFile):
             else:
                 # then we deactivate it, but only for our current var holder (our parent)
                 grand_parent_var.deactivate(self.parent)
+                return
+
+        # same if our parent is a reference, we don't want to use the one for the reference anymore
+        reference = self.parent.reference
+        while reference:
+            try:
+                referenced_var = reference.get_var(self.name)
+            except UnavailableVar:
+                reference = reference.reference
+            else:
+                referenced_var.deactivate(self.parent)
+                break
 
     def on_create(self):
         super().on_create()
@@ -242,7 +257,19 @@ class BaseVar(EntityFile):
                 pass
             else:
                 # then we use it to re-render the var just unrendered
-                grand_parent_var.activate()
+                grand_parent_var.activate(self.parent)
+                return
+
+        # else if our parent is a reference that have this variable, we want to use it
+        reference = self.parent.reference
+        while reference:
+            try:
+                referenced_var = reference.get_var(self.name)
+            except UnavailableVar:
+                reference = reference.reference
+            else:
+                referenced_var.activate(self.parent)
+                break
 
     def on_file_content_changed(self):
         super().on_file_content_changed()
