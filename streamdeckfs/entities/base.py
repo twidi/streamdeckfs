@@ -875,8 +875,8 @@ class EntityFile(Entity):
             Manager.remove_watch(watched_directory, self)
 
     def track_symlink_dir(self):
-        if not self.watched_directory and self.path.is_symlink():
-            self.start_watching_directory(self.path.resolve().parent)
+        if not self.watched_directory and self.resolved_path.is_symlink():
+            self.start_watching_directory(self.resolved_path.resolve().parent)
 
     def get_inside_path(self):
         if self.mode != "inside":
@@ -922,7 +922,7 @@ class EntityFile(Entity):
     ):
         path = directory / name
         if (self.file and path == self.file) or (
-            not self.file and self.path.is_symlink() and path == self.path.resolve()
+            not self.file and self.resolved_path.is_symlink() and path == self.resolved_path.resolve()
         ):
             self.on_file_content_changed()
 
