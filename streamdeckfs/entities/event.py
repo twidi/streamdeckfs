@@ -301,13 +301,13 @@ class BaseEvent(EntityFile):
 
     def version_activated(self):
         super().version_activated()
-        if self.disabled or self.has_disabled_parent:
+        if not self.is_renderable() or not self.are_parents_renderable():
             return
         self.activate()
 
     def version_deactivated(self):
         super().version_deactivated()
-        if self.disabled or self.has_disabled_parent:
+        if not self.is_renderable() or not self.are_parents_renderable():
             return
         self.deactivate()
 

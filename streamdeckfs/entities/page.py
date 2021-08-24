@@ -162,9 +162,13 @@ class Page(EntityDir, DeckContent):
     def is_current(self):
         return self.number == self.deck.current_page_number
 
+    @property
+    def sorted_keys(self):
+        return sorted((row_col, key) for row_col, key in self.keys.items() if key and key.is_renderable())
+
     def iter_keys(self):
-        for row_col, key in sorted(self.keys.items()):
-            if key and key.has_content:
+        for row_col, key in self.sorted_keys:
+            if key.is_renderable() and key.has_content:
                 yield key
 
     @property
@@ -221,7 +225,7 @@ class Page(EntityDir, DeckContent):
 
     def version_activated(self):
         super().version_activated()
-        if self.disabled:
+        if not self.is_renderable():
             return
         self.render()
         if self.deck.is_running and not self.deck.current_page_number:
@@ -230,7 +234,7 @@ class Page(EntityDir, DeckContent):
     def version_deactivated(self):
         is_current_page_number = self.deck.current_page_number == self.number
         super().version_deactivated()
-        if self.disabled:
+        if not self.is_renderable():
             return
         self.unrender()
         if is_current_page_number:

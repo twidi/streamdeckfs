@@ -12,7 +12,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from functools import partial
-from operator import attrgetter
 from pathlib import Path
 from threading import local
 from time import time
@@ -116,6 +115,9 @@ class Entity:
     def __hash__(self):
         return id(self)
 
+    def is_renderable(self, allow_disabled=False):
+        return allow_disabled or not self.disabled
+
     @property
     def reference(self):
         return self._reference
@@ -130,7 +132,7 @@ class Entity:
         self._reference = ref
         if ref:
             ref.referenced_by.append(self)
-            ref.referenced_by.sort(key=attrgetter("identifier"))
+            ref.referenced_by.sort(key=lambda entity: entity.identifier_sort_key(entity.identifier))
 
     @property
     def is_referenced(self):
@@ -495,11 +497,10 @@ class Entity:
     def parent(self):
         return getattr(self, self.parent_attr, None) if self.parent_attr else None
 
-    @property
-    def has_disabled_parent(self):
+    def are_parents_renderable(self):
         if parent := self.parent:
-            return parent.disabled or parent.has_disabled_parent
-        return False
+            return parent.is_renderable() and parent.are_parents_renderable()
+        return True
 
     @property
     def parent_container(self):
@@ -666,36 +667,45 @@ class Entity:
         logger.debug(f"[{self}] Version deactivated: {self.path}{' (VIRTUAL)' if self.is_virtual else ''}")
 
     @classmethod
+    def identifier_sort_key(cls, identifier):
+        return identifier
+
+    @classmethod
+    def identifier_and_entity_sort_key(cls, identifier_and_entity):
+        return cls.identifier_sort_key(identifier_and_entity[0])
+
+    @classmethod
     def find_by_identifier_or_name(cls, data, filter, allow_disabled=False):
         if not filter:
             return None
 
         try:
             # find by identifier
+            # we don't use `is_renderable` here because we want to access all entities (like key templates)
             if (identifier := cls.filter_to_identifier(filter)) not in data:
                 raise ValueError()
-            if entry := data[identifier]:
-                # we have an entry not disabled, we return the active version
-                return entry
-            if entry.is_empty or not allow_disabled:
-                # there is no version, or, if asked, no enabled one, for this entry, we'll search by name
+            if entity := data[identifier]:
+                # we have an entity not disabled, we return the active version
+                return entity
+            if entity.is_empty or not allow_disabled:
+                # there is no version, or, if asked, no enabled one, for this entity, we'll search by name
                 raise ValueError()
-            for version in entry.iter_versions(reverse=True):
+            for version in entity.iter_versions(reverse=True):
                 # we have at least one version but disabled, we get the most recent
                 return version
 
         except Exception:
-            sorted_entries = sorted(data.items())
-            # find by name, first using only active and not disabled entries
-            for __, entry in sorted_entries:
-                if entry and entry.name == filter:
-                    return entry
+            sorted_entities = sorted(data.items(), key=cls.identifier_and_entity_sort_key)
+            # find by name, first using only active and not disabled entities
+            for __, entity in sorted_entities:
+                if entity and entity.name == filter and entity.is_renderable(allow_disabled=allow_disabled):
+                    return entity
             if allow_disabled:
-                # then by going through all versions of all entries until we find one
-                for __, entry in sorted_entries:
-                    if entry.is_empty:
+                # then by going through all versions of all entities until we find one
+                for __, entity in sorted_entities:
+                    if entity.is_empty or not entity.is_renderable(allow_disabled=True):
                         continue
-                    for version in entry.iter_versions(reverse=True):
+                    for version in entity.iter_versions(reverse=True):
                         if version.name == filter:
                             return version
 

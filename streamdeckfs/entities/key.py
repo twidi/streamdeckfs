@@ -413,13 +413,13 @@ class Key(EntityDir, PageContent):
 
     def version_activated(self):
         super().version_activated()
-        if self.disabled or self.page.disabled:
+        if not self.is_renderable() or not self.page.is_renderable():
             return
         self.render()
 
     def version_deactivated(self):
         super().version_deactivated()
-        if self.disabled or self.page.disabled:
+        if not self.is_renderable() or not self.page.is_renderable():
             return
         self.unrender()
 

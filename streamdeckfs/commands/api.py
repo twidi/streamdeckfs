@@ -26,6 +26,11 @@ from ..entities import (
     VAR_RE_DEST_PART,
     VAR_RE_NAME_PART,
     Deck,
+    Key,
+    KeyEvent,
+    KeyImageLayer,
+    KeyTextLine,
+    Page,
     UnavailableVar,
 )
 from ..entities.var import ELIF_THEN_RE
@@ -403,8 +408,6 @@ class FilterCommands:
 
     @classmethod
     def validate_names_and_values(cls, entity, main_args, names_and_values, error_msg_name_part):
-        from ..entities import KeyEvent
-
         args = {}
         removed_args = set()
         base_filename = entity.compose_main_part(main_args)
@@ -587,7 +590,12 @@ class FilterCommands:
     @classmethod
     def get_one_page(cls, deck, mode, low, high, original):
         if number := cls.get_one_number(
-            (number for number, page in deck.pages.items() if page and not page.disabled), mode, low, high, 0, 100000
+            (number for number, page in deck.pages.items() if page and page.is_renderable()),
+            mode,
+            low,
+            high,
+            0,
+            100000,
         ):
             return number
         Manager.exit(1, f'Cannot find an available page matching "{original}"')
@@ -610,7 +618,9 @@ class FilterCommands:
         if not key:
             return None
         if isinstance(key, str):
-            used_keys = set(row_col for row_col, page_key in page.keys.items() if page_key and not page_key.disabled)
+            used_keys = set(
+                row_col for row_col, page_key in page.keys.items() if page_key and page_key.is_renderable()
+            )
             if len(used_keys) < page.deck.nb_cols * page.deck.nb_rows:
                 if key == "+":  # get first available key
                     for row in range(1, page.deck.nb_rows + 1):
@@ -627,8 +637,6 @@ class FilterCommands:
 
     @classmethod
     def create_page(cls, deck, number, names_and_values, dry_run=False):
-        from ..entities import Page
-
         return cls.create_entity(
             Page,
             deck,
@@ -664,8 +672,6 @@ class FilterCommands:
 
     @classmethod
     def create_key(cls, page, to_row, to_col, names_and_values, dry_run=False):
-        from ..entities import Key
-
         return cls.create_entity(
             Key,
             page,
@@ -701,8 +707,6 @@ class FilterCommands:
 
     @classmethod
     def create_layer(cls, key, names_and_values, link, dry_run=False):
-        from ..entities import KeyImageLayer
-
         return cls.create_entity(
             KeyImageLayer, key, -1, {}, names_and_values, link, f"{key}, NEW LAYER", dry_run=dry_run
         )
@@ -717,8 +721,6 @@ class FilterCommands:
 
     @classmethod
     def create_text_line(cls, key, names_and_values, link, dry_run=False):
-        from ..entities import KeyTextLine
-
         return cls.create_entity(
             KeyTextLine, key, -1, {}, names_and_values, link, f"{key}, NEW TEXT LINE", dry_run=dry_run
         )
@@ -821,19 +823,25 @@ class FilterCommands:
         )
 
     @classmethod
-    def iter_content(cls, entity, content, with_disabled):
-        for identifier, entity in sorted([(identifier, entity) for identifier, entity in content.items()]):
+    def iter_content(cls, holder, entity_class, with_disabled):
+        entities = sorted(
+            getattr(holder, entity_class.parent_container_attr).items(),
+            key=entity_class.identifier_and_entity_sort_key,
+        )
+        for __, entity in entities:
             if not entity and not with_disabled:
                 continue
             if with_disabled:
                 for version in entity.all_versions:
-                    yield version
+                    if version.is_renderable(allow_disabled=True):
+                        yield version
             else:
-                yield entity
+                if entity.is_renderable():
+                    yield entity
 
     @classmethod
-    def list_content(cls, entity, content, with_disabled):
-        for entity in cls.iter_content(entity, content, with_disabled):
+    def list_content(cls, holder, entity_class, with_disabled):
+        for entity in cls.iter_content(holder, entity_class, with_disabled):
             print(FC.get_args_as_json(entity))
 
 
@@ -960,7 +968,7 @@ def list_pages(directory, with_disabled):
         layer_filter=FILTER_DENY,
         text_line_filter=FILTER_DENY,
     )
-    FC.list_content(deck, deck.pages, with_disabled=with_disabled)
+    FC.list_content(deck, Page, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -1137,7 +1145,7 @@ def list_keys(directory, page_filter, with_disabled):
         FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY, text_line_filter=FILTER_DENY),
         page_filter,
     )
-    FC.list_content(page, page.keys, with_disabled=with_disabled)
+    FC.list_content(page, Key, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -1290,7 +1298,7 @@ def list_images(directory, page_filter, key_filter, with_disabled):
         FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, text_line_filter=FILTER_DENY), page_filter),
         key_filter,
     )
-    FC.list_content(key, key.layers, with_disabled=with_disabled)
+    FC.list_content(key, KeyImageLayer, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -1427,7 +1435,7 @@ def list_texts(directory, page_filter, key_filter, with_disabled):
         FC.find_page(FC.get_deck(directory, event_filter=FILTER_DENY, layer_filter=FILTER_DENY), page_filter),
         key_filter,
     )
-    FC.list_content(key, key.text_lines, with_disabled=with_disabled)
+    FC.list_content(key, KeyTextLine, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -1561,7 +1569,7 @@ def delete_text(directory, page_filter, key_filter, text_line_filter, dry_run):
 def list_events(directory, page_filter, key_filter, with_disabled):
     """List the events of a deck, page, or key"""
     container = FC.get_entity_container(directory, page_filter, key_filter, "event")
-    FC.list_content(container, container.events, with_disabled=with_disabled)
+    FC.list_content(container, container.event_class, with_disabled=with_disabled)
 
 
 @cli.command()
@@ -1718,7 +1726,7 @@ def delete_event(directory, page_filter, key_filter, event_filter, dry_run):
 def list_vars(directory, page_filter, key_filter, with_disabled):
     """List the variables of a deck, page, or key"""
     container = FC.get_entity_container(directory, page_filter, key_filter, "var")
-    FC.list_content(container, container.vars, with_disabled=with_disabled)
+    FC.list_content(container, container.var_class, with_disabled=with_disabled)
 
 
 @cli.command()

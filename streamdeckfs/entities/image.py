@@ -51,13 +51,13 @@ class KeyImagePart(KeyContent, EntityFile):
 
     def version_activated(self):
         super().version_activated()
-        if self.disabled or self.key.disabled or self.page.disabled:
+        if not self.is_renderable() or not self.are_parents_renderable():
             return
         self.key.on_image_changed()
 
     def version_deactivated(self):
         super().version_deactivated()
-        if self.disabled or self.key.disabled or self.page.disabled:
+        if not self.is_renderable() or not self.are_parents_renderable():
             return
         self.key.on_image_changed()
 
