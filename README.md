@@ -1018,6 +1018,8 @@ Each command is executed with the environment variables received by `streamdeckf
 - `SDFS_KEY`: key from which the event was triggered (format `row,col`)
 - `SDFS_KEY_ROW`: row of the key from which the event was triggered
 - `SDFS_KEY_COL`: column of the key from which the event was triggered
+- `SDFS_KEY_INDEX`: Position of the key as a single number (starting at 1, going from left to right, top to bottom)
+- `SDFS_KEY_INDEX0`: Same as `SDFS_KEY_INDEX` but starting at 0 instead of 1
 - `SDFS_KEY_NAME`: name, if defined, of the key from which the event was triggered
 - `SDFS_KEY_DIRECTORY`: directory configuration of the key from which the event was triggered
 - `SDFS_EVENT`: the kind of the triggered event (one of `start`, `end`, press`, `longpress`, `release`)

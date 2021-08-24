@@ -487,6 +487,8 @@ class Key(EntityDir, PageContent):
         return self.page.env_vars | self.finalize_env_vars(
             {
                 "key": f"{self.row},{self.col}",
+                "key_index0": (index := self.deck.key_to_index(self.row, self.col)),
+                "key_index": index + 1,
                 "key_row": self.row,
                 "key_col": self.col,
                 "key_name": "" if self.name == self.unnamed else self.name,
